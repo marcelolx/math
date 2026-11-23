@@ -1,0 +1,10 @@
+[project]
+name = "open-math-notebook"
+version = "0.1.0"
+description = "Open research notebook for verifiable math, physics, and engineering experiments"
+requires-python = ">=3.11"
+dependencies = [
+    "matplotlib>=3.9",
+    "numpy>=2.0",
+    "scipy>=1.14",
+]

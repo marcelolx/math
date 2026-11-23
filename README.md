@@ -36,7 +36,16 @@ math/
 
 | Topic | Focus | Status |
 | :--- | :--- | :--- |
-| *(none yet)* | — | — |
+| [`rocket-combustion/`](./rocket-combustion/) | Thermoacoustic combustion instability, Rayleigh criterion, and passive/active stabilization | Active |
+
+## Running Simulations Locally
+
+Python dependencies are managed with [`uv`](https://docs.astral.sh/uv/):
+
+```bash
+uv sync
+uv run python rocket-combustion/sim/baseline_1d_crocco.py
+```
 
 ## License
 
