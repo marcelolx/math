@@ -1,0 +1,134 @@
+{
+  "parameters": {
+    "zeta": 0.04,
+    "n_B": 0.1,
+    "tau_B": 0.2,
+    "x_f_B": 0.15,
+    "beta_main": 0.02,
+    "beta_tight": 0.005,
+    "s1_hot_uncoupled": [
+      0.021953512868972822,
+      3.094561142503027
+    ],
+    "xi_ep_cold_pred": 0.21273239544735165,
+    "alpha_ep_cold_pred": -0.3541592653589793,
+    "xi_ep_hot_pred": 0.1930119798173429
+  },
+  "damping_optima": {
+    "cold_beta_2pct": {
+      "xi_opt": 0.20601694915254237,
+      "alpha_max": -0.3151566704769576
+    },
+    "hot_beta_2pct": {
+      "xi_opt": 0.17805084745762711,
+      "alpha_max": -0.2306250383841464
+    },
+    "hot_beta_05pct": {
+      "xi_opt": 0.08576271186440679,
+      "alpha_max": -0.10781919111280104,
+      "stable_xi_range": [
+        0.01,
+        0.32794117647058824
+      ]
+    }
+  },
+  "pde_verification_beta_05pct": {
+    "no_cavity": {
+      "label": "No cavity (beta=0)",
+      "beta": 0.0,
+      "xi_H": 0.1,
+      "exact_roots": [
+        [
+          0.02246293907991066,
+          3.094210493389675
+        ]
+      ],
+      "alpha_exact_max": 0.02246293907991066,
+      "alpha_pde_energy": 0.022477360351375472,
+      "alpha_abs_diff": 1.4421271464813007e-05,
+      "energy_balance_rel_err": 1.2129028130660728e-05
+    },
+    "underdamped": {
+      "label": "Under-damped trap (xi=0.004, Q=125)",
+      "beta": 0.005,
+      "xi_H": 0.004,
+      "exact_roots": [
+        [
+          0.0012261039065958204,
+          2.947182424203676
+        ],
+        [
+          0.008348654999399291,
+          3.2455689458860335
+        ]
+      ],
+      "alpha_exact_max": 0.008348654999399291,
+      "alpha_pde_energy": 0.005727744238431069,
+      "alpha_abs_diff": 0.002620910760968222,
+      "energy_balance_rel_err": 9.667959380988547e-05
+    },
+    "optimal": {
+      "label": "Hot-EP optimal (xi=0.086, Q=5.8)",
+      "beta": 0.005,
+      "xi_H": 0.086,
+      "exact_roots": [
+        [
+          -0.13414660147535426,
+          3.0439763081461444
+        ],
+        [
+          -0.10795783953023223,
+          3.137490539673257
+        ]
+      ],
+      "alpha_exact_max": -0.10795783953023223,
+      "alpha_pde_energy": -0.10590951723159645,
+      "alpha_abs_diff": 0.002048322298635788,
+      "energy_balance_rel_err": 4.232677484880152e-05
+    },
+    "overdamped": {
+      "label": "Over-damped decoupled (xi=0.35, Q=1.4)",
+      "beta": 0.005,
+      "xi_H": 0.35,
+      "exact_roots": [
+        [
+          -1.054640907805825,
+          2.9056233290987628
+        ],
+        [
+          0.0015088420916408174,
+          3.095247149357207
+        ]
+      ],
+      "alpha_exact_max": 0.0015088420916408174,
+      "alpha_pde_energy": 0.0015263853743783687,
+      "alpha_abs_diff": 1.7543282737551326e-05,
+      "energy_balance_rel_err": 4.2135527490192695e-05
+    }
+  },
+  "mistuning_robustness_beta_1pct": {
+    "xi_ep_hot": 0.13443333605465238,
+    "bandwidth_xi_0015": {
+      "width": 0.125,
+      "min_ratio": 0.95,
+      "max_ratio": 1.075
+    },
+    "bandwidth_xi_ep": {
+      "width": 0.44166666666666665,
+      "min_ratio": 0.8083333333333333,
+      "max_ratio": 1.25
+    },
+    "bandwidth_xi_0220": {
+      "width": 0.4666666666666667,
+      "min_ratio": 0.7833333333333333,
+      "max_ratio": 1.25
+    }
+  },
+  "synergy_1L_12L": {
+    "point_flame_entry000": 0.017,
+    "cavity_only_beta_2pct": 0.0413564929693962,
+    "erlang4_only_entry001": 0.8,
+    "cavity_plus_erlang4": 0.9263854425144747,
+    "caseB_synergy_max_alpha_1L_12L": -0.03608805844382354
+  }
+}

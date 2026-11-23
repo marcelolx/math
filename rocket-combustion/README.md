@@ -8,3 +8,4 @@ Investigating thermoacoustic combustion instability in rocket chambers—modelin
 | :--- | :--- | :--- |
 | [000-baseline.md](./entries/000-baseline.md) | 1D Longitudinal Combustor Baseline (Crocco $n$–$\tau$ + Choked Nozzle) | `verified` |
 | [001-spatial-vs-timelag.md](./entries/001-spatial-vs-timelag.md) | Finite Flame Width vs. Causal Time-Lag Dispersion | `verified` |
+| [002-helmholtz-cavity.md](./entries/002-helmholtz-cavity.md) | Passive Acoustic Damping: Faceplate Helmholtz Resonator & Exceptional-Point Tuning | `verified` |
