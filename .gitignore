@@ -1,0 +1,41 @@
+# Secrets & local environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Lean / Mathlib
+.lake/
+
+# Heavy raw simulation data (commit lightweight plots/summary CSVs in results/ instead)
+*.h5
+*.hdf5
+*.nc
+*.npy
+*.npz
+*.parquet
+*.vtk
+*.vtu
+*.vti
+*.bin
+*.raw
+*.dat
+
+# OS & editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
