@@ -7,3 +7,4 @@ Investigating thermoacoustic combustion instability in rocket chambers—modelin
 | Entry | Title | Status |
 | :--- | :--- | :--- |
 | [000-baseline.md](./entries/000-baseline.md) | 1D Longitudinal Combustor Baseline (Crocco $n$–$\tau$ + Choked Nozzle) | `verified` |
+| [001-spatial-vs-timelag.md](./entries/001-spatial-vs-timelag.md) | Finite Flame Width vs. Causal Time-Lag Dispersion | `verified` |

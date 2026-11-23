@@ -1,0 +1,71 @@
+{
+  "parameters": {
+    "zeta": 0.04,
+    "n_base": 0.1,
+    "tau_base": 1.0,
+    "x_f_caseD": 0.25,
+    "m_stages": 4,
+    "n_crit_local_smearing": 0.08004270767353644,
+    "sigma_tau_crit_4L": 0.12128368544169087
+  },
+  "uniform_local_threshold_test": {
+    "above_nc (n=0.10)": {
+      "n": 0.1,
+      "alpha_4L_exact": 0.00950609535933175,
+      "alpha_4L_pde": 0.00954313627195322,
+      "alpha_8L_exact": 0.009505736660811084
+    },
+    "below_nc (n=0.07)": {
+      "n": 0.07,
+      "alpha_4L_exact": -0.004850804694147114,
+      "alpha_4L_pde": -0.004812797832924519,
+      "alpha_8L_exact": -0.004851064453712952
+    }
+  },
+  "caseD_comparison": {
+    "point_flame_4L_exact": 0.054737371586710895,
+    "mech1_local_gauss_4L_pde": 0.009648751584549536,
+    "mech1_local_gauss_4L_theory": 0.009617395003581677,
+    "mech1_local_gauss_12L_theory": 0.009448928704357408,
+    "mech2_injector_gauss_4L_exact": -0.07699510440633835,
+    "mech2_injector_gauss_4L_pde": -0.07695580131978227,
+    "mech2_injector_gauss_max_1L_12L": -0.0011493628563983582,
+    "mech3_erlang4_4L_exact": -0.018841966164567212,
+    "mech3_erlang4_4L_pde": -0.018827095571156846,
+    "mech3_erlang4_max_1L_12L": -0.018841966164567212
+  },
+  "broadband_1L_12L_recovery": {
+    "erlang4_sigma_tau": [
+      0.0,
+      0.04,
+      0.08,
+      0.12,
+      0.15,
+      0.2
+    ],
+    "erlang4_stable_fraction": [
+      0.017417417417417418,
+      0.15255255255255254,
+      0.5255255255255256,
+      0.7255255255255255,
+      0.8,
+      0.8750750750750751
+    ],
+    "local_gauss_sigma_f": [
+      0.02,
+      0.05,
+      0.08,
+      0.12,
+      0.16,
+      0.2
+    ],
+    "local_gauss_stable_fraction": [
+      0.032432432432432434,
+      0.04084084084084084,
+      0.04564564564564565,
+      0.026426426426426425,
+      0.023423423423423424,
+      0.018618618618618618
+    ]
+  }
+}
