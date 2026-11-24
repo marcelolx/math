@@ -1,40 +1,55 @@
 {
   "parameters": {
     "zeta": 0.04,
+    "omega_hp": 0.2,
     "n_base": 0.1,
     "tau_base": 1.0,
     "x_f_caseD": 0.25,
     "m_stages": 4,
     "n_crit_local_smearing": 0.08004270767353644,
-    "sigma_tau_crit_4L": 0.12128368544169087
+    "sigma_tau_crit_4L_perturbation": 0.12128368544169087,
+    "domain_xf": [
+      0.05,
+      0.95
+    ],
+    "domain_tau": [
+      0.05,
+      2.0
+    ],
+    "grid_shape": [
+      40,
+      31
+    ]
   },
   "uniform_local_threshold_test": {
     "above_nc (n=0.10)": {
       "n": 0.1,
-      "alpha_4L_exact": 0.00950609535933175,
-      "alpha_4L_pde": 0.00954313627195322,
-      "alpha_8L_exact": 0.009505736660811084
+      "alpha_4L_exact": 0.009494709053730592,
+      "alpha_4L_pde": 0.009529891424670039,
+      "alpha_8L_exact": 0.009502889264683909
     },
     "below_nc (n=0.07)": {
       "n": 0.07,
-      "alpha_4L_exact": -0.004850804694147114,
-      "alpha_4L_pde": -0.004812797832924519,
-      "alpha_8L_exact": -0.004851064453712952
+      "alpha_4L_exact": -0.004859083614584435,
+      "alpha_4L_pde": -0.004822652555923809,
+      "alpha_8L_exact": -0.004853134677279939
     }
   },
   "caseD_comparison": {
-    "point_flame_4L_exact": 0.054737371586710895,
-    "mech1_local_gauss_4L_pde": 0.009648751584549536,
-    "mech1_local_gauss_4L_theory": 0.009617395003581677,
-    "mech1_local_gauss_12L_theory": 0.009448928704357408,
-    "mech2_injector_gauss_4L_exact": -0.07699510440633835,
-    "mech2_injector_gauss_4L_pde": -0.07695580131978227,
-    "mech2_injector_gauss_max_1L_12L": -0.0011493628563983582,
-    "mech3_erlang4_4L_exact": -0.018841966164567212,
-    "mech3_erlang4_4L_pde": -0.018827095571156846,
-    "mech3_erlang4_max_1L_12L": -0.018841966164567212
+    "point_flame_4L_exact": 0.05470678355702422,
+    "mech1_local_gauss_4L_pde": 0.00964577062776724,
+    "mech1_local_gauss_4L_diag_approx": 0.009605418878620806,
+    "mech1_local_gauss_12L_diag_approx": 0.009447602042207022,
+    "mech2_injector_gauss_4L_exact": -0.07700381854829091,
+    "mech2_injector_gauss_4L_pde": -0.07693935897304548,
+    "mech2_injector_gauss_max_1L_12L": -0.0012215259876479827,
+    "mech3_erlang4_4L_exact": -0.0191368602404955,
+    "mech3_erlang4_4L_pde": -0.019124781863149674,
+    "mech3_erlang4_max_1L_12L": -0.0191368602404955,
+    "mech3_k0_unstable": false
   },
   "broadband_1L_12L_recovery": {
+    "k0_unstable_hits": 0,
     "erlang4_sigma_tau": [
       0.0,
       0.04,
@@ -44,12 +59,12 @@
       0.2
     ],
     "erlang4_stable_fraction": [
-      0.017417417417417418,
-      0.15255255255255254,
-      0.5255255255255256,
-      0.7255255255255255,
-      0.8,
-      0.8750750750750751
+      0.03225806451612903,
+      0.15725806451612903,
+      0.5129032258064516,
+      0.6766129032258065,
+      0.7387096774193549,
+      0.8016129032258065
     ],
     "local_gauss_sigma_f": [
       0.02,
@@ -59,13 +74,13 @@
       0.16,
       0.2
     ],
-    "local_gauss_stable_fraction": [
-      0.032432432432432434,
-      0.04084084084084084,
-      0.04564564564564565,
-      0.026426426426426425,
-      0.023423423423423424,
-      0.018618618618618618
+    "local_gauss_diag_approx_k12_upper_bound": [
+      0.027419354838709678,
+      0.020967741935483872,
+      0.025806451612903226,
+      0.01935483870967742,
+      0.017741935483870968,
+      0.012903225806451613
     ]
   }
 }
