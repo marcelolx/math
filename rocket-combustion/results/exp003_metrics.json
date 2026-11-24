@@ -1,0 +1,163 @@
+{
+  "parameters": {
+    "zeta": 0.04,
+    "tau_bar": 0.2,
+    "x_f_grid": 0.145,
+    "sigma_tau": 0.1,
+    "omega_hp": 0.2,
+    "c3": 180.0,
+    "c5": 8000.0,
+    "n_hopf_bare": 0.0626737950355516,
+    "omega_hopf_bare": 3.1156897229387663,
+    "n_fold_fdf": 0.03279204449211333,
+    "cavity_test": {
+      "n": 0.088,
+      "beta": 0.01,
+      "omega_H": 3.12,
+      "c_nl": 450.0
+    }
+  },
+  "exp1_bifurcation_bare": [
+    {
+      "n": 0.036,
+      "p_crit_pde": 0.10280957031249999,
+      "p_lc_pde": 0.16460843104867295,
+      "p_crit_fdf": 0.10229524238115063,
+      "p_lc_fdf": 0.16248840451446775
+    },
+    {
+      "n": 0.042,
+      "p_crit_pde": 0.07738378906249999,
+      "p_lc_pde": 0.17969860119788927,
+      "p_crit_fdf": 0.0770299890556487,
+      "p_lc_fdf": 0.17587830736495705
+    },
+    {
+      "n": 0.048,
+      "p_crit_pde": 0.058791992187499996,
+      "p_lc_pde": 0.19394019861785375,
+      "p_crit_fdf": 0.058367946750507875,
+      "p_lc_fdf": 0.18292069595211347
+    },
+    {
+      "n": 0.054,
+      "p_crit_pde": 0.041907226562500004,
+      "p_lc_pde": 0.23828744583184402,
+      "p_crit_fdf": 0.04127132918632235,
+      "p_lc_fdf": 0.1875192672838444
+    },
+    {
+      "n": 0.06,
+      "p_crit_pde": 0.0227587890625,
+      "p_lc_pde": 0.32708696659672076,
+      "p_crit_fdf": 0.021362999961515264,
+      "p_lc_fdf": 0.1908151473235811
+    },
+    {
+      "n": 0.066,
+      "p_crit_pde": 0.0,
+      "p_lc_pde": 0.375944873942918,
+      "p_crit_fdf": null,
+      "p_lc_fdf": 0.19331236927731285
+    },
+    {
+      "n": 0.076,
+      "p_crit_pde": 0.0,
+      "p_lc_pde": 0.43761957347910274,
+      "p_crit_fdf": null,
+      "p_lc_fdf": 0.1963729075015596
+    },
+    {
+      "n": 0.086,
+      "p_crit_pde": 0.0,
+      "p_lc_pde": 0.43580050529813114,
+      "p_crit_fdf": null,
+      "p_lc_fdf": 0.19857420529531772
+    }
+  ],
+  "exp2_3_cavity_xi_sweep": [
+    {
+      "xi_H": 0.015,
+      "alpha_lin": -0.013586343218865307,
+      "p_crit_linear_cavity": 0.09861816406250001,
+      "p_crit_nonlinear_cavity": 0.08689355468749999,
+      "p_lc_nonlinear_cavity": 0.22422722223610364
+    },
+    {
+      "xi_H": 0.03,
+      "alpha_lin": -0.03843581654295179,
+      "p_crit_linear_cavity": null,
+      "p_crit_nonlinear_cavity": 0.08542089843749998,
+      "p_lc_nonlinear_cavity": 0.23150929009971438
+    },
+    {
+      "xi_H": 0.045,
+      "alpha_lin": -0.06048404485395736,
+      "p_crit_linear_cavity": null,
+      "p_crit_nonlinear_cavity": 0.08400488281249999,
+      "p_lc_nonlinear_cavity": 0.2397671186983097
+    },
+    {
+      "xi_H": 0.065,
+      "alpha_lin": -0.08922337807464714,
+      "p_crit_linear_cavity": null,
+      "p_crit_nonlinear_cavity": 0.0821357421875,
+      "p_lc_nonlinear_cavity": 0.25151090345755067
+    },
+    {
+      "xi_H": 0.09,
+      "alpha_lin": -0.12596823036833862,
+      "p_crit_linear_cavity": null,
+      "p_crit_nonlinear_cavity": 0.0797587890625,
+      "p_lc_nonlinear_cavity": 0.2674531002386682
+    },
+    {
+      "xi_H": 0.125,
+      "alpha_lin": -0.180717220262607,
+      "p_crit_linear_cavity": null,
+      "p_crit_nonlinear_cavity": 0.07653027343750002,
+      "p_lc_nonlinear_cavity": 0.28893011002112906
+    },
+    {
+      "xi_H": 0.165,
+      "alpha_lin": -0.09617546347729478,
+      "p_crit_linear_cavity": null,
+      "p_crit_nonlinear_cavity": 0.07285644531250002,
+      "p_lc_nonlinear_cavity": 0.3083908509601731
+    },
+    {
+      "xi_H": 0.21,
+      "alpha_lin": -0.063335364995572,
+      "p_crit_linear_cavity": null,
+      "p_crit_nonlinear_cavity": 0.0688115234375,
+      "p_lc_nonlinear_cavity": 0.32179507477174135
+    },
+    {
+      "xi_H": 0.26,
+      "alpha_lin": -0.04536142294714993,
+      "p_crit_linear_cavity": 0.09822167968750001,
+      "p_crit_nonlinear_cavity": 0.0643955078125,
+      "p_lc_nonlinear_cavity": 0.32737162837791933
+    },
+    {
+      "xi_H": 0.32,
+      "alpha_lin": -0.0327211873972737,
+      "p_crit_linear_cavity": 0.08071972656250001,
+      "p_crit_nonlinear_cavity": 0.0592001953125,
+      "p_lc_nonlinear_cavity": 0.34692608922730056
+    }
+  ],
+  "bomb_comparison": {
+    "p0": 0.0817119140625,
+    "xi_lin_ep": 0.125,
+    "xi_nl_best": 0.015,
+    "ep_linear_triggered": false,
+    "ep_linear_p_late": 0.0007070476489678834,
+    "ep_nonlinear_triggered": true,
+    "ep_nonlinear_p_late": 0.20442603413660915,
+    "ep_nonlinear_peak_xi_eff": 0.4799863414504426,
+    "underdamped_nonlinear_triggered": false,
+    "underdamped_nonlinear_p_late": 0.0027340617538506935,
+    "underdamped_nonlinear_peak_xi_eff": 0.2886370633246982
+  }
+}
