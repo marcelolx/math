@@ -8,3 +8,4 @@ Investigating magnetic nozzle acceleration, plasma detachment, and magnetohydrod
 | :--- | :--- | :--- |
 | [000-baseline.md](./entries/000-baseline.md) | Quasi-1D Paraxial Magnetic Nozzle Baseline, Exact Thrust Balance & Alfvén Detachment Optimum | `verified` |
 | [001-mhd-kelvin-helmholtz.md](./entries/001-mhd-kelvin-helmholtz.md) | 2D Resistive-MHD Kelvin–Helmholtz Shear Instability: Hartmann Braking Trough & Low-$R_m$ Sub-Alfvénic Breakdown | `verified` |
+| [002-self-consistent-nozzle.md](./entries/002-self-consistent-nozzle.md) | Self-Consistent Diamagnetic Magnetic Nozzle Inflation & Roberts–Webb Tube-Speed Choking | `verified` |

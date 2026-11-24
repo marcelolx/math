@@ -37,7 +37,7 @@ math/
 | Topic | Focus | Status |
 | :--- | :--- | :--- |
 | [`rocket-combustion/`](./rocket-combustion/) | Thermoacoustic combustion instability, passive cavities, baffles & nonlinear triggering (Entries `000`–`006` + [`SYNTHESIS.md`](./rocket-combustion/SYNTHESIS.md)) | Active |
-| [`plasma-nozzles/`](./plasma-nozzles/) | Magnetic nozzle acceleration, Alfvén/resistive plasma detachment & 2D MHD shear instabilities (Entries `000`–`001`) | Active |
+| [`plasma-nozzles/`](./plasma-nozzles/) | Magnetic nozzle acceleration, 2D resistive-MHD shear stability & self-consistent diamagnetic detachment (Entries `000`–`002`) | Active |
 
 ## Running Simulations Locally
 
