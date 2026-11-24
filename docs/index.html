@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Open-Notebook Science Log — marcelolx/math</title>
-  <meta name="description" content="Progress note from marcelolx/math: 12 verified numerical physics & engineering entries, 4 independent cross-model peer reviews, and 3 synthesis monographs." />
+  <meta name="description" content="Progress log from marcelolx/math: 14 verified numerical physics & engineering entries, 5 independent cross-model peer reviews, and 3 synthesis monographs." />
   <style>
     :root {
       --bg: #faf9f6;
@@ -221,7 +221,8 @@
     <div class="nav">
       <a class="brand" href="./">marcelolx / math</a>
       <div class="nav-links">
-        <a href="#tracks">Tracks</a>
+        <a href="#milestone-2">Milestone 2</a>
+        <a href="#tracks">Milestone 1</a>
         <a href="#peer-review">Peer Review</a>
         <a href="#reproduce">Reproduce</a>
         <a href="https://github.com/marcelolx/math">GitHub &rarr;</a>
@@ -231,27 +232,51 @@
 
   <main>
     <article>
-      <div class="meta">Progress Note #01 &middot; Open-Notebook Science</div>
-      <h1>12 Verified Entries, 4 Adversarial Peer Reviews, and What Broke Along the Way</h1>
+      <div class="meta">Progress Log &middot; Updated 2026-11-24 &middot; Open-Notebook Science</div>
+      <h1>14 Verified Entries, 5 Adversarial Peer Reviews, and What Broke Along the Way</h1>
       <p class="subtitle">
-        A short log of our first milestone building an open, reproducible computational-physics notebook across rocket combustion, plasma nozzles, and renewable power grids—where every formula is cross-checked against PDEs and audited by an independent model.
+        An open, reproducible computational-physics notebook across rocket combustion, plasma nozzles, and renewable power grids—where every formula is cross-checked against PDEs and audited by an independent model.
       </p>
 
       <div class="stats">
         <div class="stat"><span class="stat-num">3</span><span class="stat-lbl">Research Tracks</span></div>
-        <div class="stat"><span class="stat-num">12</span><span class="stat-lbl">Verified Entries</span></div>
-        <div class="stat"><span class="stat-num">4</span><span class="stat-lbl">Peer Reviews</span></div>
+        <div class="stat"><span class="stat-num">14</span><span class="stat-lbl">Verified Entries</span></div>
+        <div class="stat"><span class="stat-num">5</span><span class="stat-lbl">Peer Reviews</span></div>
         <div class="stat"><span class="stat-num">3</span><span class="stat-lbl">Syntheses</span></div>
       </div>
 
+      <h2 id="milestone-2">Milestone 2 Update: Compressible Euler Shocks &amp; Rotating-Shock Control (<code>007</code>&ndash;<code>008</code>)</h2>
       <p>
-        We started <a href="https://github.com/marcelolx/math"><code>marcelolx/math</code></a> with a simple rule: instead of writing broad essays or unverified conjectures, shrink each problem to a narrow, testable equation, verify it locally in runnable Python simulations with exact conservation-law checks, and publish dead ends alongside breakthroughs.
+        We took the <code>rocket-combustion/</code> track beyond bulk-linear acoustics into the <strong>full conservative 1D periodic compressible Euler equations</strong> (&gamma; = 1.25, 2nd-order MUSCL-MC + HLLC Riemann solver, exact inviscid conservation to 4&times;10<sup>&minus;16</sup>, and Fay&ndash;Burgers cubic weak-shock dissipation matching 0.2209&thinsp;<em>u</em><sub>0</sub><sup>3</sup>).
       </p>
       <p>
-        To keep ourselves honest, after every batch of entries we handed the repository read-only to an <strong>independent cross-model peer reviewer</strong> that re-derived the equations from scratch and ran its own numerical spot checks. That loop caught real bugs and hidden artifacts—and made every remaining conclusion much stronger.
+        Gasdynamic shock steepening flipped two core bulk-linear predictions on their head: under residence-time entropy flushing (&nu;<sub>res</sub> &isin; [0.01, 0.05]), Rankine&ndash;Hugoniot <em>O</em>(<em>A</em><sup>3</sup>) shock losses cap saturated limit-cycle pressure by <strong>&minus;28%</strong> (7.65% &rarr; 5.52% <em>p</em>&prime;/<em>p&#772;</em>, <em>N</em> = 512 converged to 0.01%), quench subcritical triggering across all 16 <em>N</em> = 512 MC runs, and trigger a complete <strong>attractor/saddle exchange</strong>—reversing bulk-linear spinning selection (<em>S</em> &rarr; +1) to a <strong>standing-wave attractor (<em>S</em> &rarr; 0)</strong> governed by the Landau criterion <em>k</em><sub>sh</sub><em>A</em> &gt; 2(<em>a</em><sub>c</sub> &minus; <em>a</em><sub>s</sub>)<em>A</em><sup>2</sup>.
       </p>
+      <figure>
+        <img src="assets/rocket-euler-shocks.png" alt="Compressible Euler shock capping and standing-vs-spinning attractor/saddle exchange" />
+        <figcaption>
+          <strong>Rocket Combustion Entry 007:</strong> Saturated bulk-linear spinning cycle (7.6%) vs. compressible Euler MC standing attractor (5.5%, &minus;28% capping) and transient spin saddle (left), and the clean attractor/saddle exchange reversing bulk-linear spin-up (<em>S</em> &rarr; +1) into Euler standing selection (<em>S</em> &rarr; 0, right).
+        </figcaption>
+      </figure>
+      <p>
+        Turning on swirled chiral velocity coupling (<em>n</em><sub>v</sub> &gt; 0) in Entry <code>008</code> smoothly tilts that standing attractor along a hysteresis-free mixed-wave branch <em>S</em><sup>*</sup>(<em>n</em><sub>v</sub>) (verified at <em>t</em> = 900: +0.686 vs. +0.685) into a pure rotating sawtooth shock (<em>S</em><sup>*</sup> &ge; 0.95 for <em>n</em><sub>v</sub> &ge; 0.024)—while non-swirled even-|<em>u</em>| coupling never produces a strong spinning shock.
+      </p>
+      <p>
+        In a 5-way control shootout against a 6.9% chiral rotating shock (<em>n</em><sub>p</sub> = 0.060, <em>n</em><sub>v</sub> = 0.025, <em>t</em> = 1600), pairing exact Fourier-collocation eigen-spectra with low-dissipation MC numerics revealed a striking reversal from Peer Review #5: the 80/20 cavity ring alone crushes <em>1T</em> and <em>2T</em> but leaves co-rotating <em>3T</em> linearly unstable (&alpha; = +0.00192), whereas <strong>zero-hardware odd <em>M</em> = 5 injector lag staggering</strong> (&tau; &isin; {0.30, 2.50}) is the only single-mechanism <strong>all-mode stabilizer</strong> (&alpha;<sub>max</sub> = &minus;0.00235, 6,500&times; energy cut with zero cavities or baffles), and the <strong>Hybrid <em>M</em> = 5 + 80/20</strong> doubles the all-mode margin (&alpha;<sub>max</sub> = &minus;0.00477).
+      </p>
+      <div class="pill-row">
+        <a class="pill" href="https://github.com/marcelolx/math/blob/main/rocket-combustion/entries/007-compressible-euler-steepening.md">Entry 007: Euler Shocks</a>
+        <a class="pill" href="https://github.com/marcelolx/math/blob/main/rocket-combustion/entries/008-chiral-shock-competition.md">Entry 008: Chiral Shock Control</a>
+        <a class="pill" href="https://github.com/marcelolx/math/blob/main/rocket-combustion/SYNTHESIS.md">Updated Synthesis (Laws #1&ndash;#11)</a>
+      </div>
+      <figure>
+        <img src="assets/rocket-shock-control.png" alt="Long-horizon MC control shootout of a 6.9% chiral rotating shock showing 80/20 3T regrowth vs zero-hardware M=5 odd staggering and hybrid" />
+        <figcaption>
+          <strong>Rocket Combustion Entry 008:</strong> Controlling a 6.9% chiral rotating shock to <em>t</em> = 1600 under low-dissipation MC numerics. Even <em>M</em> = 2 staggering locks into a Bragg-trapped standing shock (3.8%), the 80/20 ring loses to co-rotating <em>3T</em> (&alpha; = +0.0019), while zero-hardware odd <em>M</em> = 5 staggering crosses below it around <em>t</em> &approx; 800 and damps all modes (&alpha; = &minus;0.0024).
+        </figcaption>
+      </figure>
 
-      <h2 id="tracks">Three Tracks, First Milestone</h2>
+      <h2 id="tracks">Milestone 1: Three Tracks &amp; First 12 Entries</h2>
 
       <h3>1. Rocket Combustion Instability (<code>000</code>&ndash;<code>006</code>)</h3>
       <p>
@@ -262,7 +287,7 @@
       </p>
       <div class="pill-row">
         <a class="pill" href="https://github.com/marcelolx/math/blob/main/rocket-combustion/SYNTHESIS.md">Read Synthesis Monograph</a>
-        <a class="pill" href="https://github.com/marcelolx/math/tree/main/rocket-combustion">Browse Entries 000&ndash;006</a>
+        <a class="pill" href="https://github.com/marcelolx/math/tree/main/rocket-combustion">Browse Entries 000&ndash;008</a>
       </div>
       <figure>
         <img src="assets/rocket-cavity-bombs.png" alt="Long-horizon t=900 2D 80/20 cavity bomb survival map for wide-mouth vs tight-neck cavities" />
@@ -315,7 +340,7 @@
 
       <h2 id="peer-review">Why Adversarial Cross-Model Peer Review Mattered</h2>
       <p>
-        Every one of our four independent peer reviews caught real mathematical or numerical traps that looked completely plausible at first glance:
+        Every one of our five independent peer reviews caught real mathematical or numerical traps that looked completely plausible at first glance:
       </p>
       <div class="callout">
         <ul>
@@ -323,6 +348,7 @@
           <li><strong>Short-horizon bomb illusions (Reviews #2 &amp; #3):</strong> Because the 80/20 cavity ring&rsquo;s slowest linear decay time scale is &tau; &approx; 550, horizons of <em>t</em> = 130&ndash;180 hid slow regrowth at <em>t</em> = 400&ndash;900. Replaced with <em>t</em> = 1000 linear checks and <em>t</em> = 900 dense amplitude scans.</li>
           <li><strong>Unequal-enthalpy nozzle metric &amp; finite-Re box mode (Review #3):</strong> Comparing compliant (<em>c</em><sub>T</sub>-choked) and rigid nozzles at equal throat static state gave the compliant nozzle 19% less stagnation enthalpy, creating a spurious negative gain; re-normalizing to equal <em>H</em><sub>0</sub> revealed true near-zero high-&beta; erosion. Similarly, the intermediate-<em>R</em><sub>m</sub> MHD trough proved to be a finite-Re continuum mode.</li>
           <li><strong>Ghost-crawl false positives in power-grid survival (Review #4):</strong> A 26 s horizon accepted trajectories with no post-fault equilibrium that slipped at <em>t</em> = 30&ndash;44 s, while rejecting slow-settling saturated cases. Restoring an exact saturated rotating-frame equilibrium check over <em>T</em> = 80 fixed both.</li>
+          <li><strong>Numerical-dissipation masking of <em>3T</em> &amp; closure sensitivity (Review #5):</strong> <code>minmod</code> at <em>N</em> = 256 added &minus;5.6&times;10<sup>&minus;3</sup> excess damping on <em>3T</em>, hiding the 80/20 ring&rsquo;s true linear <em>3T</em> instability (&alpha; = +0.0019) by 10,000&times;, and the smooth chiral branch <em>S</em><sup>*</sup>(<em>n</em><sub>v</sub>) proved conditional on residence entropy flushing (&nu;<sub>res</sub> &gt; 0). Switching to the MC limiter, adding exact Fourier-collocation eigen-spectra, and reporting full &nu;<sub>res</sub> sensitivity tables fixed both.</li>
         </ul>
       </div>
 
@@ -335,12 +361,13 @@ cd math
 uv sync
 
 # Run any entry's verification script:
-uv run python rocket-combustion/sim/exp006_2d_nonlinear_modes.py
+uv run python rocket-combustion/sim/exp007_compressible_euler_steepening.py
+uv run python rocket-combustion/sim/exp008_chiral_shock_competition.py
 uv run python plasma-nozzles/sim/exp001_mhd_kelvin_helmholtz.py
 uv run python grid-stability/sim/exp001_gfm_placement_and_saturation.py</code></pre>
 
       <p>
-        Next up: pushing into 2D compressible Euler transverse steepening (<code>rocket-combustion/007</code>), 2D axisymmetric magnetic nozzles with exterior field back-reaction (<code>plasma-nozzles/003</code>), and full inverter current-limiting + reactive <em>Q&ndash;V</em> coupling (<code>grid-stability/002</code>).
+        Next up: 2D (<em>x</em>, &theta;) compressible Euler annular combustor with physical axial throughflow <em>M&#772;</em><sub>x</sub> &gt; 0 (<code>rocket-combustion/009</code>), 2D axisymmetric magnetic nozzles with exterior field back-reaction (<code>plasma-nozzles/003</code>), and full inverter current-limiting + reactive <em>Q&ndash;V</em> coupling (<code>grid-stability/002</code>).
       </p>
 
       <footer>
