@@ -484,10 +484,10 @@ def main() -> None:
 
     L_a = 2.0
     zeta = 0.04
-    x_f = 0.20
+    x_f = 0.175  # Exact cell center on nx=40 (idx=3)
     tau_bar = 0.30
     sigma_tau = 0.15
-    beta_tot = 0.02  # 2% total cavity-to-chamber volume ratio
+    beta_tot = 0.02
 
     print("=== Entry 005: Baffle-Free 2D Transverse Stabilization ===")
 
@@ -495,7 +495,7 @@ def main() -> None:
     # Experiment 1: Exact 2D 1T Exceptional-Point Law (Cold & Hot Spinning 1T)
     # ------------------------------------------------------------------
     n_v_spin = 0.06
-    s1_hot_unc = find_coupled_1T_pair(L_a, zeta, 0.225, 0.0, n_v_spin, tau_bar, sigma_tau, 0.0, 1.0, 0.1)[0]
+    s1_hot_unc = find_coupled_1T_pair(L_a, zeta, x_f, 0.0, n_v_spin, tau_bar, sigma_tau, 0.0, 1.0, 0.1)[0]
     xi_ep_cold_pred = np.sqrt(beta_tot) + zeta / (2.0 * L_a)
     alpha_ep_cold_pred = -zeta / (2.0 * L_a) - 0.5 * np.sqrt(beta_tot)
     xi_ep_hot_pred = np.sqrt(beta_tot) - s1_hot_unc.real
@@ -504,9 +504,9 @@ def main() -> None:
     print(f"  Analytical cold 1T EP: xi_EP = {xi_ep_cold_pred:.5f}, alpha_EP = {alpha_ep_cold_pred:+.5f}")
     print(f"  Analytical hot  1T EP: xi_EP = {xi_ep_hot_pred:.5f} (uncoupled hot 1T alpha = {s1_hot_unc.real:+.5f})")
 
-    xi_sweep = np.linspace(0.01, 0.40, 45)
-    cold_1T_amax = [max(r.real for r in find_coupled_1T_pair(L_a, zeta, 0.225, 0.0, 0.0, tau_bar, sigma_tau, beta_tot, 1.0, xi)) for xi in xi_sweep]
-    hot_1T_amax = [max(r.real for r in find_coupled_1T_pair(L_a, zeta, 0.225, 0.0, n_v_spin, tau_bar, sigma_tau, beta_tot, s1_hot_unc.imag, xi)) for xi in xi_sweep]
+    xi_sweep = np.linspace(0.01, 0.40, 80)
+    cold_1T_amax = [max(r.real for r in find_coupled_1T_pair(L_a, zeta, x_f, 0.0, 0.0, tau_bar, sigma_tau, beta_tot, 1.0, xi)) for xi in xi_sweep]
+    hot_1T_amax = [max(r.real for r in find_coupled_1T_pair(L_a, zeta, x_f, 0.0, n_v_spin, tau_bar, sigma_tau, beta_tot, s1_hot_unc.imag, xi)) for xi in xi_sweep]
 
     idx_c = int(np.argmin(cold_1T_amax))
     idx_h = int(np.argmin(hot_1T_amax))

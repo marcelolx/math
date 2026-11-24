@@ -274,11 +274,14 @@ def simulate_2d_annulus(
             P += (init_amp / m) * (np.cos(m * TH - ph1) + 0.5 * np.cos(m * TH - ph2) * np.cos(np.pi * X / L_a))
             Uth += (0.5 * init_amp / m) * np.cos(m * th_f[None, :] - ph1) * np.ones((nx, 1))
     elif init_type == "aligned_1T":
-        # Standing 1T with velocity nodes at theta = 0, pi (worst-case alignment for N_b=2!)
-        P = init_amp * np.cos(TH)
+        # Standing 1T with velocity nodes placed EXACTLY on baffle face th_f[0] = dth (and pi + dth)
+        P = init_amp * np.cos(TH - th_f[0])
     elif init_type == "aligned_2T":
-        # Standing 2T with velocity nodes at theta = 0, pi/2, pi, 3pi/2 (worst-case for N_b=4!)
-        P = init_amp * np.cos(2.0 * TH)
+        # Standing 2T with velocity nodes placed EXACTLY on baffle face th_f[0] (every pi/2)
+        P = init_amp * np.cos(2.0 * (TH - th_f[0]))
+    elif init_type == "aligned_3T":
+        # Standing 3T with velocity nodes placed EXACTLY on baffle face th_f[0] (every pi/3 -> N_b=6 blind spot!)
+        P = init_amp * np.cos(3.0 * (TH - th_f[0]))
     else:
         raise ValueError(f"Unknown init_type: {init_type}")
 
@@ -371,13 +374,15 @@ def simulate_2d_annulus(
     # Complex azimuthal Fourier modes at injector faceplate (i=0): c_m(t) = (1/pi) int P(0,th) e^{-i m th} dth
     c_1T = np.empty(n_steps + 1, dtype=complex)
     c_2T = np.empty(n_steps + 1, dtype=complex)
+    c_3T = np.empty(n_steps + 1, dtype=complex)
     a_1L = np.empty(n_steps + 1)
-    # Azimuthal acoustic momentum flux (spin proxy) at x_f: int P(x_f) * Uth(x_f) dth
-    spin_flux = np.empty(n_steps + 1)
+    # Bounded spin index S in [0, 1] at x_f: |int P*Uth dth| / (0.5 * int (P^2 + Uth^2) dth)
+    spin_index = np.empty(n_steps + 1)
     rms_uth_flame = np.empty(n_steps + 1)
 
     exp_m1 = np.exp(-1j * th_c)
     exp_m2 = np.exp(-2j * th_c)
+    exp_m3 = np.exp(-3j * th_c)
     cos_1L = np.cos(np.pi * x_c / L_a)
 
     def record(idx: int) -> None:
@@ -391,10 +396,12 @@ def simulate_2d_annulus(
             rayleigh[idx] = 0.0
         c_1T[idx] = (dth / np.pi) * np.dot(P[0], exp_m1)
         c_2T[idx] = (dth / np.pi) * np.dot(P[0], exp_m2)
+        c_3T[idx] = (dth / np.pi) * np.dot(P[0], exp_m3)
         p_ax_mean = np.mean(P, axis=1)
         a_1L[idx] = (2.0 * dx / L_a) * float(np.dot(cos_1L, p_ax_mean))
         u_cell = 0.5 * (Uth[m_f] + np.roll(Uth[m_f], 1))
-        spin_flux[idx] = dth * float(np.dot(P[m_f], u_cell))
+        s_den = 0.5 * float(np.dot(P[m_f], P[m_f]) + np.dot(u_cell, u_cell))
+        spin_index[idx] = abs(float(np.dot(P[m_f], u_cell))) / max(s_den, 1e-30)
         rms_uth_flame[idx] = float(np.sqrt(np.mean(u_cell * u_cell)))
 
     record(0)
@@ -469,8 +476,9 @@ def simulate_2d_annulus(
         "energy_balance_rel_err": e_err,
         "c_1T": c_1T,
         "c_2T": c_2T,
+        "c_3T": c_3T,
         "a_1L": a_1L,
-        "spin_flux": spin_flux,
+        "spin_index": spin_index,
         "rms_uth_flame": rms_uth_flame,
         "P_final": P.copy(),
         "Uth_final": Uth.copy(),
@@ -521,9 +529,9 @@ def main() -> None:
 
     L_a = 2.0
     zeta = 0.04
-    x_f = 0.20
+    x_f = 0.175  # Exact cell center on nx=40 (idx=3) and nx=80 (between 6,7 -> let's use 0.175 explicitly!)
     tau_bar = 0.30
-    sigma_tau = 0.15  # Causal Erlang-4 (tau_d = 0.30 == tau_bar -> tau_0 = 0!)
+    sigma_tau = 0.15
 
     print("=== Entry 004: 2D Transverse/Spinning Modes & Radial Faceplate Baffles ===")
     print(f"Annulus L_a = L/R = {L_a}, end admittance zeta = {zeta}, flame x_f = {x_f}, omega_hp = {OMEGA_HP}\n")
@@ -601,23 +609,22 @@ def main() -> None:
             tau_bar=tau_bar, sigma_tau=sigma_tau,
             n_baffles=nb, L_b=Lb, t_end=60.0, init_type="spin_1T_plus",
         )
-        # Measure late-window growth rate and frequency from energy + c_1T
-        a_est, w_est = estimate_energy_growth_and_freq(sim["t"], sim["energy"], np.real(sim["c_1T"]), 20.0, 58.0)
-        # Cold frequency at same L_b (to isolate pure geometric baffle detuning!)
+        # Measure late-window growth rate and LSQ frequency (replacing coarse FFT-argmax!)
+        a_est, w_est_fft = estimate_energy_growth_and_freq(sim["t"], sim["energy"], np.real(sim["c_1T"]), 20.0, 58.0)
         sim_c = simulate_2d_annulus(L_a=L_a, zeta=zeta, n_baffles=nb, L_b=Lb, t_end=50.0, init_type="cold_1T")
-        _, w_cold = estimate_energy_growth_and_freq(sim_c["t"], sim_c["energy"], np.real(sim_c["c_1T"]), 10.0, 48.0)
-        # Normalized spin ratio |mean spin_flux| / (2 * E / L_a) in late window
+        _, w_c_init = estimate_energy_growth_and_freq(sim_c["t"], sim_c["energy"], np.real(sim_c["c_1T"]), 10.0, 48.0)
+        _, w_cold = fit_damped_sinusoid(sim_c["t"], np.real(sim_c["c_1T"]), 10.0, 48.0, -0.01, w_c_init)
         mask_l = sim["t"] >= 25.0
-        spin_ratio = float(np.mean(np.abs(sim["spin_flux"][mask_l])) / np.maximum(np.mean(sim["energy"][mask_l]) / L_a, 1e-30))
+        spin_ratio = float(np.mean(sim["spin_index"][mask_l]))
         print(
             f"  L_b={sim['L_b_actual']:.2f} (L_b/L_a={sim['L_b_actual']/L_a:.3f}): "
-            f"alpha_hot={a_est:+.5f}, omega_cold={w_cold:.4f}, spin_idx={spin_ratio:.3f}, E_err={sim['energy_balance_rel_err']:.2e}"
+            f"alpha_hot={a_est:+.5f}, omega_cold={w_cold:.5f}, spin_idx={spin_ratio:.3f}, E_err={sim['energy_balance_rel_err']:.2e}"
         )
         baffle_len_rows.append({
             "L_b": sim["L_b_actual"],
             "L_b_over_L_a": sim["L_b_actual"] / L_a,
             "alpha_hot": a_est,
-            "omega_hot": w_est,
+            "omega_hot": w_est_fft,
             "omega_cold_1T": w_cold,
             "spin_index": spin_ratio,
             "energy_err": sim["energy_balance_rel_err"],
@@ -626,25 +633,21 @@ def main() -> None:
             sim_baffled_snap = sim
 
     # ------------------------------------------------------------------
-    # Experiment 3B: Even-vs-Odd Baffle Count Symmetry Trap (N_b in {0, 2, 3, 4, 5, 6})
-    # Test on BOTH:
-    #   (i)  Velocity-coupled spinning 1T (n_v = 0.06, n_p = 0)
-    #   (ii) Pressure-coupled 1T+2T with aligned worst-case standing seeds (n_p = 0.06, tau = 0.30, L_b = 0.60)
-    #        Wait: check detuning! Under pressure coupling, baffles lower omega_1T & omega_2T;
-    #        for an aligned blind-spot mode (velocity nodes ON the baffles!), the mode NEVER feels
-    #        the baffles at all => ZERO frequency shift AND ZERO velocity blockage!
+    # Experiment 3B: Even-vs-Odd Baffle Symmetry Trap (N_b in {0, 2, 3, 4, 5, 6}, testing 1T, 2T AND 3T!)
+    # Standing seeds are aligned EXACTLY with baffle face th_f[0]; frequencies measured by LSQ!
     # ------------------------------------------------------------------
-    print("\n--- Experiment 3B: Even-vs-Odd Baffle Symmetry Trap (L_b = 0.60) ---")
-    # Choose tau_p = 0.90 where unbaffled 1T (w=1.0, cos(0.9) = +0.62) and 2T (w=2.0) behave distinctly,
-    # OR measure pure cold geometric frequency detuning Delta_omega_1T & Delta_omega_2T for worst-case aligned modes,
-    # PLUS hot stability for velocity-coupled spinning 1T + pressure-coupled 1T+2T!
+    print("\n--- Experiment 3B: Even-vs-Odd Baffle Symmetry Trap (L_b = 0.60, Exact Node-Aligned LSQ) ---")
     L_b_sym = 0.60
     nb_list = [0, 2, 3, 4, 5, 6]
     sym_rows = []
-    # Also test a hot pressure+velocity coupled chamber where detuning shifts 1T/2T out of a narrow phase window,
-    # AND test worst-case aligned 1T & 2T cold detuning + hot growth under n_p=0.045, n_v=0.05!
+    # Reference unbaffled PDE cold LSQ frequencies for 1T, 2T, 3T (removes O(dth^2) grid dispersion bias!)
+    ref_om = {}
+    for m_tag, it_tag, ck in [("1T", "aligned_1T", "c_1T"), ("2T", "aligned_2T", "c_2T"), ("3T", "aligned_3T", "c_3T")]:
+        s0 = simulate_2d_annulus(L_a=L_a, zeta=zeta, n_baffles=0, L_b=0.0, t_end=50.0, init_type=it_tag)
+        _, w0_lsq = fit_damped_sinusoid(s0["t"], np.real(s0[ck]), 8.0, 48.0, -0.01, float(m_tag[0]))
+        ref_om[m_tag] = w0_lsq
+
     for nb in nb_list:
-        # 1. Pure velocity-coupled spinning 1T growth rate (n_v = 0.06, n_p = 0)
         sim_v = simulate_2d_annulus(
             L_a=L_a, zeta=zeta, x_f=x_f, n_p=0.0, n_v=n_v_spin,
             tau_bar=tau_bar, sigma_tau=sigma_tau,
@@ -652,46 +655,42 @@ def main() -> None:
         )
         a_vel, _ = estimate_energy_growth_and_freq(sim_v["t"], sim_v["energy"], np.real(sim_v["c_1T"]), 20.0, 58.0)
 
-        # 2. Worst-case aligned standing 1T (velocity nodes at theta = 0, pi) — cold detuning & hot U_theta(x_f)
-        sim_1t_al = simulate_2d_annulus(
-            L_a=L_a, zeta=zeta, n_baffles=nb, L_b=L_b_sym, t_end=50.0, init_type="aligned_1T"
-        )
-        _, w_1t_al = estimate_energy_growth_and_freq(sim_1t_al["t"], sim_1t_al["energy"], np.real(sim_1t_al["c_1T"]), 8.0, 48.0)
-        # 3. Worst-case aligned standing 2T (velocity nodes at theta = 0, pi/2, pi, 3pi/2)
-        sim_2t_al = simulate_2d_annulus(
-            L_a=L_a, zeta=zeta, n_baffles=nb, L_b=L_b_sym, t_end=50.0, init_type="aligned_2T"
-        )
-        _, w_2t_al = estimate_energy_growth_and_freq(sim_2t_al["t"], sim_2t_al["energy"], np.real(sim_2t_al["c_2T"]), 8.0, 48.0)
+        w_al = {}
+        d_al = {}
+        for m_tag, it_tag, ck in [("1T", "aligned_1T", "c_1T"), ("2T", "aligned_2T", "c_2T"), ("3T", "aligned_3T", "c_3T")]:
+            sim_al = simulate_2d_annulus(L_a=L_a, zeta=zeta, n_baffles=nb, L_b=L_b_sym, t_end=50.0, init_type=it_tag)
+            _, w_init = estimate_energy_growth_and_freq(sim_al["t"], sim_al["energy"], np.real(sim_al[ck]), 8.0, 48.0)
+            _, w_lsq = fit_damped_sinusoid(sim_al["t"], np.real(sim_al[ck]), 8.0, 48.0, -0.01, w_init)
+            w_al[m_tag] = w_lsq
+            d_al[m_tag] = (1.0 - w_lsq / ref_om[m_tag]) * 100.0
 
-        detune_1t = (1.0 - w_1t_al / cold_summary["1T"]["omega_exact"]) * 100.0
-        detune_2t = (1.0 - w_2t_al / cold_summary["2T"]["omega_exact"]) * 100.0
         print(
-            f"  N_b={nb}: vel-coupled 1T alpha={a_vel:+.5f} | "
-            f"aligned-1T detune={detune_1t:+5.2f}% (w={w_1t_al:.4f}) | "
-            f"aligned-2T detune={detune_2t:+5.2f}% (w={w_2t_al:.4f})"
+            f"  N_b={nb}: vel-1T alpha={a_vel:+.5f} | "
+            f"1T detune={d_al['1T']:+6.2f}% | 2T detune={d_al['2T']:+6.2f}% | 3T detune={d_al['3T']:+6.2f}%"
         )
         sym_rows.append({
             "n_baffles": nb,
             "vel_coupled_1T_alpha": a_vel,
-            "aligned_1T_omega": w_1t_al,
-            "aligned_1T_detune_pct": detune_1t,
-            "aligned_2T_omega": w_2t_al,
-            "aligned_2T_detune_pct": detune_2t,
+            "aligned_1T_omega": w_al["1T"], "aligned_1T_detune_pct": d_al["1T"],
+            "aligned_2T_omega": w_al["2T"], "aligned_2T_detune_pct": d_al["2T"],
+            "aligned_3T_omega": w_al["3T"], "aligned_3T_detune_pct": d_al["3T"],
         })
 
     # ------------------------------------------------------------------
-    # Experiment 4: Grid Convergence Check (40x60 vs 60x90) on Baffled Chamber (N_b=5, L_b=0.50)
+    # Experiment 4: 3-Grid Convergence Check (40x60 vs 60x90 vs 80x120) at N_b=5, L_b=0.50
     # ------------------------------------------------------------------
-    print("\n--- Experiment 4: Grid Convergence Check (40x60 vs 60x90, N_b=5, L_b=0.50) ---")
-    sim_fine = simulate_2d_annulus(
-        L_a=L_a, zeta=zeta, x_f=x_f, n_p=0.0, n_v=n_v_spin,
-        tau_bar=tau_bar, sigma_tau=sigma_tau,
-        n_baffles=5, L_b=0.50, nx=60, ntheta=90, t_end=60.0, init_type="spin_1T_plus",
-    )
-    a_fine, w_fine = estimate_energy_growth_and_freq(sim_fine["t"], sim_fine["energy"], np.real(sim_fine["c_1T"]), 20.0, 58.0)
+    print("\n--- Experiment 4: 3-Grid Convergence Check (N_b=5, L_b=0.50) ---")
+    conv_2d = {}
+    for (gx, gt) in [(40, 60), (60, 90), (80, 120)]:
+        sf = simulate_2d_annulus(
+            L_a=L_a, zeta=zeta, x_f=x_f, n_p=0.0, n_v=n_v_spin,
+            tau_bar=tau_bar, sigma_tau=sigma_tau,
+            n_baffles=5, L_b=0.50, nx=gx, ntheta=gt, t_end=60.0, init_type="spin_1T_plus",
+        )
+        af, _ = estimate_energy_growth_and_freq(sf["t"], sf["energy"], np.real(sf["c_1T"]), 20.0, 58.0)
+        print(f"  Grid {gx}x{gt} (x_f={sf['x_f_actual']:.4f}, L_b={sf['L_b_actual']:.4f}): alpha={af:+.5f}, E_err={sf['energy_balance_rel_err']:.2e}")
+        conv_2d[f"{gx}x{gt}"] = {"alpha": af, "x_f_actual": sf["x_f_actual"], "L_b_actual": sf["L_b_actual"], "energy_err": sf["energy_balance_rel_err"]}
     row_050 = next(r for r in baffle_len_rows if abs(r["L_b"] - 0.50) < 0.03)
-    print(f"  Coarse 40x60: alpha={row_050['alpha_hot']:+.5f}, E_err={row_050['energy_err']:.2e}")
-    print(f"  Fine   60x90: alpha={a_fine:+.5f}, E_err={sim_fine['energy_balance_rel_err']:.2e} (|da|={abs(a_fine - row_050['alpha_hot']):.2e})")
 
     # ------------------------------------------------------------------
     # Figure 1: Cold 1L vs 1T Half-Damping + Chiral Spinning 1T + 2D Field Snapshots
@@ -783,28 +782,30 @@ def main() -> None:
     ax1.grid(True, alpha=0.3)
     ax1.legend([l1, l2], [l1.get_label(), l2.get_label()], loc="upper right", fontsize=8.0)
 
-    # Panel 2: Even-vs-Odd Symmetry Trap (Aligned 1T & 2T detuning % across N_b = 0,2,3,4,5,6)
+    # Panel 2: Even-vs-Odd Symmetry Trap (Aligned 1T, 2T AND 3T detuning % across N_b = 0,2,3,4,5,6)
     x_pos = np.arange(len(nb_list))
-    w_bar = 0.36
+    w_bar = 0.26
     d1t = [r["aligned_1T_detune_pct"] for r in sym_rows]
     d2t = [r["aligned_2T_detune_pct"] for r in sym_rows]
-    ax2.bar(x_pos - w_bar / 2, d1t, width=w_bar, color="#1f77b4", edgecolor="black", label="Worst-case aligned $1T$ detuning (%)")
-    ax2.bar(x_pos + w_bar / 2, d2t, width=w_bar, color="#ff7f0e", edgecolor="black", label="Worst-case aligned $2T$ detuning (%)")
+    d3t = [r["aligned_3T_detune_pct"] for r in sym_rows]
+    ax2.bar(x_pos - w_bar, d1t, width=w_bar, color="#1f77b4", edgecolor="black", label="Node-aligned $1T$ detuning (%)")
+    ax2.bar(x_pos, d2t, width=w_bar, color="#ff7f0e", edgecolor="black", label="Node-aligned $2T$ detuning (%)")
+    ax2.bar(x_pos + w_bar, d3t, width=w_bar, color="#2ca02c", edgecolor="black", label="Node-aligned $3T$ detuning (%)")
     ax2.set_xticks(x_pos)
     ax2.set_xticklabels([f"$N_b={n}$" for n in nb_list])
-    ax2.set_ylabel("Worst-case frequency shift $(1 - \\omega/\\omega_0)$ (%)")
-    ax2.set_title(f"Even-vs-Odd Baffle Symmetry Trap ($L_b = {L_b_sym}$)", fontweight="bold")
-    ax2.annotate("1T blind spot!\n(0% shift)", (1 - w_bar / 2, d1t[1] + 0.4), xytext=(0.45, 7.0),
-                 arrowprops=dict(arrowstyle="->", color="#d62728", lw=1.4), fontsize=8.0, fontweight="bold", color="#d62728")
-    ax2.annotate("2T blind spot!\n(0% shift)", (3 + w_bar / 2, d2t[3] + 0.4), xytext=(2.85, 8.5),
-                 arrowprops=dict(arrowstyle="->", color="#d62728", lw=1.4), fontsize=8.0, fontweight="bold", color="#d62728")
-    ax2.annotate("Odd $N_b=5$:\nbreaks BOTH!", (4, max(d1t[4], d2t[4]) + 0.5), xytext=(3.6, 15.5),
-                 arrowprops=dict(arrowstyle="->", color="#2ca02c", lw=1.4), fontsize=8.2, fontweight="bold", color="#2ca02c")
-    ax2.set_ylim(0, max(max(d1t), max(d2t)) + 5.0)
+    ax2.set_ylabel("LSQ frequency shift $(1 - \\omega/\\omega_0)$ (%)")
+    ax2.set_title(f"Baffle Symmetry Blind Spots Across $1T, 2T, 3T$ ($L_b = {L_b_sym}$)", fontweight="bold")
+    ax2.annotate("$N_b=2$: $1T,2T,3T$\nblind spots!", (1, 0.5), xytext=(0.4, 9.0),
+                 arrowprops=dict(arrowstyle="->", color="#d62728", lw=1.3), fontsize=7.8, fontweight="bold", color="#d62728")
+    ax2.annotate("$N_b=4$: $2T$\nblind spot!", (3, 0.5), xytext=(2.6, 13.5),
+                 arrowprops=dict(arrowstyle="->", color="#d62728", lw=1.3), fontsize=7.8, fontweight="bold", color="#d62728")
+    ax2.annotate("$N_b=6$: $3T$\nblind spot!", (5 + w_bar, 0.5), xytext=(4.35, 11.0),
+                 arrowprops=dict(arrowstyle="->", color="#d62728", lw=1.3), fontsize=7.8, fontweight="bold", color="#d62728")
+    ax2.set_ylim(-0.5, max(max(d1t), max(d2t), max(d3t)) + 6.0)
     ax2.grid(True, axis="y", alpha=0.3)
-    ax2.legend(loc="upper left", fontsize=8.2)
+    ax2.legend(loc="upper left", fontsize=8.0)
 
-    fig.suptitle("Entry 004 (Part 2): Radial Faceplate Baffle Length & Why Odd Blade Counts Win", fontsize=12.2, fontweight="bold")
+    fig.suptitle("Entry 004 (Part 2): Radial Faceplate Baffle Length & Mode-Symmetry Blind Spots ($1T/2T/3T$)", fontsize=12.0, fontweight="bold")
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     fig.savefig(RESULTS_DIR / "exp004_baffle_design.png")
     plt.close(fig)
@@ -813,7 +814,7 @@ def main() -> None:
         "parameters": {
             "L_a": L_a, "zeta": zeta, "x_f": x_f, "tau_bar": tau_bar,
             "sigma_tau": sigma_tau, "omega_hp": OMEGA_HP, "n_v_spin": n_v_spin,
-            "grid_coarse": [40, 60], "grid_fine": [60, 90],
+            "grid_base": [40, 60],
         },
         "exp1_cold_2d": cold_summary,
         "exp1_1T_over_1L_damping_ratio": float(ratio_damping),
@@ -822,12 +823,7 @@ def main() -> None:
         },
         "exp3a_baffle_length_sweep_Nb5": baffle_len_rows,
         "exp3b_even_vs_odd_symmetry_Lb060": sym_rows,
-        "exp4_grid_convergence_Nb5_Lb050": {
-            "coarse_40x60_alpha": row_050["alpha_hot"],
-            "fine_60x90_alpha": a_fine,
-            "abs_diff": float(abs(a_fine - row_050["alpha_hot"])),
-            "fine_energy_err": sim_fine["energy_balance_rel_err"],
-        },
+        "exp4_grid_convergence_Nb5_Lb050": conv_2d,
     }
 
     with open(RESULTS_DIR / "exp004_metrics.json", "w", encoding="utf-8") as f:

@@ -2,19 +2,22 @@
   "parameters": {
     "L_a": 2.0,
     "zeta": 0.04,
-    "x_f": 0.2,
+    "x_f_exact": 0.16666666666666666,
     "tau_bar": 0.3,
     "sigma_tau": 0.15,
     "omega_hp": 0.15,
     "q_s": 0.036,
     "kappa": 4.5,
+    "gamma_ref": 1.25,
+    "n_pH_bare": 0.040935951886006156,
+    "omega_pH_bare": 0.9992253172527383,
     "grid": [
       30,
       60
     ],
     "cavity_test": {
-      "n_p": 0.048,
-      "n_v": 0.04,
+      "n_p": 0.038,
+      "n_v": 0.025,
       "beta_tot": 0.02,
       "f1": 0.8,
       "C_d": 0.65,
@@ -26,96 +29,102 @@
     "threshold_ratios": [
       {
         "n_p": 0.033,
-        "A_crit_spin": 0.010916992187500002,
-        "A_crit_stand": 0.0090751953125,
-        "E_crit_spin_over_stand": 1.4470849873764837,
-        "P_LC_spin": 0.011892708715617225,
-        "P_LC_stand": 0.013619556589961756
+        "A_crit_spin": 0.0107978515625,
+        "A_crit_stand": 0.008918945312500001,
+        "E_crit_spin_over_stand": 1.4657088288908764,
+        "P_LC_settled_spin": 0.038262864960988546
       },
       {
         "n_p": 0.037,
-        "A_crit_spin": 0.007233398437500002,
-        "A_crit_stand": 0.0059306640625,
-        "E_crit_spin_over_stand": 1.4875724516326407,
-        "P_LC_spin": 0.007740220152430596,
-        "P_LC_stand": 0.008847608147615212
+        "A_crit_spin": 0.007040039062500001,
+        "A_crit_stand": 0.005770507812500001,
+        "E_crit_spin_over_stand": 1.4884082586000498,
+        "P_LC_settled_spin": 0.04306495229359063
       },
       {
         "n_p": 0.04,
-        "A_crit_spin": 0.0038642578125000003,
-        "A_crit_stand": 0.0031904296875000003,
-        "E_crit_spin_over_stand": 1.4670125581720874,
-        "P_LC_spin": 0.004084653364329126,
-        "P_LC_stand": 0.004749776061587509
+        "A_crit_spin": 0.0035107421875000006,
+        "A_crit_stand": 0.0028759765625000003,
+        "E_crit_spin_over_stand": 1.4901404066055386,
+        "P_LC_settled_spin": 0.04677601245469137
       }
     ],
-    "spontaneous_flip_np068": {
-      "spin_initial": 0.16886086271053316,
-      "spin_final": 0.8433964108330563,
-      "p_peak_final": 0.08631748943791698
+    "horizon_check_np037_t360": {
+      "A_spin": 0.007001953125000002,
+      "A_stand": 0.005681640625,
+      "E_ratio": 1.5187660395583658
     },
-    "equal_energy_showdown_np037": {
-      "A_eq": 0.006582031250000001,
-      "standing_triggered": true,
-      "standing_final_peak": 0.010525570094209779,
-      "standing_final_spin": 0.13698383768984657,
-      "spinning_triggered": false,
-      "spinning_final_peak": 0.006539021774588883
+    "subcritical_spinup_np037": {
+      "spin_initial": 0.16886086271053313,
+      "spin_final_t500": 0.15912787914460408,
+      "p_peak_final_t500": 0.04555326135507231
+    },
+    "supercritical_spinup_np068": {
+      "spin_initial": 0.16886086271053316,
+      "spin_final_t360": 0.8786777773075997,
+      "p_peak_final_t360": 0.0858785849695705
     }
   },
   "exp2_2d_nonlinear_cavity_sweep": {
-    "pure_5blade_baffles_Lb060": {
-      "A_crit_1T": 0.0,
-      "A_crit_2T": 0.0
+    "bare_linear_check": {
+      "stable": false,
+      "alpha_late": 0.004919486241946392
     },
+    "baffles_Nb5_Lb060_linear_check": {
+      "stable": false,
+      "alpha_late": 0.016641527770786
+    },
+    "nonlinear_energy_balance_rel_err": 4.885875443645326e-06,
     "xi_mult_sweep": [
       {
         "xi_mult": 0.25,
-        "A_crit_1T_linear_cav": 0.029336914062499997,
-        "A_crit_1T_wide_35pct": 0.021383789062500002,
-        "A_crit_1T_tight_15pct": 0.009704101562500001,
-        "A_crit_2T_tight_15pct": 0.013028320312500001
+        "linear_stable_t400": true,
+        "linear_alpha_t400": -0.006384447129518223,
+        "A_crit_1T_linear_cav": null,
+        "A_crit_1T_wide_35pct": null,
+        "A_crit_1T_tight_15pct": 0.01662890625
       },
       {
         "xi_mult": 0.5,
-        "A_crit_1T_linear_cav": 0.06276171875000001,
-        "A_crit_1T_wide_35pct": 0.017206054687500003,
-        "A_crit_1T_tight_15pct": 0.009120117187500002,
-        "A_crit_2T_tight_15pct": 0.012444335937500002
+        "linear_stable_t400": true,
+        "linear_alpha_t400": -0.006862022772169866,
+        "A_crit_1T_linear_cav": null,
+        "A_crit_1T_wide_35pct": null,
+        "A_crit_1T_tight_15pct": 0.015644531250000003
       },
       {
         "xi_mult": 0.8,
-        "A_crit_1T_linear_cav": 0.0433623046875,
-        "A_crit_1T_wide_35pct": 0.013926757812500003,
-        "A_crit_1T_tight_15pct": 0.008356445312499999,
-        "A_crit_2T_tight_15pct": 0.0118154296875
+        "linear_stable_t400": true,
+        "linear_alpha_t400": -0.008408186586513326,
+        "A_crit_1T_linear_cav": null,
+        "A_crit_1T_wide_35pct": null,
+        "A_crit_1T_tight_15pct": 0.014758789062499998
       },
       {
         "xi_mult": 1.0,
-        "A_crit_1T_linear_cav": 0.0407587890625,
-        "A_crit_1T_wide_35pct": 0.0126240234375,
-        "A_crit_1T_tight_15pct": 0.0078173828125,
-        "A_crit_2T_tight_15pct": 0.0113662109375
+        "linear_stable_t400": true,
+        "linear_alpha_t400": -0.009254657408208125,
+        "A_crit_1T_linear_cav": null,
+        "A_crit_1T_wide_35pct": null,
+        "A_crit_1T_tight_15pct": 0.014174804687499999
       },
       {
         "xi_mult": 1.4,
-        "A_crit_1T_linear_cav": 0.013043945312500003,
-        "A_crit_1T_wide_35pct": 0.010422851562500002,
-        "A_crit_1T_tight_15pct": 0.0067392578125000015,
-        "A_crit_2T_tight_15pct": 0.0105126953125
+        "linear_stable_t400": true,
+        "linear_alpha_t400": -0.011592493092611792,
+        "A_crit_1T_linear_cav": null,
+        "A_crit_1T_wide_35pct": null,
+        "A_crit_1T_tight_15pct": 0.0131337890625
       },
       {
         "xi_mult": 2.0,
-        "A_crit_1T_linear_cav": 0.008581054687500003,
-        "A_crit_1T_wide_35pct": 0.007413085937500001,
-        "A_crit_1T_tight_15pct": 0.004762695312500001,
-        "A_crit_2T_tight_15pct": 0.009209960937500001
+        "linear_stable_t400": true,
+        "linear_alpha_t400": -0.011828302612303988,
+        "A_crit_1T_linear_cav": null,
+        "A_crit_1T_wide_35pct": 0.024121093750000003,
+        "A_crit_1T_tight_15pct": 0.0117626953125
       }
-    ]
-  },
-  "exp3_grid_convergence": {
-    "coarse_30x60_A_crit_stand": 0.0059306640625,
-    "fine_45x90_A_crit_stand": 0.005908203125000001,
-    "rel_diff": 0.0038016528925619315
+    ],
+    "horizon_check_ep_tight_t360": 0.013958984374999997
   }
 }
