@@ -12,3 +12,4 @@ Investigating thermoacoustic combustion instability in rocket chambers—modelin
 | [003-nonlinear-triggering.md](./entries/003-nonlinear-triggering.md) | Nonlinear Triggering (Bounded Subcritical Flame) & Calibrated Cavity Orifice Drag | `verified` |
 | [004-2d-transverse-baffles.md](./entries/004-2d-transverse-baffles.md) | 2D Transverse / Spinning Tangential Modes ($1T, 2T$) & Radial Faceplate Baffles | `verified` |
 | [005-baffle-free-2d.md](./entries/005-baffle-free-2d.md) | Baffle-Free 2D Stabilization: Dual-Tuned Cavity Rings ($1/\omega^2$ Law) & Azimuthal Lag Staggering | `verified` |
+| [006-2d-nonlinear-modes.md](./entries/006-2d-nonlinear-modes.md) | 2D Nonlinear Spinning vs. Standing Mode Selection & Nonlinear Cavity Bomb Tests | `verified` |
