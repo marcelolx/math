@@ -324,15 +324,18 @@ def main() -> None:
     pmax_exact = []
     pmax_num = []
     for dK in dK_grid:
-        p_ex, _, _ = exact_4bus_braess_pmax(float(dK))
+        p_ex, g_ex, a_ex = exact_4bus_braess_pmax(float(dK))
         pmax_exact.append(p_ex)
-        # Independently verify by numerical bisection of full 4-bus equilibrium + Fiedler stability!
+        # Independently verify by warm-started numerical bisection of full 4-bus equilibrium + Fiedler stability
         edges_b = [(0, 1, 1.0 + float(dK)), (1, 2, 1.0), (2, 3, 1.0), (3, 0, 1.0)]
         Kb = build_K_matrix(4, edges_b)
         lo, hi = 0.5, 2.2
-        for _ in range(30):
+        # Warm-start safely inside the stable basin (scale angles by mid/p_ex)
+        th_fold = np.array([0.0, -a_ex, 0.5 * (g_ex - a_ex), -0.5 * (g_ex + a_ex)])
+        for _ in range(34):
             mid = 0.5 * (lo + hi)
-            ok, _, _ = find_equilibrium(mid * np.array([1.0, -1.0, 1.0, -1.0]), Kb)
+            scale = min(0.95 * mid / max(p_ex, 1e-6), 0.98)
+            ok, _, _ = find_equilibrium(mid * np.array([1.0, -1.0, 1.0, -1.0]), Kb, theta_guess=scale * th_fold)
             if ok:
                 lo = mid
             else:
@@ -469,7 +472,23 @@ def main() -> None:
         )
         gfm_sweep.append(r)
 
-    # RK4 timestep convergence check (dt = 0.0025 vs 0.00125 on 100% GFM case)
+    # Counterfactual check: place the single GFM inverter at Bus 6 (importing Area B) instead of Bus 0 (Area A)
+    M_b6 = np.full(n12, 0.12)
+    D_b6 = np.full(n12, 0.12)
+    for b in gen_buses:
+        M_b6[b], D_b6[b] = 0.08, 0.04
+    M_b6[6], D_b6[6] = 1.8, 1.60
+    sim_b6 = simulate_swing_rk4(
+        M_b6, D_b6, P12, K12_pre, th12_pre, np.zeros(n12), dt=0.0025, t_end=35.0,
+        event_fn=lambda t, K0, P0: (K12_post if t >= 2.0 else K0, P12_post if t >= 2.0 else P0),
+    )
+    th_rel_b6 = sim_b6["theta"] - np.mean(sim_b6["theta"], axis=1, keepdims=True)
+    spread_b6 = float(np.max(np.max(th_rel_b6, axis=1) - np.min(th_rel_b6, axis=1)))
+    om_coi_b6 = (sim_b6["omega"] @ M_b6) / np.sum(M_b6)
+    synced_b6 = bool((spread_b6 < np.pi) and (float(np.max(np.abs(sim_b6["omega"][-200:] - om_coi_b6[-200:, None]))) < 0.05))
+    print(f"  Counterfactual 1 GFM at Bus 6 (Area B): synced={synced_b6}, max spread={spread_b6:.2f} rad (vs Bus 0 Area A: synced=False, spread={gfm_sweep[1]['max_angle_spread_rad']:.2f} rad)")
+
+    # Genuine transient RK4 timestep convergence check (same t_end=35.0, transient peak tie-line angle |th_2 - th_6|)
     r_ref = gfm_sweep[-1]
     order_all = [0, 6, 1, 7, 2, 8]
     M_gfm_all = np.full(n12, 0.12)
@@ -477,11 +496,12 @@ def main() -> None:
     for b in order_all:
         M_gfm_all[b], D_gfm_all[b] = 1.8, 1.60
     sim_fine = simulate_swing_rk4(
-        M_gfm_all, D_gfm_all, P12, K12_pre, th12_pre, np.zeros(n12), dt=0.00125, t_end=25.0,
+        M_gfm_all, D_gfm_all, P12, K12_pre, th12_pre, np.zeros(n12), dt=0.00125, t_end=35.0,
         event_fn=lambda t, K0, P0: (K12_post if t >= 2.0 else K0, P12_post if t >= 2.0 else P0),
     )
-    f_coi_fine = float(np.max(np.abs((sim_fine["omega"] @ M_gfm_all) / (2.0 * np.pi * np.sum(M_gfm_all)))))
-    print(f"\n  RK4 timestep check (100% GFM): f_nadir_COI(dt=0.0025)={r_ref['f_nadir_coi_hz']:.6f} vs dt=0.00125={f_coi_fine:.6f} (|diff|={abs(r_ref['f_nadir_coi_hz']-f_coi_fine):.2e})")
+    tie_peak_coarse = float(np.max(np.abs(r_ref["theta"][:, 2] - r_ref["theta"][:, 6])))
+    tie_peak_fine = float(np.max(np.abs(sim_fine["theta"][:, 2] - sim_fine["theta"][:, 6])))
+    print(f"\n  Transient RK4 dt check (100% GFM, t_end=35): peak |th_2-th_6|(dt=0.0025)={tie_peak_coarse:.8f} vs dt=0.00125={tie_peak_fine:.8f} (|diff|={abs(tie_peak_coarse-tie_peak_fine):.2e})")
 
     # ------------------------------------------------------------------
     # Figure 1: Exact AC Braess's Paradox (Analytical Capacity Curve + Blackout Traces)
@@ -582,10 +602,11 @@ def main() -> None:
         },
         "exp3_12bus_gfl_cliff": [clean_row(r) for r in gfl_sweep],
         "exp3_12bus_100pct_inv_gfm_sweep": [clean_row(r) for r in gfm_sweep],
+        "exp3_counterfactual_1gfm_bus6": {"synchronized": synced_b6, "max_angle_spread_rad": spread_b6},
         "exp3_dt_convergence_100pct_gfm": {
-            "f_nadir_coi_dt0025": r_ref["f_nadir_coi_hz"],
-            "f_nadir_coi_dt00125": f_coi_fine,
-            "abs_diff": float(abs(r_ref["f_nadir_coi_hz"] - f_coi_fine)),
+            "tie_peak_dt0025": tie_peak_coarse,
+            "tie_peak_dt00125": tie_peak_fine,
+            "abs_diff": float(abs(tie_peak_coarse - tie_peak_fine)),
         },
     }
     with open(RESULTS_DIR / "baseline_metrics.json", "w", encoding="utf-8") as f:

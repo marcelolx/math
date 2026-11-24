@@ -19,7 +19,7 @@
     "P_max_dK50": 1.7656905944717827,
     "P_max_inf_exact": 1.760172593046087,
     "capacity_loss_pct_inf": -11.991370347695652,
-    "max_analytic_vs_numerical_diff": 0.0005068619799970531,
+    "max_analytic_vs_numerical_diff": 3.606457030347343e-05,
     "blackout_test_P185": {
       "baseline_final_omega_rms": 4.0281299746141105e-05,
       "added_line_final_omega_rms": 4.470630169267186,
@@ -240,9 +240,13 @@
       "max_angle_spread_rad": 1.7564395586962886
     }
   ],
+  "exp3_counterfactual_1gfm_bus6": {
+    "synchronized": true,
+    "max_angle_spread_rad": 1.7285739198680732
+  },
   "exp3_dt_convergence_100pct_gfm": {
-    "f_nadir_coi_dt0025": 0.013108699668047518,
-    "f_nadir_coi_dt00125": 0.013108699668047449,
-    "abs_diff": 6.938893903907228e-17
+    "tie_peak_dt0025": 0.9765873491314061,
+    "tie_peak_dt00125": 0.9765873492328614,
+    "abs_diff": 1.0145528861471576e-10
   }
 }
