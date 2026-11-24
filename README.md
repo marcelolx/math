@@ -36,8 +36,8 @@ math/
 
 | Topic | Focus | Status |
 | :--- | :--- | :--- |
-| [`rocket-combustion/`](./rocket-combustion/) | Thermoacoustic combustion instability, Rayleigh criterion, passive cavities, baffles & nonlinear triggering (Entries `000`–`006`) | Active |
-| [`plasma-nozzles/`](./plasma-nozzles/) | Magnetic nozzle acceleration, Alfvén/resistive plasma detachment & MHD instabilities (Entry `000`) | Active |
+| [`rocket-combustion/`](./rocket-combustion/) | Thermoacoustic combustion instability, passive cavities, baffles & nonlinear triggering (Entries `000`–`006` + [`SYNTHESIS.md`](./rocket-combustion/SYNTHESIS.md)) | Active |
+| [`plasma-nozzles/`](./plasma-nozzles/) | Magnetic nozzle acceleration, Alfvén/resistive plasma detachment & 2D MHD shear instabilities (Entries `000`–`001`) | Active |
 
 ## Running Simulations Locally
 
