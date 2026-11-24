@@ -7,3 +7,4 @@ Investigating nonlinear synchronization, cascading phase-slip blackouts, Braess'
 | Entry | Title | Status |
 | :--- | :--- | :--- |
 | [000-baseline.md](./entries/000-baseline.md) | Nonlinear AC Swing Baseline, Exact Braess's Paradox & Grid-Forming Inverter Stabilization | `verified` |
+| [001-gfm-placement-and-saturation.md](./entries/001-gfm-placement-and-saturation.md) | Spatial Placement of GFM Inverters: Import-Side Asymmetry & Semiconductor Saturation Cliff | `verified` |

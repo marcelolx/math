@@ -38,7 +38,7 @@ math/
 | :--- | :--- | :--- |
 | [`rocket-combustion/`](./rocket-combustion/) | Thermoacoustic combustion instability, passive cavities, baffles & nonlinear triggering (Entries `000`–`006` + [`SYNTHESIS.md`](./rocket-combustion/SYNTHESIS.md)) | Active |
 | [`plasma-nozzles/`](./plasma-nozzles/) | Magnetic nozzle acceleration, 2D resistive-MHD shear stability & self-consistent diamagnetic detachment (Entries `000`–`002`) | Active |
-| [`grid-stability/`](./grid-stability/) | Renewable AC power-grid synchronization, Braess's paradox & Grid-Forming (GFM) inverter stabilization (Entry `000`) | Active |
+| [`grid-stability/`](./grid-stability/) | Renewable AC power-grid synchronization, Braess's paradox & Grid-Forming (GFM) inverter stabilization (Entries `000`–`001`) | Active |
 
 ## Running Simulations Locally
 
