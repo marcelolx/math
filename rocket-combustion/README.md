@@ -2,7 +2,7 @@
 
 Investigating thermoacoustic combustion instability in rocket chambers—modeling the feedback loop between acoustic pressure waves and unsteady heat release (Rayleigh criterion) to explore stabilization mechanisms, geometric damping, and nonlinear triggering.
 
-> **Consolidated Monograph:** See [`SYNTHESIS.md`](./SYNTHESIS.md) for the unified quantitative design laws, documented dead ends, and verified scope across Entries `000`–`008` (Entries `000`–`006` hardened across three independent cross-model peer reviews).
+> **Consolidated Monograph:** See [`SYNTHESIS.md`](./SYNTHESIS.md) for the unified quantitative design laws, documented dead ends, and verified scope across Entries `000`–`008` (all hardened across four independent cross-model peer reviews).
 
 ## Entries
 
