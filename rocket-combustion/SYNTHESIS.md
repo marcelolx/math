@@ -1,6 +1,6 @@
-# Synthesis — High-Frequency Rocket Combustion Instability (`000`–`006`)
+# Synthesis — High-Frequency Rocket Combustion Instability (`000`–`007`)
 
-This monograph synthesizes seven verified open-notebook entries (`000`–`006`), audited across **two independent cross-model peer reviews** (Claude Code on `000`–`003`, Claude Opus on `004`–`006`), building from a 1D Crocco $n\text{--}\tau$ baseline up to a 2D nonlinear cylindrical-annulus chamber with radial baffles, dual-tuned faceplate Helmholtz cavity rings, and additive-manufactured azimuthal injector lag staggering.
+This monograph synthesizes eight verified open-notebook entries (`000`–`007`), with `000`–`006` audited across **three independent cross-model peer reviews** (Claude Code / Claude Opus), building from a 1D Crocco $n\text{--}\tau$ baseline through 2D nonlinear cylindrical-annulus acoustics up to **1D periodic compressible Euler shock steepening** (`007`).
 
 Every law below is backed by an exact analytical derivation or dispersion root **cross-checked directly against time-domain PDE integration** with verified discrete energy-balance residuals ($10^{-8}\text{--}10^{-5}$), real-axis / $k = 0$ DC stability checks, and grid/horizon convergence checks.
 
@@ -19,6 +19,7 @@ Every law below is backed by an exact analytical derivation or dispersion root *
 | **7** | **Odd-Periodic Zero-Hardware Azimuthal Lag Staggering** | Alternating injector lags $\tau(\theta) = \bar{\tau} \pm \Delta\tau$ attenuates non-resonant modes by $\cos(\omega\Delta\tau)$, stabilizing pressure-coupled $1T$ for $\Delta\tau \ge 0.75$ with **zero cavities or baffles** when $M \in \{3, 5\}$ is odd—whereas $M = 2$ triggers a Bragg-orientation trap that worsens orthogonal standing $1T$ by **$+67\%$**. | [`005`](entries/005-baffle-free-2d.md) |
 | **8** | **2D Standing-Bomb Energy Advantage ($1.50\times$)** | Under subcritical cubic driving, standing $1T$ bombs concentrate space-time quartic Rayleigh energy by $\frac{9/16}{3/8} = \mathbf{1.50\times}$ over equal-energy spinning bombs (verified $1.47\text{--}1.49$ at $t=180$, $1.52$ at $t=360$ in 2D PDE, within $0.7\text{--}2.3\%$ of cubic $O(2)$ theory). Near the subcritical fold, triggered standing waves stay standing over long times; strong spin-up ($S: 0.17 \to 0.88$, seeded $\epsilon_s=0.12$) emerges deeper in the saturating supercritical regime. | [`006`](entries/006-2d-nonlinear-modes.md) |
 | **9** | **Nonlinear Cavity Orifice-Drag Cliff (1D & 2D)** | Quadratic orifice jet drag ($c_{\text{nl}} \propto 1/\sigma_o^2$) penalizes both tight necks and over-damping above the EP: in 1D (`003`), over-damping above $\xi_H^{\text{EP}}$ drops $P_{\text{crit}}$ by $-54\%$; in long-horizon ($t = 900$) 2D scans (`006`), widening the $80/20$ cavity mouth from $\sigma_o = 1.5\%$ to $3.5\%$ raises the $1T$ trigger onset from $(0.010, 0.015]$ to **$(0.032, 0.045]$** ($\sim 2\text{--}4\times$ amplitude / $\sim 4\text{--}16\times$ bomb-energy gain) for $\xi_H \le 1.0\,\xi_H^{\text{EP}}$, whereas over-damping to $\xi_H = 2.0\,\xi_H^{\text{EP}}$ halves the wide-mouth margin down to $(0.015, 0.022]$. | [`003`](entries/003-nonlinear-triggering.md), [`006`](entries/006-2d-nonlinear-modes.md) |
+| **10** | **Gasdynamic Shock Mode-Selection Reversal & Cascade Capping** | In compressible Euler ($\gamma = 1.25$), Rankine–Hugoniot $O(A^3)$ shock dissipation ($-\frac{dE_{\text{ac}}}{dt} = \frac{\gamma+1}{24\pi}(\Delta u)^3$, verified to $0.2\text{--}0.6\%$ of Fay–Burgers theory) caps supercritical spinning peak pressure by **$-37\%$** ($7.2\% \to 4.5\%\,p'/\bar{p}$), cascades $28\%$ of energy into $2T$, quenches Entry `006`'s subcritical bistability ($n_p = 0.037\text{--}0.039$, verified at $N=512$), and triggers an **attractor/saddle exchange**—reversing bulk-linear spinning selection ($S \to 1$) to a **standing-wave attractor ($S \to 0$)** because equal-energy standing waves suffer $\ge \sqrt{2}\times$ lower cubic shock loss. Under strong shocked driving ($n_p = 0.085$), a $100\%\,1T$ cavity ring fails into a pure-$2T$ limit cycle, whereas the wide-mouth **$80/20$ dual ring** exponentially damps $1T, 2T, 3T$ ($P_{\text{peak}} \to 0.05\%$ by $t = 600$). | [`007`](entries/007-compressible-euler-steepening.md) |
 
 ---
 
@@ -38,11 +39,11 @@ Every law below is backed by an exact analytical derivation or dispersion root *
 ## 3. Verified Scope vs. Open Problems
 
 ### What Is Verified Within This Model
-- Linearized 1D and 2D thin-annulus bulk acoustics (zero mean Mach advection, no radial $r$-modes or gasdynamic shock steepening).
-- Exact dispersion root-finding cross-checked against staggered-grid RK4 PDEs with discrete energy conservation checks.
+- Linearized 1D and 2D thin-annulus bulk acoustics (`000`–`006`, zero mean Mach advection, no radial $r$-modes) AND 1D periodic compressible Euler transverse shock steepening with HLLC/MUSCL-minmod (`007`, $\gamma = 1.25$, exact conservation to $10^{-16}$, Fay–Burgers $O(u_0^3)$ verification to $0.2\text{--}0.6\%$).
+- Exact dispersion root-finding cross-checked against time-domain PDEs with discrete energy conservation checks.
 - Chiral spinning $1T$ conclusions (`004`–`006`) explicitly assume **signed linear azimuthal velocity coupling** (swirled/directional injectors); non-swirled injectors with even $|U_\theta|$ or $U_\theta^2$ response have no linear chiral drive.
 
-### High-Value Open Problems for Future Entries (`007+`)
-1. **Compressible 2D Nonlinear Euler Transverse Acoustics:** Capture finite-amplitude spinning-wave steepening (rotating detonation-like shock fronts) at $p'/\bar{p} \gtrsim 0.10$, where bulk-linear acoustics breaks down.
-2. **Full 3D Cylindrical $(r, \theta, x)$ Chamber with Radial ($1R$) Modes & Baffle-Tip Vortex-Shedding Loss:** Couple conservative geometric blockage with nonlinear baffle-tip acoustic dissipation.
+### High-Value Open Problems for Future Entries (`008+`)
+1. **Chiral vs. Shock Competition (Rotating Detonation-Like Transition):** Couple Entry `007`'s compressible Euler ring with swirled chiral velocity driving ($n_v \neq 0$) to find the critical swirl threshold where chiral drive overcomes the $\sqrt{2}\times$ Rankine–Hugoniot shock penalty and flips the standing attractor back to a rotating sawtooth shock wave.
+2. **Full 2D/3D Compressible Euler Annulus $(x, \theta)$ / $(r, \theta, x)$ with Radial ($1R$) Modes & Baffle-Tip Vortex-Shedding Loss:** Couple conservative geometric blockage with nonlinear baffle-tip acoustic dissipation and shock diffraction around baffles.
 3. **Even-Symmetry ($|U_\theta|$) Velocity Coupling & Noise-Driven Azimuthal Mode Switching:** Test stochastic switching between standing and spinning $1T$ in symmetric non-swirled chambers (following Noiray & Schuermans).
