@@ -348,9 +348,9 @@ def simulate_2d_nonlinear(
     e_ratio = e_w3 / max(e_w2, 1e-30)
     spin_late = spin_num_late / max(spin_den_late, 1e-30)
 
-    # Pure trend-based trigger (NEVER marks a decaying trajectory as triggered!):
-    # Triggered iff energy is growing (e_ratio > 1.005) OR flat on a large limit cycle (e_ratio >= 0.985 and P > 0.020)
-    triggered = bool((e_ratio > 1.005 and p_peak_late > 0.002) or (e_ratio >= 0.985 and p_peak_late > 0.020))
+    # Pure trend-based trigger (NEVER marks a decaying trajectory as triggered):
+    # Triggered iff energy is growing (e_ratio > 1.005) OR flat on an upper-branch limit cycle (e_ratio >= 0.998 and P > 0.032)
+    triggered = bool((e_ratio > 1.005 and p_peak_late > 0.002) or (e_ratio >= 0.998 and p_peak_late > 0.032))
 
     eb_err = None
     if check_energy_bal:
@@ -369,17 +369,17 @@ def simulate_2d_nonlinear(
 
 def check_linear_stability_long(
     n_p: float, n_v: float, beta_local=0.0, omega_H_arr=1.0, xi_H_arr=0.14,
-    n_baffles: int = 0, L_b: float = 0.0, nx: int = 30, ntheta: int = 60, t_end: float = 400.0
+    n_baffles: int = 0, L_b: float = 0.0, nx: int = 30, ntheta: int = 60, t_end: float = 1000.0
 ) -> tuple[bool, float]:
-    """Long-horizon (t=400) multi-mode broadband linear stability check (1L, 1T+/-, 2T+/-, 1L1T)."""
+    """Long-horizon (t=1000) multi-mode broadband linear stability check (1L, 1T+/-, 2T+/-, 1L1T)."""
     r = simulate_2d_nonlinear(
         n_p=n_p, n_v=n_v, beta_local=beta_local, omega_H_arr=omega_H_arr, xi_H_arr=xi_H_arr, c_nl_arr=0.0,
         n_baffles=n_baffles, L_b=L_b, nx=nx, ntheta=ntheta, t_end=t_end,
         init_type="broadband_all", init_energy_amp=1e-4, record_history=True,
     )
-    mask = r["t_rec"] >= 200.0
+    mask = r["t_rec"] >= 0.70 * t_end
     alpha_late = float(np.polyfit(r["t_rec"][mask], 0.5 * np.log(np.maximum(r["e_rec"][mask], 1e-30)), 1)[0])
-    is_stable = bool(alpha_late < -1e-4 and r["e_ratio"] < 0.99)
+    is_stable = bool(alpha_late < -1e-4 and r["e_ratio"] < 0.995)
     return is_stable, alpha_late
 
 
@@ -497,8 +497,9 @@ def main() -> None:
     )
 
     # ------------------------------------------------------------------
-    # Experiment 2: Long-Horizon Linearly-Verified 80/20 Cavity Ring Nonlinear Bomb Tests
-    # Choose n_p = 0.038, n_v = 0.025 (bare combustor strongly unstable; 80/20 ring strictly linearly stable over t=400!)
+    # Experiment 2: Long-Horizon (t=900) Dense Amplitude Scan on 80/20 Cavity Ring
+    # Least-damped linear mode has |alpha_min| ~ 0.0018 (time scale ~550), so we use
+    # t=1000 linear checks and a t=900 dense amplitude scan (no monotonicity assumption!).
     # ------------------------------------------------------------------
     n_p_c, n_v_c = 0.038, 0.025
     beta_tot = 0.02
@@ -507,13 +508,12 @@ def main() -> None:
     sigma_o_tight = 0.015
     sigma_o_wide = 0.035
 
-    bare_stable, bare_alpha = check_linear_stability_long(n_p_c, n_v_c, nx=nx, ntheta=ntheta, t_end=260.0)
-    baf_stable, baf_alpha = check_linear_stability_long(n_p_c, n_v_c, n_baffles=5, L_b=0.60, nx=nx, ntheta=ntheta, t_end=260.0)
-    print(f"--- Experiment 2: Linearly-Verified 80/20 Cavity Ring Bomb Sweep (n_p={n_p_c}, n_v={n_v_c}, beta=2%) ---")
-    print(f"  Bare chamber broadband linear check:          stable={bare_stable}, alpha_late={bare_alpha:+.5f}")
-    print(f"  Pure 5-blade baffles (L_b=0.60) linear check: stable={baf_stable}, alpha_late={baf_alpha:+.5f}")
+    bare_stable, bare_alpha = check_linear_stability_long(n_p_c, n_v_c, nx=nx, ntheta=ntheta, t_end=400.0)
+    baf_stable, baf_alpha = check_linear_stability_long(n_p_c, n_v_c, n_baffles=5, L_b=0.60, nx=nx, ntheta=ntheta, t_end=400.0)
+    print(f"--- Experiment 2: Long-Horizon (t=900) 80/20 Cavity Ring Bomb Scan (n_p={n_p_c}, n_v={n_v_c}, beta=2%) ---")
+    print(f"  Bare chamber broadband linear check (t=400):          stable={bare_stable}, alpha_late={bare_alpha:+.5f}")
+    print(f"  Pure 5-blade baffles (L_b=0.60) linear check (t=400): stable={baf_stable}, alpha_late={baf_alpha:+.5f}")
 
-    # Nonlinear 2D energy balance check with calibrated quadratic cavity drag!
     b0, w0, x0, c0 = make_dual_cavity_arrays(ntheta, beta_tot, f1, 0.80, C_d, sigma_o_wide, L_a)
     r_eb = simulate_2d_nonlinear(
         n_p=n_p_c, n_v=n_v_c, x_f=x_f_exact, beta_local=b0, omega_H_arr=w0, xi_H_arr=x0, c_nl_arr=c0,
@@ -521,40 +521,62 @@ def main() -> None:
     )
     print(f"  2D Nonlinear Energy Balance Check (flame + quadratic orifice drag): rel err = {r_eb['energy_balance_rel_err']:.2e}")
 
-    xi_mults = [0.25, 0.50, 0.80, 1.00, 1.40, 2.00]
+    # Dense amplitude scan up to A_eq = 0.072 (p'/p_bar <= 9.0% for spinning wave, respecting bulk-linear bound!)
+    A_scan = [0.010, 0.015, 0.022, 0.032, 0.045, 0.060, 0.072]
+    xi_mults = [0.25, 0.50, 1.00, 2.00]
     cav_rows = []
     for xm in xi_mults:
         b_loc, wH, xiH, c_nl_t = make_dual_cavity_arrays(ntheta, beta_tot, f1, xm, C_d, sigma_o_tight, L_a)
         _, _, _, c_nl_w = make_dual_cavity_arrays(ntheta, beta_tot, f1, xm, C_d, sigma_o_wide, L_a)
-        lin_ok, lin_alpha = check_linear_stability_long(n_p_c, n_v_c, b_loc, wH, xiH, nx=nx, ntheta=ntheta, t_end=400.0)
-        if not lin_ok:
-            print(f"  xi/xi_EP={xm:.2f}: LINEARLY UNSTABLE over t=400 (alpha_late={lin_alpha:+.5f}) -> A_crit = 0.0000")
-            cav_rows.append({
-                "xi_mult": xm, "linear_stable_t400": False, "linear_alpha_t400": lin_alpha,
-                "A_crit_1T_linear_cav": 0.0, "A_crit_1T_wide_35pct": 0.0, "A_crit_1T_tight_15pct": 0.0,
-            })
-            continue
+        lin_ok, lin_alpha = check_linear_stability_long(n_p_c, n_v_c, b_loc, wH, xiH, nx=nx, ntheta=ntheta, t_end=1000.0)
 
-        a1_lin = bisect_2d_bomb(n_p_c, n_v_c, "spin_1T_plus", b_loc, wH, xiH, 0.0, nx=nx, ntheta=ntheta, t_end=180.0)
-        a1_wide = bisect_2d_bomb(n_p_c, n_v_c, "spin_1T_plus", b_loc, wH, xiH, c_nl_w, nx=nx, ntheta=ntheta, t_end=180.0)
-        a1_tight = bisect_2d_bomb(n_p_c, n_v_c, "spin_1T_plus", b_loc, wH, xiH, c_nl_t, nx=nx, ntheta=ntheta, t_end=180.0)
-        s_lin = f"{a1_lin:.4f}" if a1_lin is not None else "NO TRIG<=.095"
-        s_w = f"{a1_wide:.4f}" if a1_wide is not None else "NO TRIG<=.095"
-        s_t = f"{a1_tight:.4f}" if a1_tight is not None else "NO TRIG<=.095"
+        def scan_series(c_nl_arr):
+            outcomes = []
+            first_trig = None
+            last_safe = 0.0
+            for amp in A_scan:
+                r = simulate_2d_nonlinear(
+                    n_p=n_p_c, n_v=n_v_c, x_f=x_f_exact, beta_local=b_loc, omega_H_arr=wH, xi_H_arr=xiH,
+                    c_nl_arr=c_nl_arr, nx=nx, ntheta=ntheta, t_end=900.0, init_type="spin_1T_plus", init_energy_amp=amp,
+                )
+                outcomes.append({"A_eq": amp, "triggered": r["triggered"], "p_peak_late": r["p_peak_late"], "e_ratio": r["e_ratio"]})
+                if r["triggered"] and first_trig is None:
+                    first_trig = amp
+                if (not r["triggered"]) and first_trig is None:
+                    last_safe = amp
+            return outcomes, last_safe, first_trig
+
+        out_w, safe_w, trig_w = scan_series(c_nl_w)
+        out_t, safe_t, trig_t = scan_series(c_nl_t)
+        bw_str = f"({safe_w:.3f}, {trig_w:.3f}]" if trig_w is not None else f"> {A_scan[-1]:.3f}"
+        bt_str = f"({safe_t:.3f}, {trig_t:.3f}]" if trig_t is not None else f"> {A_scan[-1]:.3f}"
         print(
-            f"  xi/xi_EP={xm:.2f} (lin alpha={lin_alpha:+.5f}): "
-            f"1T(lin cav)={s_lin:>13s} | 1T(wide 3.5%)={s_w:>13s} | 1T(tight 1.5%)={s_t:>13s}"
+            f"  xi/xi_EP={xm:.2f} (t=1000 lin alpha={lin_alpha:+.5f}, stable={lin_ok}): "
+            f"wide 3.5% onset in {bw_str:>15s} | tight 1.5% onset in {bt_str:>15s}"
         )
         cav_rows.append({
-            "xi_mult": xm, "linear_stable_t400": True, "linear_alpha_t400": lin_alpha,
-            "A_crit_1T_linear_cav": a1_lin, "A_crit_1T_wide_35pct": a1_wide, "A_crit_1T_tight_15pct": a1_tight,
+            "xi_mult": xm,
+            "linear_stable_t1000": lin_ok,
+            "linear_alpha_t1000": lin_alpha,
+            "wide_35pct_bracket": [safe_w, trig_w],
+            "tight_15pct_bracket": [safe_t, trig_t],
+            "wide_35pct_scan": out_w,
+            "tight_15pct_scan": out_t,
         })
 
-    # Horizon convergence check on Exp 2 at xi/xi_EP = 1.00 (tight 1.5%, t=180 vs t=360)
-    b1, w1, x1, c1_t = make_dual_cavity_arrays(ntheta, beta_tot, f1, 1.00, C_d, sigma_o_tight, L_a)
-    a1_t_360 = bisect_2d_bomb(n_p_c, n_v_c, "spin_1T_plus", b1, w1, x1, c1_t, nx=nx, ntheta=ntheta, t_end=360.0, n_iter=8)
-    row_ep = next(r for r in cav_rows if abs(r["xi_mult"] - 1.0) < 1e-6)
-    print(f"  Exp 2 horizon check at xi/xi_EP=1.00 (tight 1.5%): t=180 -> {row_ep['A_crit_1T_tight_15pct']} vs t=360 -> {a1_t_360}")
+    # Also test ideal linear cavity (c_nl = 0) at xi=0.25 and 1.00 across A_scan to document non-monotonicity honestly
+    lin_cav_nonmono = {}
+    for xm in (0.25, 1.00):
+        b_loc, wH, xiH, _ = make_dual_cavity_arrays(ntheta, beta_tot, f1, xm, C_d, 0.0, L_a)
+        res_list = []
+        for amp in (0.032, 0.060, 0.072):
+            r = simulate_2d_nonlinear(
+                n_p=n_p_c, n_v=n_v_c, x_f=x_f_exact, beta_local=b_loc, omega_H_arr=wH, xi_H_arr=xiH,
+                c_nl_arr=0.0, nx=nx, ntheta=ntheta, t_end=900.0, init_type="spin_1T_plus", init_energy_amp=amp,
+            )
+            res_list.append({"A_eq": amp, "triggered": r["triggered"], "p_peak_late": r["p_peak_late"]})
+        lin_cav_nonmono[f"xi_{xm:.2f}"] = res_list
+        print(f"  Ideal linear cavity (c_nl=0) xi={xm:.2f} (t=900): " + ", ".join(f"A={x['A_eq']:.3f}->{x['triggered']}(P={x['p_peak_late']:.3f})" for x in res_list))
 
     # ------------------------------------------------------------------
     # Figure 1: Subcritical Triggered Spin-Up vs Supercritical Spin-Up
@@ -591,30 +613,41 @@ def main() -> None:
     plt.close(fig)
 
     # ------------------------------------------------------------------
-    # Figure 2: Verified 2D Nonlinear Cavity Bomb Thresholds vs xi/xi_EP
+    # Figure 2: Long-Horizon (t=900) 2D Nonlinear Cavity Bomb Trigger Map
     # ------------------------------------------------------------------
-    fig, ax = plt.subplots(figsize=(9.6, 5.3), dpi=150)
-    cap = 0.10
-    xms = [r["xi_mult"] for r in cav_rows]
-    y_1lin = [cap if r["A_crit_1T_linear_cav"] is None else r["A_crit_1T_linear_cav"] for r in cav_rows]
-    y_1w = [cap if r["A_crit_1T_wide_35pct"] is None else r["A_crit_1T_wide_35pct"] for r in cav_rows]
-    y_1t = [cap if r["A_crit_1T_tight_15pct"] is None else r["A_crit_1T_tight_15pct"] for r in cav_rows]
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13.6, 5.2), dpi=150)
 
-    ax.axvline(1.0, color="#1f77b4", ls=":", lw=1.4, label="Linear 2D EP ($\\xi_H / \\xi_H^{\\mathrm{EP}} = 1.0$)")
-    ax.axhline(cap, color="gray", ls="--", lw=1.0, alpha=0.7)
-    ax.text(1.42, cap + 0.002, "No trigger (probed $\\leq 0.095$)", fontsize=8.0, color="gray")
-    ax.plot(xms, y_1lin, "s--", color="#2ca02c", lw=1.9, ms=6.5, label="$1T$ bomb (ideal linear 80/20 cavity ring)")
-    ax.plot(xms, y_1w, "D-", color="#1f77b4", lw=2.3, ms=6.5, label="$1T$ bomb (wide-mouth rim cavities, $\\sigma_o=3.5\\%$)")
-    ax.plot(xms, y_1t, "o-", color="#d62728", lw=2.3, ms=6.5, label="$1T$ bomb (tight-neck cavities, $\\sigma_o=1.5\\%$)")
+    for ax, key, title in [
+        (ax1, "wide_35pct_scan", "Wide-Mouth Rim Cavities ($\\sigma_o = 3.5\\%, t=900$)"),
+        (ax2, "tight_15pct_scan", "Tight-Neck Rim Cavities ($\\sigma_o = 1.5\\%, t=900$)"),
+    ]:
+        safe_x, safe_y, trig_x, trig_y = [], [], [], []
+        lo_bnd, hi_bnd = [], []
+        xms = [r["xi_mult"] for r in cav_rows]
+        for r in cav_rows:
+            xm = r["xi_mult"]
+            for pt in r[key]:
+                if pt["triggered"]:
+                    trig_x.append(xm); trig_y.append(pt["A_eq"])
+                else:
+                    safe_x.append(xm); safe_y.append(pt["A_eq"])
+            br = r["wide_35pct_bracket" if "wide" in key else "tight_15pct_bracket"]
+            lo_bnd.append(br[0])
+            hi_bnd.append(br[1] if br[1] is not None else A_scan[-1])
 
-    ax.set_xlabel("Linear cavity damping ratio normalized to 2D EP ($\\xi_H / \\xi_H^{\\mathrm{EP}}$)")
-    ax.set_ylabel("Critical 2D bomb amplitude $A_{\\mathrm{eq,crit}}$ (trend-verified)")
-    ax.set_ylim(-0.005, 0.112)
-    ax.set_title(f"Linearly-Verified 80/20 Cavity Ring Bomb Survival ($n_p={n_p_c}, n_v={n_v_c}, \\beta=2\\%$)", fontweight="bold")
-    ax.grid(True, alpha=0.3)
-    ax.legend(loc="lower left", fontsize=8.1)
+        ax.fill_between(xms, lo_bnd, hi_bnd, color="#ffdf80", alpha=0.45, label="Trigger-onset bracket $(A_{\\mathrm{safe}}, A_{\\mathrm{trig}}]$")
+        ax.scatter(safe_x, safe_y, marker="o", s=75, color="#2ca02c", edgecolors="black", zorder=4, label="Decays (safe at $t=900$)")
+        ax.scatter(trig_x, trig_y, marker="X", s=85, color="#d62728", edgecolors="black", zorder=5, label="Triggers onto limit cycle ($t=900$)")
+        ax.axvline(1.0, color="#1f77b4", ls=":", lw=1.4, label="Linear 2D EP ($\\xi_H / \\xi_H^{\\mathrm{EP}} = 1.0$)")
+        ax.set_xlabel("Linear cavity damping ratio $\\xi_H / \\xi_H^{\\mathrm{EP}}$")
+        ax.set_ylabel("Initial $1T$ bomb amplitude $A_{\\mathrm{eq}}$ ($p'/\\bar{p} \\leq 9.0\\%$)")
+        ax.set_ylim(0.0, 0.080)
+        ax.set_title(title, fontweight="bold")
+        ax.grid(True, alpha=0.28)
+        ax.legend(loc="upper right", fontsize=7.8)
 
-    fig.tight_layout()
+    fig.suptitle(f"Entry 006 (Part 2): Long-Horizon ($t=900$) 80/20 Cavity Bomb Survival ($n_p={n_p_c}, n_v={n_v_c}, \\beta=2\\%$)", fontsize=11.8, fontweight="bold")
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
     fig.savefig(RESULTS_DIR / "exp006_2d_nonlinear_cavity_bombs.png")
     plt.close(fig)
 
@@ -623,7 +656,7 @@ def main() -> None:
             "L_a": L_a, "zeta": zeta, "x_f_exact": x_f_exact, "tau_bar": 0.30, "sigma_tau": 0.15,
             "omega_hp": OMEGA_HP, "q_s": 0.036, "kappa": 4.5, "gamma_ref": 1.25,
             "n_pH_bare": n_pH, "omega_pH_bare": w_pH, "grid": [nx, ntheta],
-            "cavity_test": {"n_p": n_p_c, "n_v": n_v_c, "beta_tot": beta_tot, "f1": f1, "C_d": C_d, "sigma_o_tight": sigma_o_tight, "sigma_o_wide": sigma_o_wide},
+            "cavity_test": {"n_p": n_p_c, "n_v": n_v_c, "beta_tot": beta_tot, "f1": f1, "C_d": C_d, "sigma_o_tight": sigma_o_tight, "sigma_o_wide": sigma_o_wide, "A_scan": A_scan, "t_end_scan": 900.0},
         },
         "exp1_spin_vs_standing": {
             "threshold_ratios": exp1_rows,
@@ -639,12 +672,12 @@ def main() -> None:
                 "p_peak_final_t360": tr_sup_spinup["p_peak_late"],
             },
         },
-        "exp2_2d_nonlinear_cavity_sweep": {
-            "bare_linear_check": {"stable": bare_stable, "alpha_late": bare_alpha},
-            "baffles_Nb5_Lb060_linear_check": {"stable": baf_stable, "alpha_late": baf_alpha},
+        "exp2_2d_nonlinear_cavity_scan_t900": {
+            "bare_linear_check_t400": {"stable": bare_stable, "alpha_late": bare_alpha},
+            "baffles_Nb5_Lb060_linear_check_t400": {"stable": baf_stable, "alpha_late": baf_alpha},
             "nonlinear_energy_balance_rel_err": r_eb["energy_balance_rel_err"],
-            "xi_mult_sweep": cav_rows,
-            "horizon_check_ep_tight_t360": a1_t_360,
+            "xi_mult_scan": cav_rows,
+            "ideal_linear_cavity_nonmonotonicity": lin_cav_nonmono,
         },
     }
 
