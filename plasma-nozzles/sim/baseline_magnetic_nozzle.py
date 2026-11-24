@@ -32,7 +32,7 @@ Experiments:
 1. Verify unsteady conservative HLL finite-volume PDE solver against exact analytical Mach-area,
    density, velocity, pressure, Alfven Mach number, and exact momentum/thrust balance (grid N=100, 200, 400).
 2. Map the Alfven detachment location z_A(beta_0) and discover the optimal throat plasma beta_0*
-   across nozzle aspect ratios L_n/R_0 in {1.5, 2.5, 4.0} and polytropic indices gamma in {5/3, 1.3, 1.15}.
+   across nozzle aspect ratios L_n/R_0 in {1.5, 2.5, 4.0} and polytropic indices gamma in {5/3, 1.3, 1.12}.
 """
 
 from __future__ import annotations
@@ -114,7 +114,7 @@ def solve_unsteady_nozzle_fv(
     """Solve unsteady quasi-1D conservative Euler equations to steady state with HLL flux + RK2.
 
     State vector per cell j: U_cons = [A*rho, A*rho*u, A*E].
-    Throat inflow (z=0): slightly supersonic sonic-throat boundary (M_in = 1.0001) so all
+    Throat inflow (z=0): slightly supersonic sonic-throat boundary (u_in = 1.0002*c_s0) so all
     characteristics enter the domain cleanly without reflection; outflow (z=z_max): supersonic extrapolation.
     """
     dz = z_max / n_cells

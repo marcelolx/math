@@ -45,7 +45,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.optimize import brentq
+from scipy.optimize import brentq, minimize_scalar
 
 
 RESULTS_DIR = Path(__file__).resolve().parent.parent / "results"
@@ -109,12 +109,10 @@ def solve_exact_steady_self_consistent(
         A(rho) = mdot / (rho * u(rho))
         B_in(rho) = Phi_B / A(rho)
         p_tot(rho) = p(rho) + 0.5 * B_in(rho)^2
-    Along the super-tube branch (rho < rho_0), p_tot(rho) is strictly increasing with rho!
-    Proof: d(p_tot)/drho = c_s^2 + B^2/rho * (1 - u^2/c_s^2) ... wait:
-    Actually d(p_tot)/du = -rho*u + B^2 * (dA/du)/A ... let's check sign directly:
-    At throat u = c_T: d(p_tot)/drho = 0 (maximum of p_tot = 0.5 = B_vac(0)^2/2!).
-    For rho < rho_0 (u > c_T): p_tot(rho) decreases monotonically from 0.5 down to 0 as rho -> 0!
-    Hence brentq(p_tot(rho) - 0.5*B_vac(z)^2, 1e-12, rho_0) yields the EXACT unique solution!
+    Along the super-tube branch (rho < rho_0, u > c_T):
+        dp_tot/drho = (c_s^2 + v_A^2) * (1 - c_T^2 / u^2) > 0
+    so p_tot(rho) decreases strictly monotonically from 0.5 at rho = rho_0 down to 0 as rho -> 0.
+    Hence brentq(p_tot(rho) - 0.5*B_vac(z)^2, lo, rho_0) yields the exact unique solution.
     """
     st = throat_state_self_consistent(beta_vac0, gamma)
     rho_0 = st["rho_0"]
@@ -443,43 +441,26 @@ def evaluate_nozzle_performance(
     self_consistent: bool = True,
     L_B: float = 1.0,
 ) -> dict:
-    """Compute exact Alfven detachment point (M_A = 1) and net axial thrust efficiency.
+    """Compute exact Alfven detachment point (M_A = 1 via brentq) and same-H_0 axial thrust gain.
 
-    Accounts for BOTH:
-      1. Magnetic nozzle thrust amplification F_tot(z_det) / F_tot(0)
-      2. Conical streamline divergence efficiency eta_div = 0.5 * (1 + cos(theta_edge)),
-         where tan(theta_edge) = dr/dz = (r_0 / 2) * (1/sqrt(A)) * (dA/dz) evaluated using
-         the ACTUAL radius r(z) = r_0 * sqrt(A(z)) at detachment z_det!
+    Normalizes each nozzle's net axial specific impulse at detachment against an unexpanded
+    sonic nozzle fed from its OWN identical stagnation enthalpy H_0:
+        c_star = sqrt(2*(gamma - 1)/(gamma + 1) * H_0),    I_sp_sonic(H_0) = (1 + 1/gamma) * c_star
     """
-    z_grid = np.concatenate([
-        np.linspace(0.0, 2.0, 400),
-        np.linspace(2.01, 15.0, 600),
-        np.linspace(15.1, 60.0, 400),
-    ]) * L_B
+    def ma_at_z(zv: float) -> float:
+        s = solve_exact_steady_self_consistent(np.array([zv]), beta_vac0, gamma, L_B) if self_consistent else solve_exact_steady_rigid(np.array([zv]), beta_vac0, gamma, L_B)
+        return float(s["M_A"][0])
 
-    if self_consistent:
-        sol = solve_exact_steady_self_consistent(z_grid, beta_vac0, gamma, L_B)
-    else:
-        sol = solve_exact_steady_rigid(z_grid, beta_vac0, gamma, L_B)
-
-    M_A = sol["M_A"]
-    if M_A[0] >= 1.0:
-        # Already super-Alfvenic at throat (possible only in rigid model for high beta)
-        idx = 0
+    s0 = solve_exact_steady_self_consistent(np.array([0.0]), beta_vac0, gamma, L_B) if self_consistent else solve_exact_steady_rigid(np.array([0.0]), beta_vac0, gamma, L_B)
+    if float(s0["M_A"][0]) >= 1.0:
         z_det = 0.0
     else:
-        cross = np.where(M_A >= 1.0)[0]
-        if len(cross) == 0:
-            idx = len(z_grid) - 1
-            z_det = float(z_grid[-1])
-        else:
-            idx = int(cross[0])
-            # Linear interpolation for exact crossing
-            frac = (1.0 - M_A[idx - 1]) / max(M_A[idx] - M_A[idx - 1], 1e-12)
-            z_det = float(z_grid[idx - 1] + frac * (z_grid[idx] - z_grid[idx - 1]))
+        hi = 0.5 * L_B
+        while ma_at_z(hi) < 1.0 and hi < 200.0 * L_B:
+            hi *= 2.0
+        z_det = float(brentq(lambda zv: ma_at_z(zv) - 1.0, 0.0, hi, xtol=1e-11, rtol=1e-11)) if ma_at_z(hi) >= 1.0 else hi
 
-    # Re-evaluate finely around z_det for accurate dr/dz!
-    eps = max(1e-4 * L_B, 1e-4 * z_det)
+    eps = max(1e-5 * L_B, 1e-5 * z_det)
     z_loc = np.array([max(0.0, z_det - eps), z_det, z_det + eps])
     loc = solve_exact_steady_self_consistent(z_loc, beta_vac0, gamma, L_B) if self_consistent else solve_exact_steady_rigid(z_loc, beta_vac0, gamma, L_B)
 
@@ -488,32 +469,26 @@ def evaluate_nozzle_performance(
     theta_edge = float(np.arctan(dr_dz))
     eta_div = 0.5 * (1.0 + float(np.cos(theta_edge)))
 
-    F0 = float(sol["F_mom"][0])
-    F_det = float(loc["F_mom"][1])
-    thrust_amp = F_det / F0
-    net_axial_gain = eta_div * thrust_amp
+    mdot = float(s0["rho"][0] * s0["u"][0] * s0["A"][0])
+    H_0 = 0.5 * float(s0["u"][0] ** 2) + (gamma / (gamma - 1.0)) * float(s0["p"][0] / s0["rho"][0])
+    c_star = float(np.sqrt(2.0 * (gamma - 1.0) / (gamma + 1.0) * H_0))
+    isp_sonic_same_H0 = (1.0 + 1.0 / gamma) * c_star
 
-    # Also compute absolute specific impulse normalized by sonic speed c_s0:
-    # I_sp_eff = eta_div * F_det / (mdot * c_s0) — fair apples-to-apples comparison across
-    # rigid (choked at u_0 = c_s0) vs. self-consistent (choked at u_0 = c_T0 < c_s0)!
-    mdot = float(sol["rho"][0] * sol["u"][0] * sol["A"][0])
+    F_det = float(loc["F_mom"][1])
     isp_eff_det = eta_div * F_det / mdot
-    # Reference unexpanded choked gasdynamic sonic nozzle (M=1, F_0_gas = (rho_0*c_s0^2 + p_0)*A_0 = (1 + 1/gamma)*mdot_gas*c_s0)
-    isp_ref_sonic = 1.0 + 1.0 / gamma
-    net_gain_vs_sonic = isp_eff_det / isp_ref_sonic
+    net_gain_same_H0 = isp_eff_det / isp_sonic_same_H0
 
     return {
         "beta_vac0": beta_vac0,
         "z_det": z_det,
         "A_det": float(loc["A"][1]),
         "M_det": float(loc["M"][1]),
+        "H_0": H_0,
         "beta_in_det": float(2.0 * loc["p"][1] / max(loc["B"][1] ** 2, 1e-30)),
         "theta_edge_deg": float(np.degrees(theta_edge)),
         "eta_div": eta_div,
-        "thrust_amp_vs_own_throat": thrust_amp,
-        "net_axial_gain_vs_own_throat": net_axial_gain,
         "isp_eff": isp_eff_det,
-        "net_gain_vs_sonic_nozzle": net_gain_vs_sonic,
+        "net_gain_same_H0": net_gain_same_H0,
     }
 
 
@@ -577,68 +552,82 @@ def main() -> None:
     print(f"    At z=6.0: A_self = {np.interp(6.0, z_prof, sc_iso['A']):.1f} vs A_rigid = {np.interp(6.0, z_prof, rg_iso['A']):.1f} ({np.interp(6.0, z_prof, sc_iso['A'])/np.interp(6.0, z_prof, rg_iso['A']):.2f}x inflation)\n")
 
     # ------------------------------------------------------------------
-    # Experiment 3: Self-Consistent vs. Rigid Thrust Efficiency Sweep Across beta_vac0
+    # Experiment 3: Same-H_0 Compliant vs. Rigid Thrust Efficiency (Continuous Optimizer + Dense Grid)
     # ------------------------------------------------------------------
-    print("--- Experiment 3: Self-Consistent vs. Rigid Detachment & Net Thrust Efficiency ---")
-    betas_ad = np.logspace(-2.6, -0.06, 50)    # beta_vac0 in [0.0025, 0.87]
-    betas_iso = np.logspace(-4.2, -0.12, 55)   # beta_vac0 in [6.3e-5, 0.76] (uncensored for R0/LB=0.10!)
+    print("--- Experiment 3: Same-Stagnation-Enthalpy (Same-H_0) Compliant vs. Rigid Thrust Gain ---")
+    betas_ad = np.logspace(-2.6, -0.06, 80)    # beta_vac0 in [0.0025, 0.87]
+    betas_iso = np.logspace(-4.3, -0.08, 85)   # beta_vac0 in [5e-5, 0.83]
+
+    def find_exact_opt(g_val: float, r0_lb: float, sc: bool, b_lo: float, b_hi: float) -> dict:
+        res = minimize_scalar(
+            lambda lb: -evaluate_nozzle_performance(10.0 ** lb, g_val, r0_over_LB=r0_lb, self_consistent=sc)["net_gain_same_H0"],
+            bounds=(np.log10(b_lo), np.log10(b_hi)), method="bounded", options={"xatol": 1e-4},
+        )
+        return evaluate_nozzle_performance(float(10.0 ** res.x), g_val, r0_over_LB=r0_lb, self_consistent=sc)
 
     perf_summary = {}
     curves = {}
+    high_beta_spots = {
+        "adiabatic_53": [0.54, 0.78, 0.87],
+        "near_iso_112": [0.50, 0.77, 0.83],
+    }
     for label, g_val, b_arr in [("adiabatic_53", 5.0 / 3.0, betas_ad), ("near_iso_112", 1.12, betas_iso)]:
         sc_list = [evaluate_nozzle_performance(float(b), g_val, r0_over_LB=0.20, self_consistent=True) for b in b_arr]
         rg_list = [evaluate_nozzle_performance(float(b), g_val, r0_over_LB=0.20, self_consistent=False) for b in b_arr]
 
-        i_sc = int(np.argmax([x["net_gain_vs_sonic_nozzle"] for x in sc_list]))
-        i_rg = int(np.argmax([x["net_gain_vs_sonic_nozzle"] for x in rg_list]))
+        opt_sc = find_exact_opt(g_val, 0.20, True, float(b_arr[0]), float(b_arr[-1]))
+        opt_rg = find_exact_opt(g_val, 0.20, False, float(b_arr[0]), float(b_arr[-1]))
+        sc_at_rg_opt = evaluate_nozzle_performance(opt_rg["beta_vac0"], g_val, r0_over_LB=0.20, self_consistent=True)
 
-        opt_sc = sc_list[i_sc]
-        opt_rg = rg_list[i_rg]
-        # Also compare at the rigid optimum beta!
-        sc_at_rg_opt = sc_list[i_rg]
-
-        # Verify exact detachment beta identity: beta_in(z_det) == 2 / (gamma * M_det^2)
         beta_id_err = abs(opt_sc["beta_in_det"] - 2.0 / (g_val * opt_sc["M_det"] ** 2))
-        # Find high-beta tube-choking zero-gain crossover (where self-consistent drops below sonic nozzle!)
-        gains_sc = np.array([x["net_gain_vs_sonic_nozzle"] - 1.0 for x in sc_list])
-        neg_idx = np.where(gains_sc < 0.0)[0]
-        beta_choke_zero = float(b_arr[neg_idx[0]]) if len(neg_idx) > 0 else None
+        min_sc_gain_pct = min((x["net_gain_same_H0"] - 1.0) * 100.0 for x in sc_list)
 
-        print(f"  [{label}] (R_0/L_B = 0.20):")
+        print(f"  [{label}] (R_0/L_B = 0.20, same-H_0 sonic reference):")
         print(
             f"    Rigid (Entry 000) opt:  beta_vac0*={opt_rg['beta_vac0']:.5f} | z_det={opt_rg['z_det']:.3f} | "
-            f"theta={opt_rg['theta_edge_deg']:.1f} deg | net gain vs sonic = +{(opt_rg['net_gain_vs_sonic_nozzle']-1)*100:.2f}%"
+            f"theta={opt_rg['theta_edge_deg']:.1f} deg | gain = +{(opt_rg['net_gain_same_H0']-1)*100:.2f}%"
         )
         print(
-            f"    Self-consistent opt:    beta_vac0*={opt_sc['beta_vac0']:.5f} | z_det={opt_sc['z_det']:.3f} | "
-            f"theta={opt_sc['theta_edge_deg']:.1f} deg | net gain vs sonic = +{(opt_sc['net_gain_vs_sonic_nozzle']-1)*100:.2f}%"
+            f"    Compliant-tube opt:     beta_vac0*={opt_sc['beta_vac0']:.5f} | z_det={opt_sc['z_det']:.3f} | "
+            f"theta={opt_sc['theta_edge_deg']:.1f} deg | gain = +{(opt_sc['net_gain_same_H0']-1)*100:.2f}% "
+            f"(delta = {(opt_sc['net_gain_same_H0']-opt_rg['net_gain_same_H0'])*100:+.2f} pts)"
         )
-        print(
-            f"    Detachment identity check |beta_in_det - 2/(gamma*M_det^2)| = {beta_id_err:.2e} | "
-            f"High-beta tube-choking zero-gain crossover beta_vac0 = {beta_choke_zero}"
-        )
+        print(f"    Exact identity |beta_in_det - 2/(gamma*M_det^2)| = {beta_id_err:.2e} | min compliant same-H_0 gain across sweep = {min_sc_gain_pct:+.2f}%")
 
-        # Slenderness sensitivity R_0/L_B in {0.10, 0.20, 0.35}
+        hb_table = []
+        for bv in high_beta_spots[label]:
+            s_hb = evaluate_nozzle_performance(bv, g_val, r0_over_LB=0.20, self_consistent=True)
+            r_hb = evaluate_nozzle_performance(bv, g_val, r0_over_LB=0.20, self_consistent=False)
+            print(
+                f"    High-beta spot beta_vac0={bv:.2f}: compliant gain={((s_hb['net_gain_same_H0']-1)*100):+.2f}% "
+                f"(z_det={s_hb['z_det']:.3f}) vs rigid={((r_hb['net_gain_same_H0']-1)*100):+.2f}% (z_det={r_hb['z_det']:.3f})"
+            )
+            hb_table.append({
+                "beta_vac0": bv,
+                "compliant_gain_pct": (s_hb["net_gain_same_H0"] - 1.0) * 100.0,
+                "rigid_gain_pct": (r_hb["net_gain_same_H0"] - 1.0) * 100.0,
+                "compliant_z_det": s_hb["z_det"], "rigid_z_det": r_hb["z_det"],
+            })
+
         slend_summary = {}
         for r0_lb in (0.10, 0.20, 0.35):
-            sc_r = [evaluate_nozzle_performance(float(b), g_val, r0_over_LB=r0_lb, self_consistent=True) for b in b_arr]
-            rg_r = [evaluate_nozzle_performance(float(b), g_val, r0_over_LB=r0_lb, self_consistent=False) for b in b_arr]
-            os_r = sc_r[int(np.argmax([x["net_gain_vs_sonic_nozzle"] for x in sc_r]))]
-            or_r = rg_r[int(np.argmax([x["net_gain_vs_sonic_nozzle"] for x in rg_r]))]
+            os_r = find_exact_opt(g_val, r0_lb, True, float(b_arr[0]), float(b_arr[-1]))
+            or_r = find_exact_opt(g_val, r0_lb, False, float(b_arr[0]), float(b_arr[-1]))
             slend_summary[f"R0_LB_{r0_lb:.2f}"] = {
                 "rigid_beta_opt": or_r["beta_vac0"],
-                "rigid_gain_pct": (or_r["net_gain_vs_sonic_nozzle"] - 1.0) * 100.0,
+                "rigid_gain_pct": (or_r["net_gain_same_H0"] - 1.0) * 100.0,
                 "sc_beta_opt": os_r["beta_vac0"],
-                "sc_gain_pct": (os_r["net_gain_vs_sonic_nozzle"] - 1.0) * 100.0,
-                "delta_gain_pct_pts": (os_r["net_gain_vs_sonic_nozzle"] - or_r["net_gain_vs_sonic_nozzle"]) * 100.0,
+                "sc_gain_pct": (os_r["net_gain_same_H0"] - 1.0) * 100.0,
+                "delta_gain_pct_pts": (os_r["net_gain_same_H0"] - or_r["net_gain_same_H0"]) * 100.0,
             }
 
         perf_summary[label] = {
             "rigid_opt": opt_rg,
-            "self_consistent_opt": opt_sc,
-            "self_consistent_at_rigid_opt": sc_at_rg_opt,
+            "compliant_opt": opt_sc,
+            "compliant_at_rigid_opt": sc_at_rg_opt,
             "detachment_beta_identity_err": float(beta_id_err),
-            "high_beta_zero_gain_crossover": beta_choke_zero,
+            "min_compliant_same_H0_gain_pct": float(min_sc_gain_pct),
+            "high_beta_spots": hb_table,
             "slenderness_sweep": slend_summary,
         }
         curves[label] = (b_arr, sc_list, rg_list)
@@ -693,10 +682,10 @@ def main() -> None:
         ax1.loglog(b_arr, [x["z_det"] for x in rg_list], "--", color=col, lw=1.8, alpha=0.8, label=f"{name} (rigid Entry 000)")
         ax1.loglog(b_arr, [x["z_det"] for x in sc_list], "-", color=col, lw=2.5, label=f"{name} (self-consistent)")
 
-        ax2.semilogx(b_arr, [(x["net_gain_vs_sonic_nozzle"] - 1.0) * 100.0 for x in rg_list],
+        ax2.semilogx(b_arr, [(x["net_gain_same_H0"] - 1.0) * 100.0 for x in rg_list],
                      "--", color=col, lw=1.8, alpha=0.8, label=f"{name} (rigid Entry 000)")
-        ax2.semilogx(b_arr, [(x["net_gain_vs_sonic_nozzle"] - 1.0) * 100.0 for x in sc_list],
-                     "-", color=col, lw=2.5, label=f"{name} (self-consistent)")
+        ax2.semilogx(b_arr, [(x["net_gain_same_H0"] - 1.0) * 100.0 for x in sc_list],
+                     "-", color=col, lw=2.5, label=f"{name} (compliant flux tube)")
 
     ax1.set_xlabel("Vacuum throat plasma beta $\\beta_{\\mathrm{vac},0} = 2\\mu_0 p_0 / B_{\\mathrm{vac},0}^2$")
     ax1.set_ylabel("Alfvén detachment location $z_{\\mathrm{det}} / L_B$ ($M_A = 1$)")
@@ -706,12 +695,12 @@ def main() -> None:
 
     ax2.axhline(0.0, color="black", lw=1.0, ls=":")
     ax2.set_xlabel("Vacuum throat plasma beta $\\beta_{\\mathrm{vac},0} = 2\\mu_0 p_0 / B_{\\mathrm{vac},0}^2$")
-    ax2.set_ylabel("Net axial specific-impulse gain over sonic nozzle (%)")
-    ax2.set_title("Net Thrust Gain: Rigid vs. Self-Consistent Nozzle ($R_0/L_B=0.20$)", fontweight="bold")
+    ax2.set_ylabel("Same-$H_0$ specific-impulse gain over sonic nozzle (%)")
+    ax2.set_title("Same-$H_0$ Thrust Gain: Rigid vs. Compliant Tube ($R_0/L_B=0.20$)", fontweight="bold")
     ax2.grid(True, which="both", alpha=0.28)
     ax2.legend(loc="upper right", fontsize=7.9)
 
-    fig.suptitle("Plasma Nozzles Entry 002 (Part 2): Self-Consistent Detachment & Thrust Optimization", fontsize=12.0, fontweight="bold")
+    fig.suptitle("Plasma Nozzles Entry 002 (Part 2): Compliant-Tube Detachment & Same-$H_0$ Thrust Gain", fontsize=12.0, fontweight="bold")
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     fig.savefig(RESULTS_DIR / "exp002_detachment_and_thrust.png")
     plt.close(fig)

@@ -29,7 +29,8 @@ $$F_{\text{net}}(\beta_0) = \eta_{\text{div}}(z_A)\,F_{\text{stream}}(z_A)$$
 - **Too low $\beta_0$ (over-strong field):** $z_A \gg L_n$ (plasma stays glued to sharply flaring dipole field lines $\implies$ severe divergence loss can drop $F_{\text{net}}$ *below* throat thrust $F_0$!).
 
 ### Intentional Simplifications
-- Quasi-1D paraxial fluid model (assumes frozen-in ideal MHD up to $z_A$ and abrupt ballistic detachment at $M_A = 1$, without self-consistent 2D induced magnetic field deformation $\mathbf{B}_{\text{ind}}$ or resistive slip $\eta \neq 0$, which we will model in Entry `001`).
+- Quasi-1D paraxial fluid model (assumes frozen-in ideal MHD up to $z_A$ and abrupt ballistic detachment at $M_A = 1$, without self-consistent 2D induced magnetic field deformation $\mathbf{B}_{\text{ind}}$ or resistive slip $\eta \neq 0$).
+- **Paraxial & abrupt-detachment caveats:** At the near-isothermal $\gamma = 1.12$ optimum ($z_A = 12.55 R_0$), the dipole edge-line wall angle reaches $\theta_w \approx 53^\circ$, exceeding strict paraxial/slender-tube validity. Furthermore, $F_{\text{net}} = \eta_{\text{div}}(z_A) F_{\text{stream}}(z_A)$ discards residual thermal enthalpy downstream of $M_A = 1$ (which penalizes high-$\beta$ early detachment), and evaluating $\eta_{\text{div}}$ at the outermost edge field line provides an upper bound on flux-weighted plume divergence loss.
 
 ## 3. The Verification
 
@@ -47,7 +48,7 @@ uv run python plasma-nozzles/sim/baseline_magnetic_nozzle.py
 | $200$ | $2.12\times 10^{-3}$ | $1.15\times 10^{-3}$ | $5.95\times 10^{-3}$ | $6.27\times 10^{-3}$ | $6.20\times 10^{-3}$ |
 | $400$ | $1.08\times 10^{-3}$ | $6.02\times 10^{-4}$ | $2.83\times 10^{-3}$ | $3.11\times 10^{-3}$ | $3.08\times 10^{-3}$ |
 
-*(Clean halving of error per $2\times$ refinement; first-order rate is set by the sonic throat singularity $dM/dz \to \infty$ at $M = 1$ where the minmod slope limiter activates.)*
+*(Clean $O(\Delta z)$ halving of error per $2\times$ refinement; inlet starts at $u_{\text{in}} = 1.0002\,c_{s0}$ and the maximum discretization error sits at the outflow boundary with monotonic mass-flux drift from the non-well-balanced cell-centered source discretization.)*
 
 ![Conservative HLL PDE Verification and Magnetic Expansion vs Divergence Trade-Off](../results/baseline_nozzle_verification.png)
 

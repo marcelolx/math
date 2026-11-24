@@ -41,133 +41,173 @@
   "exp3_performance_comparison": {
     "adiabatic_53": {
       "rigid_opt": {
-        "beta_vac0": 0.04406376806824852,
-        "z_det": 2.2065873626579573,
-        "A_det": 14.21835157522324,
-        "M_det": 5.762546389263855,
-        "beta_in_det": 0.03613686939045658,
-        "theta_edge_deg": 23.040308730962312,
-        "eta_div": 0.9601148692428416,
-        "thrust_amp_vs_own_throat": 1.218724484250228,
-        "net_axial_gain_vs_own_throat": 1.1701154988389573,
-        "isp_eff": 1.8721847981423316,
-        "net_gain_vs_sonic_nozzle": 1.1701154988389573
+        "beta_vac0": 0.04264986624289666,
+        "z_det": 2.2347637588574205,
+        "A_det": 14.675519413402958,
+        "M_det": 5.831200155859596,
+        "H_0": 2.0,
+        "beta_in_det": 0.035291112445359346,
+        "theta_edge_deg": 23.193690617531466,
+        "eta_div": 0.9595893571837766,
+        "isp_eff": 1.8721991958141997,
+        "net_gain_same_H0": 1.1701244973838747
       },
-      "self_consistent_opt": {
-        "beta_vac0": 0.034706287755327456,
-        "z_det": 2.405754145799445,
-        "A_det": 17.639771179438196,
-        "M_det": 6.243500315410934,
-        "beta_in_det": 0.03078364441550126,
-        "theta_edge_deg": 24.15712317627013,
-        "eta_div": 0.9562133116311218,
-        "thrust_amp_vs_own_throat": 1.2229738104339938,
-        "net_axial_gain_vs_own_throat": 1.1694238373132209,
-        "isp_eff": 1.8643770581697605,
-        "net_gain_vs_sonic_nozzle": 1.1652356613561003
+      "compliant_opt": {
+        "beta_vac0": 0.041996424116083036,
+        "z_det": 2.2339540689242243,
+        "A_det": 14.602966282172213,
+        "M_det": 5.820929209841663,
+        "H_0": 1.9823781474863196,
+        "beta_in_det": 0.03541576364330845,
+        "theta_edge_deg": 23.247854896034745,
+        "eta_div": 0.9594029941851668,
+        "isp_eff": 1.8634183926465306,
+        "net_gain_same_H0": 1.1698014145049243
       },
-      "self_consistent_at_rigid_opt": {
-        "beta_vac0": 0.04406376806824852,
-        "z_det": 2.1920540288198853,
-        "A_det": 13.923740108427387,
-        "M_det": 5.718036987323292,
-        "beta_in_det": 0.036701158610075224,
-        "theta_edge_deg": 23.016725853793872,
-        "eta_div": 0.9601953757624877,
-        "thrust_amp_vs_own_throat": 1.2181511499693531,
-        "net_axial_gain_vs_own_throat": 1.1696631011803296,
-        "isp_eff": 1.86297518790942,
-        "net_gain_vs_sonic_nozzle": 1.1643594924433875
+      "compliant_at_rigid_opt": {
+        "beta_vac0": 0.04264986624289666,
+        "z_det": 2.220435883457924,
+        "A_det": 14.38126643906872,
+        "M_det": 5.787725540953713,
+        "H_0": 1.9821019978323824,
+        "beta_in_det": 0.03582328345176717,
+        "theta_edge_deg": 23.173709855672215,
+        "eta_div": 0.9596580012848341,
+        "isp_eff": 1.8632852626056466,
+        "net_gain_same_H0": 1.1697993198790162
       },
-      "detachment_beta_identity_err": 3.4989284845160507e-07,
-      "high_beta_zero_gain_crossover": 0.5403225105826117,
+      "detachment_beta_identity_err": 2.3300805729320473e-14,
+      "min_compliant_same_H0_gain_pct": 0.06530318379300848,
+      "high_beta_spots": [
+        {
+          "beta_vac0": 0.54,
+          "compliant_gain_pct": 4.517795918308587,
+          "rigid_gain_pct": 7.592303580519588,
+          "compliant_z_det": 0.4858026368636826,
+          "rigid_z_det": 0.5493832931567096
+        },
+        {
+          "beta_vac0": 0.78,
+          "compliant_gain_pct": 0.017118476759181434,
+          "rigid_gain_pct": 3.6968726868172874,
+          "compliant_z_det": 0.22710356506407958,
+          "rigid_z_det": 0.3257661173783247
+        },
+        {
+          "beta_vac0": 0.87,
+          "compliant_gain_pct": 3.250631930967751,
+          "rigid_gain_pct": 2.4759241394769704,
+          "compliant_z_det": 0.13611755407759393,
+          "rigid_z_det": 0.25321662709562104
+        }
+      ],
       "slenderness_sweep": {
         "R0_LB_0.10": {
-          "rigid_beta_opt": 0.011854344687502072,
-          "rigid_gain_pct": 21.430930950194483,
-          "sc_beta_opt": 0.009336929543520936,
-          "sc_gain_pct": 21.2889774946466,
-          "delta_gain_pct_pts": -0.14195345554788297
+          "rigid_beta_opt": 0.011336742049813307,
+          "rigid_gain_pct": 21.431706856901545,
+          "sc_beta_opt": 0.011263927366058286,
+          "sc_gain_pct": 21.420686344719254,
+          "delta_gain_pct_pts": -0.011020512182291498
         },
         "R0_LB_0.20": {
-          "rigid_beta_opt": 0.04406376806824852,
-          "rigid_gain_pct": 17.011549883895725,
-          "sc_beta_opt": 0.034706287755327456,
-          "sc_gain_pct": 16.523566135610036,
-          "delta_gain_pct_pts": -0.4879837482856919
+          "rigid_beta_opt": 0.04264986624289666,
+          "rigid_gain_pct": 17.01244973838747,
+          "sc_beta_opt": 0.041996424116083036,
+          "sc_gain_pct": 16.980141450492425,
+          "delta_gain_pct_pts": -0.03230828789504425
         },
         "R0_LB_0.35": {
-          "rigid_beta_opt": 0.1144920970960603,
-          "rigid_gain_pct": 10.987915706990226,
-          "sc_beta_opt": 0.08003230149672545,
-          "sc_gain_pct": 9.814244809365459,
-          "delta_gain_pct_pts": -1.1736708976247678
+          "rigid_beta_opt": 0.12124586673460495,
+          "rigid_gain_pct": 10.992539764096243,
+          "sc_beta_opt": 0.11602264805157786,
+          "sc_gain_pct": 10.952534802729597,
+          "delta_gain_pct_pts": -0.04000496136664644
         }
       }
     },
     "near_iso_112": {
       "rigid_opt": {
-        "beta_vac0": 0.0008576958985908938,
-        "z_det": 8.503216977090853,
-        "A_det": 627.6213690059031,
-        "M_det": 5.246733822013556,
-        "beta_in_det": 0.06486842283518099,
-        "theta_edge_deg": 41.08222504188327,
-        "eta_div": 0.8768836472863621,
-        "thrust_amp_vs_own_throat": 1.8093597070622203,
-        "net_axial_gain_vs_own_throat": 1.5865979391817036,
-        "isp_eff": 3.00320324202251,
-        "net_gain_vs_sonic_nozzle": 1.5865979391817036
+        "beta_vac0": 0.0008903547108636827,
+        "z_det": 8.400357943032864,
+        "A_det": 605.4248456003056,
+        "M_det": 5.22785588683051,
+        "H_0": 8.833333333333327,
+        "beta_in_det": 0.06533783784235575,
+        "theta_edge_deg": 40.90721706600216,
+        "eta_div": 0.8778854954972978,
+        "isp_eff": 3.0032234884769062,
+        "net_gain_same_H0": 1.586608635421762
       },
-      "self_consistent_opt": {
-        "beta_vac0": 0.0008576958985908938,
-        "z_det": 8.412931342108935,
-        "A_det": 627.2560855093269,
-        "M_det": 5.246428526670777,
-        "beta_in_det": 0.06487597483290637,
-        "theta_edge_deg": 42.104490983383165,
-        "eta_div": 0.8709616445088363,
-        "thrust_amp_vs_own_throat": 1.8093265699371328,
-        "net_axial_gain_vs_own_throat": 1.5758540448059772,
-        "isp_eff": 2.9828260977718095,
-        "net_gain_vs_sonic_nozzle": 1.5758326554266164
+      "compliant_opt": {
+        "beta_vac0": 0.0008708999323461425,
+        "z_det": 8.370907522856003,
+        "A_det": 618.0847194833883,
+        "M_det": 5.23870475860941,
+        "H_0": 8.833089387873352,
+        "beta_in_det": 0.06506750084691677,
+        "theta_edge_deg": 42.035280182579086,
+        "eta_div": 0.8713663319357579,
+        "isp_eff": 2.982828742686385,
+        "net_gain_same_H0": 1.5758558126753663
       },
-      "self_consistent_at_rigid_opt": {
-        "beta_vac0": 0.0008576958985908938,
-        "z_det": 8.412931342108935,
-        "A_det": 627.2560855093269,
-        "M_det": 5.246428526670777,
-        "beta_in_det": 0.06487597483290637,
-        "theta_edge_deg": 42.104490983383165,
-        "eta_div": 0.8709616445088363,
-        "thrust_amp_vs_own_throat": 1.8093265699371328,
-        "net_axial_gain_vs_own_throat": 1.5758540448059772,
-        "isp_eff": 2.9828260977718095,
-        "net_gain_vs_sonic_nozzle": 1.5758326554266164
+      "compliant_at_rigid_opt": {
+        "beta_vac0": 0.0008903547108636827,
+        "z_det": 8.310498580724518,
+        "A_det": 605.0591414584007,
+        "M_det": 5.2275392240138485,
+        "H_0": 8.833083936311487,
+        "beta_in_det": 0.06534575387685633,
+        "theta_edge_deg": 41.93520756570461,
+        "eta_div": 0.8719505153396396,
+        "isp_eff": 2.982820950822301,
+        "net_gain_same_H0": 1.5758521824503804
       },
-      "detachment_beta_identity_err": 8.288486857965793e-08,
-      "high_beta_zero_gain_crossover": 0.7585775750291838,
+      "detachment_beta_identity_err": 1.3877787807814457e-17,
+      "min_compliant_same_H0_gain_pct": 0.10850768559855783,
+      "high_beta_spots": [
+        {
+          "beta_vac0": 0.5,
+          "compliant_gain_pct": 11.117394821667471,
+          "rigid_gain_pct": 17.774042927884672,
+          "compliant_z_det": 0.5818615600635076,
+          "rigid_z_det": 0.748203455281024
+        },
+        {
+          "beta_vac0": 0.77,
+          "compliant_gain_pct": 0.4944962995254043,
+          "rigid_gain_pct": 11.033419915727837,
+          "compliant_z_det": 0.27038820346994624,
+          "rigid_z_det": 0.5235625582327865
+        },
+        {
+          "beta_vac0": 0.83,
+          "compliant_gain_pct": 0.08701720438590854,
+          "rigid_gain_pct": 9.822887281429328,
+          "compliant_z_det": 0.20406685969541757,
+          "rigid_z_det": 0.4836250261509945
+        }
+      ],
       "slenderness_sweep": {
         "R0_LB_0.10": {
-          "rigid_beta_opt": 0.00010633265716371606,
-          "rigid_gain_pct": 76.69248278401344,
-          "sc_beta_opt": 0.00010633265716371606,
-          "sc_gain_pct": 76.11489255658799,
-          "delta_gain_pct_pts": -0.5775902274254507
+          "rigid_beta_opt": 9.827154340801652e-05,
+          "rigid_gain_pct": 76.6967774957237,
+          "sc_beta_opt": 0.00010053739834702955,
+          "sc_gain_pct": 76.11735564107019,
+          "delta_gain_pct_pts": -0.5794218546535168
         },
         "R0_LB_0.20": {
-          "rigid_beta_opt": 0.0008576958985908938,
-          "rigid_gain_pct": 58.65979391817036,
-          "sc_beta_opt": 0.0008576958985908938,
-          "sc_gain_pct": 57.58326554266164,
-          "delta_gain_pct_pts": -1.0765283755087118
+          "rigid_beta_opt": 0.0008903547108636827,
+          "rigid_gain_pct": 58.66086354217619,
+          "sc_beta_opt": 0.0008708999323461425,
+          "sc_gain_pct": 57.58558126753663,
+          "delta_gain_pct_pts": -1.0752822746395552
         },
         "R0_LB_0.35": {
-          "rigid_beta_opt": 0.0034496717943814366,
-          "rigid_gain_pct": 41.16720177412625,
-          "sc_beta_opt": 0.0028988264959835396,
-          "sc_gain_pct": 39.666783926170645,
-          "delta_gain_pct_pts": -1.500417847955604
+          "rigid_beta_opt": 0.003409150148194332,
+          "rigid_gain_pct": 41.16729512611921,
+          "sc_beta_opt": 0.002994259832168806,
+          "sc_gain_pct": 39.67385621336304,
+          "delta_gain_pct_pts": -1.4934389127561731
         }
       }
     }
