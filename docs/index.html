@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Open-Notebook Science Log — marcelolx/math</title>
+  <meta name="description" content="Progress note from marcelolx/math: 12 verified numerical physics & engineering entries, 4 independent cross-model peer reviews, and 3 synthesis monographs." />
+  <style>
+    :root {
+      --bg: #faf9f6;
+      --surface: #ffffff;
+      --text: #1c1e21;
+      --muted: #5a6270;
+      --border: #e5e2da;
+      --accent: #1d4ed8;
+      --accent-soft: #eff4ff;
+      --callout-bg: #f4f6f9;
+      --code-bg: #f1efe9;
+      --max-w: 760px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111317;
+        --surface: #181b21;
+        --text: #e6e8ec;
+        --muted: #9aa2b1;
+        --border: #2a2f3a;
+        --accent: #6ea8fe;
+        --accent-soft: #1a2436;
+        --callout-bg: #171c24;
+        --code-bg: #1f242e;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+      line-height: 1.68;
+      font-size: 16.5px;
+      -webkit-font-smoothing: antialiased;
+    }
+    header {
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .nav {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0.9rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.92rem;
+    }
+    .brand {
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      text-decoration: none;
+    }
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      margin-left: 1.15rem;
+    }
+    .nav-links a:hover { color: var(--accent); }
+    main {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 2.75rem 1.25rem 4.5rem;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 0.88rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.6rem;
+    }
+    h1 {
+      font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+      font-size: clamp(1.9rem, 4vw, 2.45rem);
+      line-height: 1.18;
+      letter-spacing: -0.02em;
+      margin: 0 0 1rem;
+      font-weight: 700;
+    }
+    .subtitle {
+      font-size: 1.12rem;
+      color: var(--muted);
+      margin: 0 0 2rem;
+      line-height: 1.55;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.75rem;
+      margin: 1.75rem 0 2.25rem;
+    }
+    @media (max-width: 600px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+    }
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.9rem 1rem;
+      text-align: center;
+    }
+    .stat-num {
+      display: block;
+      font-size: 1.55rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+    .stat-lbl {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    h2 {
+      font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+      font-size: 1.48rem;
+      margin: 2.6rem 0 0.85rem;
+      padding-bottom: 0.35rem;
+      border-bottom: 1px solid var(--border);
+      letter-spacing: -0.01em;
+    }
+    h3 {
+      font-size: 1.12rem;
+      margin: 1.8rem 0 0.5rem;
+      letter-spacing: -0.01em;
+    }
+    p { margin: 0 0 1.05rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    figure {
+      margin: 1.4rem 0 1.8rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.75rem;
+    }
+    figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 6px;
+      background: #ffffff;
+    }
+    figcaption {
+      margin-top: 0.65rem;
+      font-size: 0.87rem;
+      color: var(--muted);
+      line-height: 1.48;
+      padding: 0 0.25rem;
+    }
+    .callout {
+      background: var(--callout-bg);
+      border-left: 3.5px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      padding: 1rem 1.2rem;
+      margin: 1.6rem 0;
+    }
+    .callout ul {
+      margin: 0.5rem 0 0;
+      padding-left: 1.2rem;
+    }
+    .callout li { margin-bottom: 0.5rem; }
+    .callout li:last-child { margin-bottom: 0; }
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 0.6rem 0 1.2rem;
+    }
+    .pill {
+      display: inline-block;
+      font-size: 0.83rem;
+      padding: 0.26rem 0.65rem;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 500;
+    }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.9rem 1.05rem;
+      overflow-x: auto;
+      font-size: 0.87rem;
+      line-height: 1.5;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.88em;
+      background: var(--code-bg);
+      padding: 0.12em 0.34em;
+      border-radius: 4px;
+    }
+    pre code { background: transparent; padding: 0; }
+    footer {
+      border-top: 1px solid var(--border);
+      margin-top: 3rem;
+      padding-top: 1.4rem;
+      font-size: 0.88rem;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="nav">
+      <a class="brand" href="./">marcelolx / math</a>
+      <div class="nav-links">
+        <a href="#tracks">Tracks</a>
+        <a href="#peer-review">Peer Review</a>
+        <a href="#reproduce">Reproduce</a>
+        <a href="https://github.com/marcelolx/math">GitHub &rarr;</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <article>
+      <div class="meta">Progress Note #01 &middot; Open-Notebook Science</div>
+      <h1>12 Verified Entries, 4 Adversarial Peer Reviews, and What Broke Along the Way</h1>
+      <p class="subtitle">
+        A short log of our first milestone building an open, reproducible computational-physics notebook across rocket combustion, plasma nozzles, and renewable power grids—where every formula is cross-checked against PDEs and audited by an independent model.
+      </p>
+
+      <div class="stats">
+        <div class="stat"><span class="stat-num">3</span><span class="stat-lbl">Research Tracks</span></div>
+        <div class="stat"><span class="stat-num">12</span><span class="stat-lbl">Verified Entries</span></div>
+        <div class="stat"><span class="stat-num">4</span><span class="stat-lbl">Peer Reviews</span></div>
+        <div class="stat"><span class="stat-num">3</span><span class="stat-lbl">Syntheses</span></div>
+      </div>
+
+      <p>
+        We started <a href="https://github.com/marcelolx/math"><code>marcelolx/math</code></a> with a simple rule: instead of writing broad essays or unverified conjectures, shrink each problem to a narrow, testable equation, verify it locally in runnable Python simulations with exact conservation-law checks, and publish dead ends alongside breakthroughs.
+      </p>
+      <p>
+        To keep ourselves honest, after every batch of entries we handed the repository read-only to an <strong>independent cross-model peer reviewer</strong> that re-derived the equations from scratch and ran its own numerical spot checks. That loop caught real bugs and hidden artifacts—and made every remaining conclusion much stronger.
+      </p>
+
+      <h2 id="tracks">Three Tracks, First Milestone</h2>
+
+      <h3>1. Rocket Combustion Instability (<code>000</code>&ndash;<code>006</code>)</h3>
+      <p>
+        Starting from a 1D Crocco <em>n&ndash;&tau;</em> longitudinal baseline and scaling up to a 2D nonlinear cylindrical-annulus PDE, we tested passive stabilization without heavy protruding baffles. Two design laws stood out: an <strong>inverse-square cavity volume split</strong> (80% <em>1T</em> / 20% <em>2T</em> in an odd 5-pair ring, doubling worst-case margin over a naive 50/50 split) and <strong>odd-periodic azimuthal injector lag staggering</strong> (<em>M</em> = 3, 5 avoids the <em>M</em> = 2 Bragg-orientation trap that amplifies orthogonal standing waves by +67%).
+      </p>
+      <p>
+        Under calibrated quadratic orifice drag over long horizons (<em>t</em> = 900), widening cavity mouth open-area ratio from 1.5% to 3.5% raises 2D finite-amplitude <em>1T</em> bomb survival by ~2&ndash;4&times; in amplitude (~4&ndash;16&times; in energy) for &xi;<sub>H</sub> &le; &xi;<sub>H</sub><sup>EP</sup>, while over-damping above the exceptional point cuts wide-mouth margin in half.
+      </p>
+      <div class="pill-row">
+        <a class="pill" href="https://github.com/marcelolx/math/blob/main/rocket-combustion/SYNTHESIS.md">Read Synthesis Monograph</a>
+        <a class="pill" href="https://github.com/marcelolx/math/tree/main/rocket-combustion">Browse Entries 000&ndash;006</a>
+      </div>
+      <figure>
+        <img src="assets/rocket-cavity-bombs.png" alt="Long-horizon t=900 2D 80/20 cavity bomb survival map for wide-mouth vs tight-neck cavities" />
+        <figcaption>
+          <strong>Rocket Combustion Entry 006:</strong> Long-horizon (<em>t</em> = 900) 2D nonlinear <em>1T</em> bomb scan on the 80/20 dual-tuned faceplate cavity ring. Wide mouths (&sigma;<sub>o</sub> = 3.5%, left) raise the trigger onset bracket from (0.010, 0.015] to (0.032, 0.045] at &xi; &le; &xi;<sub>EP</sub> before collapsing ~2&times; when over-damped at &xi; = 2&xi;<sub>EP</sub>.
+        </figcaption>
+      </figure>
+
+      <h3>2. Plasma Nozzles &amp; MHD Propulsion (<code>000</code>&ndash;<code>002</code>)</h3>
+      <p>
+        Magnetic nozzles accelerate hot plasma without material walls, trading Alfv&eacute;n detachment (<em>M</em><sub>A</sub> = 1) against dipole flare divergence. We paired a quasi-1D conservative finite-volume nozzle baseline with a 2D pseudospectral (IFRK4) resistive-MHD shear solver and an exact source-free compliant-flux-tube MHD conservation law (choking at the Roberts&ndash;Webb tube speed <em>c</em><sub>T</sub> &lt; <em>c</em><sub>s</sub>, inflating downstream as <em>A</em> &prop; <em>B</em><sub>vac</sub><sup>&minus;2/&gamma;</sup>).
+      </p>
+      <p>
+        In 2D resistive MHD, sub-Alfv&eacute;nic (<em>M</em><sub>A</sub> &lt; 1) Kelvin&ndash;Helmholtz shear breakdown obeys a clean Re-independent Stuart-number law, <strong><em>R</em><sub>m,crit</sub> = <em>N</em><sub>c</sub>(<em>k</em><sub>x</sub><em>a</em>)&thinsp;<em>M</em><sub>A</sub><sup>2</sup></strong>, with longer wavelengths breaking down at larger <em>R</em><sub>m</sub> (<em>N</em><sub>c</sub> = 1.47 at <em>k</em><sub>x</sub><em>a</em> = 0.125 vs. 0.57 at 0.50).
+      </p>
+      <div class="pill-row">
+        <a class="pill" href="https://github.com/marcelolx/math/blob/main/plasma-nozzles/SYNTHESIS.md">Read Synthesis Monograph</a>
+        <a class="pill" href="https://github.com/marcelolx/math/tree/main/plasma-nozzles">Browse Entries 000&ndash;002</a>
+      </div>
+      <figure>
+        <img src="assets/plasma-mhd-kh.png" alt="Sub-Alfvenic resistive MHD Kelvin-Helmholtz breakdown boundary and Re-scaling audit" />
+        <figcaption>
+          <strong>Plasma Nozzles Entry 001:</strong> Separating robust physics from finite-Re continuum artifacts. All three Re curves (250, 1000, 4000) collapse onto the same low-<em>R</em><sub>m</sub> breakdown boundary <em>R</em><sub>m,crit</sub> &prop; <em>M</em><sub>A</sub><sup>2</sup> (left &amp; green dotted parabola at right), while the intermediate-<em>R</em><sub>m</sub> trough scales as &minus;2<em>k</em><sub>x</sub><em>B</em><sub>0</sub>&radic;(<em>R</em><sub>m</sub><sup>*</sup>/Re) and vanishes as Re &rarr; &infin;.
+        </figcaption>
+      </figure>
+
+      <h3>3. Renewable Power Grid Stability (<code>000</code>&ndash;<code>001</code>)</h3>
+      <p>
+        Moving beyond space propulsion, we opened a track on nonlinear AC synchronization in 100% inverter-based renewable grids. We derived an exact closed-form 4-bus <strong>AC Braess&rsquo;s paradox</strong> proving that adding infinite parallel capacity to a single line in a stressed ring cuts global synchronous capacity by <strong>&minus;11.99%</strong> (2.000 &rarr; 1.7602) and triggers an immediate time-domain blackout.
+      </p>
+      <p>
+        On a 12-bus two-area grid under <em>N</em>&minus;1 tie-line + generator-trip faults, we found a sharp blind spot in linear <em>H</em><sub>2</sub> inverter placement: linear norms rank exporting-only and importing-only Grid-Forming (GFM) placement almost identically and worst overall, yet horizon-robust nonlinear survival proves <strong>importing-side GFM survives 3.14&times; larger faults than exporting-side</strong> (2.285 vs. 0.728 unsaturated; 2.118 vs. 0.740 under per-bus droop cap <em>h</em><sub>bus</sub> = 0.24). Among balanced cross-corridor designs, distributing GFM across all 6 buses shares per-bus droop headroom for +21% higher fault survival than concentrated 2-bus tie-line gateways.
+      </p>
+      <div class="pill-row">
+        <a class="pill" href="https://github.com/marcelolx/math/blob/main/grid-stability/SYNTHESIS.md">Read Synthesis Monograph</a>
+        <a class="pill" href="https://github.com/marcelolx/math/tree/main/grid-stability">Browse Entries 000&ndash;001</a>
+      </div>
+      <figure>
+        <img src="assets/grid-braess.png" alt="Exact 4-bus AC Braess paradox capacity loss and time-domain blackout" />
+        <figcaption>
+          <strong>Grid Stability Entry 000:</strong> Exact analytical capacity curve <em>P</em><sub>max</sub>(&Delta;<em>K</em>) vs. full 4-bus equilibrium bisection (left), and a synchronized grid collapsing into a phase-slip blackout the moment parallel line &Delta;<em>K</em> = +2 is switched on at <em>t</em> = 15 (right).
+        </figcaption>
+      </figure>
+      <figure>
+        <img src="assets/grid-gfm-placement.png" alt="Horizon-robust primary-droop saturation cliff across all five GFM placement policies" />
+        <figcaption>
+          <strong>Grid Stability Entry 001:</strong> Horizon-robust (<em>T</em> = 80 + exact saturated rotating-frame equilibrium check) worst-case <em>N</em>&minus;1 fault survival across all five GFM allocation policies under per-bus (left) and proportional (right) primary-droop caps.
+        </figcaption>
+      </figure>
+
+      <h2 id="peer-review">Why Adversarial Cross-Model Peer Review Mattered</h2>
+      <p>
+        Every one of our four independent peer reviews caught real mathematical or numerical traps that looked completely plausible at first glance:
+      </p>
+      <div class="callout">
+        <ul>
+          <li><strong>Unfiltered <em>k</em> = 0 bulk runaway (Review #1):</strong> Standard Crocco pressure coupling has a positive real static root for every <em>n</em> &gt; &zeta;. Fixed uniformly with a DC-blocking high-pass filter <em>H</em><sub>hp</sub>(<em>s</em>) and real-axis scans.</li>
+          <li><strong>Short-horizon bomb illusions (Reviews #2 &amp; #3):</strong> Because the 80/20 cavity ring&rsquo;s slowest linear decay time scale is &tau; &approx; 550, horizons of <em>t</em> = 130&ndash;180 hid slow regrowth at <em>t</em> = 400&ndash;900. Replaced with <em>t</em> = 1000 linear checks and <em>t</em> = 900 dense amplitude scans.</li>
+          <li><strong>Unequal-enthalpy nozzle metric &amp; finite-Re box mode (Review #3):</strong> Comparing compliant (<em>c</em><sub>T</sub>-choked) and rigid nozzles at equal throat static state gave the compliant nozzle 19% less stagnation enthalpy, creating a spurious negative gain; re-normalizing to equal <em>H</em><sub>0</sub> revealed true near-zero high-&beta; erosion. Similarly, the intermediate-<em>R</em><sub>m</sub> MHD trough proved to be a finite-Re continuum mode.</li>
+          <li><strong>Ghost-crawl false positives in power-grid survival (Review #4):</strong> A 26 s horizon accepted trajectories with no post-fault equilibrium that slipped at <em>t</em> = 30&ndash;44 s, while rejecting slow-settling saturated cases. Restoring an exact saturated rotating-frame equilibrium check over <em>T</em> = 80 fixed both.</li>
+        </ul>
+      </div>
+
+      <h2 id="reproduce">Reproduce Everything Locally</h2>
+      <p>
+        Every plot and metric in the repository is generated from scratch with pinned dependencies via <code>uv</code>:
+      </p>
+<pre><code>git clone https://github.com/marcelolx/math.git
+cd math
+uv sync
+
+# Run any entry's verification script:
+uv run python rocket-combustion/sim/exp006_2d_nonlinear_modes.py
+uv run python plasma-nozzles/sim/exp001_mhd_kelvin_helmholtz.py
+uv run python grid-stability/sim/exp001_gfm_placement_and_saturation.py</code></pre>
+
+      <p>
+        Next up: pushing into 2D compressible Euler transverse steepening (<code>rocket-combustion/007</code>), 2D axisymmetric magnetic nozzles with exterior field back-reaction (<code>plasma-nozzles/003</code>), and full inverter current-limiting + reactive <em>Q&ndash;V</em> coupling (<code>grid-stability/002</code>).
+      </p>
+
+      <footer>
+        <span>Code: MIT License &middot; Notes &amp; Figures: CC BY 4.0</span>
+        <a href="https://github.com/marcelolx/math">github.com/marcelolx/math</a>
+      </footer>
+    </article>
+  </main>
+</body>
+</html>

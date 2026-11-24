@@ -1,6 +1,8 @@
 # math
 
 > **Work-in-progress open research notebook.** Expect rough scripts, partial results, and documented dead ends. Everything here is shared in the spirit of *open notebook science*—reproducible negative results are just as valuable as breakthroughs.
+>
+> **Progress Blog (GitHub Pages):** [marcelolx.github.io/math](https://marcelolx.github.io/math/)
 
 ## What This Repo Is
 
