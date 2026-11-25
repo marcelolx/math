@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Open-Notebook Science Log — marcelolx/math</title>
-  <meta name="description" content="Progress log from marcelolx/math: 14 verified numerical physics & engineering entries, 5 independent cross-model peer reviews, and 3 synthesis monographs." />
+  <meta name="description" content="Progress log from marcelolx/math: 15 verified numerical physics & engineering entries, 6 independent cross-model peer reviews, and 3 synthesis monographs." />
   <style>
     :root {
       --bg: #faf9f6;
@@ -221,6 +221,7 @@
     <div class="nav">
       <a class="brand" href="./">marcelolx / math</a>
       <div class="nav-links">
+        <a href="#milestone-3">Milestone 3</a>
         <a href="#milestone-2">Milestone 2</a>
         <a href="#tracks">Milestone 1</a>
         <a href="#peer-review">Peer Review</a>
@@ -232,18 +233,45 @@
 
   <main>
     <article>
-      <div class="meta">Progress Log &middot; Updated 2026-11-24 &middot; Open-Notebook Science</div>
-      <h1>14 Verified Entries, 5 Adversarial Peer Reviews, and What Broke Along the Way</h1>
+      <div class="meta">Progress Log &middot; Updated 2026-11-25 &middot; Open-Notebook Science</div>
+      <h1>15 Verified Entries, 6 Adversarial Peer Reviews, and What Broke Along the Way</h1>
       <p class="subtitle">
-        An open, reproducible computational-physics notebook across rocket combustion, plasma nozzles, and renewable power grids—where every formula is cross-checked against PDEs and audited by an independent model.
+        An open, reproducible computational-physics notebook across rocket combustion, plasma nozzles, and renewable power grids—where every formula is cross-checked against PDEs and audited by independent models.
       </p>
 
       <div class="stats">
         <div class="stat"><span class="stat-num">3</span><span class="stat-lbl">Research Tracks</span></div>
-        <div class="stat"><span class="stat-num">14</span><span class="stat-lbl">Verified Entries</span></div>
-        <div class="stat"><span class="stat-num">5</span><span class="stat-lbl">Peer Reviews</span></div>
+        <div class="stat"><span class="stat-num">15</span><span class="stat-lbl">Verified Entries</span></div>
+        <div class="stat"><span class="stat-num">6</span><span class="stat-lbl">Peer Reviews</span></div>
         <div class="stat"><span class="stat-num">3</span><span class="stat-lbl">Syntheses</span></div>
       </div>
+
+      <h2 id="milestone-3">Milestone 3 Update: 2D Compressible Euler Throughflow &amp; Multi-Mode Strouhal Resonance (<code>009</code>)</h2>
+      <p>
+        We solved Open Problem #1 from our synthesis by upgrading <code>rocket-combustion/</code> from a 1D periodic ring to the <strong>full 2D (<em>x</em>, &theta;) conservative compressible Euler equations</strong> with physical steady axial throughflow <em>M&#772;</em> &gt; 0, an exact choked zero-swirl propellant injector at <em>x</em> = 0, and a Marble&ndash;Candel compact choked nozzle at <em>x</em> = <em>L</em><sub>a</sub>&mdash;with <strong>zero ad-hoc entropy-flush or swirl closures</strong> (steady preservation to 1.1&times;10<sup>&minus;16</sup>, inviscid conservation to 1.9&times;10<sup>&minus;16</sup>).
+      </p>
+      <p>
+        Physical convection naturally flushes entropy (8.7&times;10<sup>7</sup>&times;) and uniform swirl (2.1&times;10<sup>5</sup>&times;), isolating the pure negative Marble&ndash;Candel rarefaction echo (&minus;0.366% at <em>t</em> = 11.01) and locking stationary limit cycles at <em>&rho;&#772;</em> = 0.9986&ndash;1.0010. Zero-swirl vorticity shedding from the faceplate creates sharp Strouhal damping peaks&mdash;<strong>but double-model Peer Review #6 uncovered a critical harmonic trap</strong>: tuning to the half-integer <em>1T</em> cold-damping peak (<em>M&#772;</em> = 0.16, St<sub>1T</sub> &approx; 1.5) puts <em>2T</em> directly into an integer trough (St<sub>2T</sub> &approx; 3.0, <em>n</em><sub>pH,2T</sub> = 0.235), igniting a 6.53% <em>2T</em> rotating limit cycle on 48&times;144 that coarse 32&times;96 grids hid.
+      </p>
+      <figure>
+        <img src="assets/rocket-2d-strouhal.png" alt="2D throughflow Strouhal vorticity cold damping and multi-mode global Hopf envelope exposing the 2T harmonic trap" />
+        <figcaption>
+          <strong>Rocket Combustion Entry 009 (Part 1):</strong> Exact Chebyshev 2D linearized Euler cold <em>1T</em> damping vs. 2D Euler MC PDE (left) and the multi-mode global Hopf envelope (right). Shifting above the branch-crossing cusp to <em>M&#772;</em> = 0.18 clears the <em>2T</em> trap at <em>M&#772;</em> = 0.16 and delivers a <strong>3.18&times; global all-mode Hopf gain</strong> (0.1338 &rarr; 0.4260, capped by <em>m</em> = 0 rumble; 4.77&times; on <em>1T</em>).
+        </figcaption>
+      </figure>
+      <p>
+        Against a 6.9% 2D chiral rotating shock (<em>n</em><sub>p</sub> = 0.22, <em>n</em><sub>v</sub> = 0.04), linearly stable odd <em>M</em> = 5 injector staggering (&alpha; = &minus;0.0067; verified decaying under a linear flame) subcritically triggers at <em>A</em><sub>0</sub> = 0.015 on 48&times;144 due to its small linear margin plus 6.7&ndash;6.9&times; Erlang-4 cubic gain asymmetry, whereas passive <strong>Strouhal Mach shifting to <em>M&#772;</em> = 0.18</strong> annihilates the shock across all initial conditions (<code>spin_1T</code>, <code>stand_seed</code>, <code>spin_2T</code>) and grids (32&times;96, 48&times;144) with zero cavities or baffles.
+      </p>
+      <div class="pill-row">
+        <a class="pill" href="https://github.com/marcelolx/math/blob/main/rocket-combustion/entries/009-2d-euler-throughflow.md">Entry 009: 2D Euler Throughflow</a>
+        <a class="pill" href="https://github.com/marcelolx/math/blob/main/rocket-combustion/SYNTHESIS.md">Updated Synthesis (Laws #1&ndash;#12)</a>
+      </div>
+      <figure>
+        <img src="assets/rocket-2d-throughflow-control.png" alt="2D rotating sawtooth shock pressure field and 5-way log-energy control shootout" />
+        <figcaption>
+          <strong>Rocket Combustion Entry 009 (Part 2):</strong> Stationary 2D rotating sawtooth shock with zero ad-hoc closures (left), and 2D chiral-shock control shootout (right): <em>M</em> = 2 Bragg-locks, <em>M</em> = 5 decays under a linear flame but subcritically triggers nonlinearly, while passive Strouhal shifting to <em>M&#772;</em> = 0.18 quenches <em>1T</em> and <em>2T</em> across grids.
+        </figcaption>
+      </figure>
 
       <h2 id="milestone-2">Milestone 2 Update: Compressible Euler Shocks &amp; Rotating-Shock Control (<code>007</code>&ndash;<code>008</code>)</h2>
       <p>
@@ -287,7 +315,7 @@
       </p>
       <div class="pill-row">
         <a class="pill" href="https://github.com/marcelolx/math/blob/main/rocket-combustion/SYNTHESIS.md">Read Synthesis Monograph</a>
-        <a class="pill" href="https://github.com/marcelolx/math/tree/main/rocket-combustion">Browse Entries 000&ndash;008</a>
+        <a class="pill" href="https://github.com/marcelolx/math/tree/main/rocket-combustion">Browse Entries 000&ndash;009</a>
       </div>
       <figure>
         <img src="assets/rocket-cavity-bombs.png" alt="Long-horizon t=900 2D 80/20 cavity bomb survival map for wide-mouth vs tight-neck cavities" />
@@ -340,7 +368,7 @@
 
       <h2 id="peer-review">Why Adversarial Cross-Model Peer Review Mattered</h2>
       <p>
-        Every one of our five independent peer reviews caught real mathematical or numerical traps that looked completely plausible at first glance:
+        Every one of our six independent peer reviews caught real mathematical or numerical traps that looked completely plausible at first glance:
       </p>
       <div class="callout">
         <ul>
@@ -349,6 +377,7 @@
           <li><strong>Unequal-enthalpy nozzle metric &amp; finite-Re box mode (Review #3):</strong> Comparing compliant (<em>c</em><sub>T</sub>-choked) and rigid nozzles at equal throat static state gave the compliant nozzle 19% less stagnation enthalpy, creating a spurious negative gain; re-normalizing to equal <em>H</em><sub>0</sub> revealed true near-zero high-&beta; erosion. Similarly, the intermediate-<em>R</em><sub>m</sub> MHD trough proved to be a finite-Re continuum mode.</li>
           <li><strong>Ghost-crawl false positives in power-grid survival (Review #4):</strong> A 26 s horizon accepted trajectories with no post-fault equilibrium that slipped at <em>t</em> = 30&ndash;44 s, while rejecting slow-settling saturated cases. Restoring an exact saturated rotating-frame equilibrium check over <em>T</em> = 80 fixed both.</li>
           <li><strong>Numerical-dissipation masking of <em>3T</em> &amp; closure sensitivity (Review #5):</strong> <code>minmod</code> at <em>N</em> = 256 added &minus;5.6&times;10<sup>&minus;3</sup> excess damping on <em>3T</em>, hiding the 80/20 ring&rsquo;s true linear <em>3T</em> instability (&alpha; = +0.0019) by 10,000&times;, and the smooth chiral branch <em>S</em><sup>*</sup>(<em>n</em><sub>v</sub>) proved conditional on residence entropy flushing (&nu;<sub>res</sub> &gt; 0). Switching to the MC limiter, adding exact Fourier-collocation eigen-spectra, and reporting full &nu;<sub>res</sub> sensitivity tables fixed both.</li>
+          <li><strong><em>2T</em> Strouhal harmonic trap, coarse-grid bistability &amp; inlet-tail echo (Double-Model Review #6):</strong> Checking <em>1T</em> alone overstated the <em>M&#772;</em> = 0.18 global Hopf gain (4.77&times; vs. true all-mode 3.18&times;) and missed a 6.53% <em>2T</em> rotating limit cycle at <em>M&#772;</em> = 0.16 masked by 32&times;96 vorticity damping; coarse 28&times;96 grids also hid low-gain bistability at <em>M&#772;</em> = 0.06, and a Gaussian tail touching <em>x</em> = 0 produced a spurious positive bounce ahead of the true negative Marble&ndash;Candel rarefaction. Re-running on 48&times;144 with multi-mode spectra and a zero-tail entropy spot hardened every result.</li>
         </ul>
       </div>
 
@@ -361,13 +390,13 @@ cd math
 uv sync
 
 # Run any entry's verification script:
-uv run python rocket-combustion/sim/exp007_compressible_euler_steepening.py
+uv run python rocket-combustion/sim/exp009_2d_euler_throughflow.py
 uv run python rocket-combustion/sim/exp008_chiral_shock_competition.py
 uv run python plasma-nozzles/sim/exp001_mhd_kelvin_helmholtz.py
 uv run python grid-stability/sim/exp001_gfm_placement_and_saturation.py</code></pre>
 
       <p>
-        Next up: 2D (<em>x</em>, &theta;) compressible Euler annular combustor with physical axial throughflow <em>M&#772;</em><sub>x</sub> &gt; 0 (<code>rocket-combustion/009</code>), 2D axisymmetric magnetic nozzles with exterior field back-reaction (<code>plasma-nozzles/003</code>), and full inverter current-limiting + reactive <em>Q&ndash;V</em> coupling (<code>grid-stability/002</code>).
+        Next up: 2D compressible Euler throughflow with protruding injector baffles &amp; wide-mouth faceplate cavity rings (<code>rocket-combustion/010</code>), 2D axisymmetric magnetic nozzles with exterior field back-reaction (<code>plasma-nozzles/003</code>), and full inverter current-limiting + reactive <em>Q&ndash;V</em> coupling (<code>grid-stability/002</code>).
       </p>
 
       <footer>
