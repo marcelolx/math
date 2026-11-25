@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you reference these open-notebook entries, verification scripts, or synthesis monographs, please cite this repository."
+title: "marcelolx/math: Open-Notebook Computational Physics & Engineering Research"
+type: software
+authors:
+  - alias: "marcelolx"
+    name-particle: ""
+    family-names: "marcelolx"
+repository-code: "https://github.com/marcelolx/math"
+url: "https://marcelolx.github.io/math/"
+license: MIT
+date-released: "2026-11-25"
+keywords:
+  - open-notebook-science
+  - combustion-instability
+  - compressible-euler
+  - magnetohydrodynamics
+  - plasma-nozzles
+  - power-grid-stability
+  - reproducible-research

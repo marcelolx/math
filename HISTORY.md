@@ -1,0 +1,23 @@
+# History & Milestone Log
+
+Chronological record of research entries, adversarial cross-model peer reviews, hardening passes, and public blog updates across all tracks in `marcelolx/math`.
+
+## 2026-11-25
+
+- **Repo Standards & Audit Receipts:** Adopted open-notebook governance practices inspired by [`1337isnot1337/solved-conjectures`](https://github.com/1337isnot1337/solved-conjectures): added [`AGENTS.md`](AGENTS.md), [`CITATION.cff`](CITATION.cff), [`HISTORY.md`](HISTORY.md), archived peer-review receipts under [`reviews/`](reviews/README.md), verification-tier badges in all catalogues, and automated consistency gate [`scripts/check_repo.py`](scripts/check_repo.py).
+- **Rocket Combustion Entry `010` & Peer Review #7 (`9a43a57`, `47ceabc`):** Built 2D compressible Euler throughflow with split-face mirror HLLC solid-wall baffles and nonlinear faceplate Helmholtz cavity rings; completed independent Claude read-only audit ([`reviews/peer-review-07-rocket-010.md`](reviews/peer-review-07-rocket-010.md)) and hardened on `64×200` / `80×240` grids with clean $A_0 = 10^{-4}$ linear fits, $n_v = 0$ decomposition, $\bar{M} = 0$ baffle dissipation check, $\omega_H$ retuning scan, and blade-root placement audit.
+- **Milestone 3 Blog Update (`eb8befe`):** Published Entry `009` and double-model Peer Review #6 summary with figures to [`docs/index.html`](docs/index.html).
+- **Rocket Combustion Entry `009` & Double-Model Peer Review #6 (`c90c525`, `2a294f4`):** Upgraded annular combustor to full 2D $(x, \theta)$ compressible Euler with steady axial throughflow, choked zero-swirl injector, and Marble–Candel nozzle (zero ad-hoc $S_{\text{ent}}$); hardened per independent Claude + Antigravity Gemini audit ([`reviews/peer-review-06-rocket-009.md`](reviews/peer-review-06-rocket-009.md)) exposing the $2T$ Strouhal harmonic trap at $\bar{M} = 0.16$, `48×144` low-gain bistability, and pure negative Marble–Candel rarefaction.
+
+## 2026-11-24
+
+- **Milestone 2 Blog Update (`ea25928`):** Published Entries `007`–`008` and Peer Review #5 summary to [`docs/index.html`](docs/index.html).
+- **Rocket Combustion Entries `007`–`008` & Peer Review #5 (`0497046`, `e926a10`, `ea4f8f3`):** 1D periodic compressible Euler shock steepening, mode-selection reversal, chiral swirl competition, and rotating-shock control; hardened per independent Claude audit (MC limiter, exact Fourier-collocation eigen-spectra, $\nu_{\text{res}}$ closure sensitivity, and $3T$ regrowth on the `80/20` ring).
+- **Milestone 1 Blog Launch (`e5a0fef`):** Launched GitHub Pages progress log [`docs/index.html`](docs/index.html) summarizing all three tracks (Entries `000`–`006` rocket combustion, `000`–`002` plasma nozzles, `000`–`001` grid stability).
+- **Power Grid Stability Track Launched & Peer Review #4 (`3fe9314`, `ab2f3c8`, `cf452d3`):** Exact 4-bus AC Braess's paradox (`-11.99%`) and 12-bus GFM spatial placement & primary-droop saturation cliff; hardened per independent Claude audit (exact saturated rotating-frame equilibrium check over $T = 80$) and consolidated in [`grid-stability/SYNTHESIS.md`](grid-stability/SYNTHESIS.md).
+- **Plasma Nozzles Track & Peer Review #3 (`06f86f9`, `b2fefa8`, `317388a`, `e115a12`, `a3a1957`):** Quasi-1D magnetic nozzle Alfvén detachment, 2D resistive-MHD Kelvin–Helmholtz Stuart-number breakdown ($R_{m,\text{crit}} \propto M_A^2$), and compliant flux-tube MHD choking ($c_T < c_s$); hardened alongside Rocket Combustion Entry `006` ($t = 900$ wide-mouth bomb scan) and consolidated in [`plasma-nozzles/SYNTHESIS.md`](plasma-nozzles/SYNTHESIS.md).
+
+## Earlier Foundation Commits
+
+- **Rocket Combustion Entries `004`–`006` & Peer Review #2 (`e300c27`, `f401488`, `41756f5`, `074ac25`):** 2D transverse modes, radial baffles, inverse-square `80/20` dual-tuned cavity rings, odd azimuthal lag staggering, nonlinear spinning vs. standing mode selection, and initial [`rocket-combustion/SYNTHESIS.md`](rocket-combustion/SYNTHESIS.md).
+- **Rocket Combustion Entries `000`–`003` & Peer Review #1 (`62bdf60`, `a9a9296`, `2abf8f2`, `72e5c13`):** 1D Crocco $n$–$\tau$ baseline, DC-blocking high-pass filter $H_{\text{hp}}(s)$, spatial vs. Erlang-4 lag spread, exceptional-point Helmholtz cavity tuning, and bounded subcritical triggering.
