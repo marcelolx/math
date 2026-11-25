@@ -1,5 +1,5 @@
 """Entry 010 (rocket-combustion): 2D Compressible Euler Throughflow with Protruding
-Solid-Wall Baffles & Nonlinear Wide-Mouth Faceplate Cavity Rings.
+Solid-Wall Baffles & Nonlinear Wide-Mouth Faceplate Cavity Rings (Hardened per Peer Review #7).
 
 Resolves Open Problem #1 from rocket-combustion/SYNTHESIS.md by embedding two first-principles
 passive hardware mechanisms directly into the 2D (x, theta) conservative compressible Euler
@@ -7,31 +7,38 @@ annular combustor with steady axial throughflow M_bar > 0 (Entry 009 baseline; Z
 entropy-flush or drag closures):
 
   1. Protruding Inviscid Radial Baffles (N_b thin blades on x in [0, L_b], theta = 2*pi*k/N_b):
-     Implemented via exact split-face mirror HLLC solid-wall Riemann fluxes on the azimuthal
-     interfaces lying on each blade. Conserves mass, axial momentum, and total energy to machine
-     precision (~1e-16), satisfies exact theta-momentum vs. integrated blade-pressure torque
-     balance (~1e-14), and captures baffle-tip shock diffraction and acoustic-to-vorticity
-     shedding directly from the inviscid Euler equations.
+     Implemented via split-face mirror HLLC solid-wall Riemann fluxes on azimuthal cell faces
+     lying on each blade. Conserves mass, axial momentum, and total energy to machine precision
+     (~1e-16), satisfies discrete azimuthal blade-torque bookkeeping (~1e-17), and captures
+     baffle-tip shock diffraction and acoustic-to-vorticity shedding.
 
   2. Nonlinear Faceplate Helmholtz Cavity Rings at x = 0 (Cummings-Eversman orifice jet drag):
      Discrete N_c (or continuous) resonators of volume V_k = beta_k * (2*pi*L_a) / N_c coupled
-     exactly into the choked isentropic inlet mass-flux BC rho_in*ux_in = M_bar - u_port(theta,t),
+     into the choked isentropic inlet mass-flux BC rho_in*ux_in = M_bar - u_port(theta,t),
      with quadratic orifice pressure loss R_nl * |q_k| * q_k, R_nl = 1/(2*Cd^2*A_ok^2), Cd = 0.65.
-     Linearizes exactly into the 1D-in-x Chebyshev 2D throughflow eigenvalue solver.
+     Linearizes exactly into the 1D-in-x Chebyshev 2D throughflow eigenvalue solver (windowed to
+     omega in [0.05, 5.5] to exclude spurious high-frequency Chebyshev boundary modes).
 
-Four verification & discovery experiments (using N_b/N_c-divisible grids 40x120, 48x160, 60x160
-so every baffle length L_b in {0.15, 0.30, 0.45, 0.60, 0.75} and blade count N_b in {4, 5}
-aligns to exact integer cell faces with zero sector-rounding asymmetry):
-  Exp 1: Exact steady preservation (~1e-16), periodic conservation + blade-torque impulse balance,
-         and Chebyshev vs. 2D Euler PDE cold-damping verification across grids (40x120, 60x160).
-  Exp 2: Non-monotonic baffle-length Strouhal vorticity resonance at M_bar = 0.12 (reversing
-         zero-throughflow Law #5) + even N_b = 4 vs. prime N_b = 5 standing-2T blind spot.
-  Exp 3: Exact multi-mode (m = 0, +-1, +-2, +-3) faceplate cavity spectra, the Baffle-Cavity
-         Frequency-Retuning Law (untuned vs. retuned 2% ring + L_b = 0.45 baffles on 40x120 &
-         60x160), and finite-amplitude shock shootout at the M_bar = 0.12 trough.
-  Exp 4: Disarming Entry 009's M_bar = 0.16 2T Strouhal Harmonic Trap with a micro 1.0% 2T-only
-         trim cavity, the 2D Euler wide-mouth vs. tight-neck orifice-drag cliff, and a 5-IC
-         all-mode nonlinear stress audit on 48x160.
+Hardening upgrades per independent cross-model Peer Review #7 (Claude, 110 independent runs):
+  - C1: Explicit per-mode, per-grid numerical-damping audit (1T, 2T, 3T across 40x120, 60x160,
+        80x240) + bare reacting 2T convergence + aligned stand_2T blade-count audit at n_v = 0
+        on 80x240 + L_b = 0.60 2T check.
+  - C2: Full Exp 4 orifice-drag cliff re-run on 64x200 (t = 220) alongside 48x160, exposing
+        that sigma_o = 2.5% chokes into a ~4.0% 2T rotating shock on 64x200 (the true cliff
+        lies between 2.5% and 5.0%, while wide-mouth 5.0% survives refinement).
+  - M1: All linear reacting growth rates measured cleanly at A_0 = 1e-4 inside the linear window
+        (p'/p_bar < 0.5%, zero subcritical cubic-flame contamination).
+  - M2: Adds n_v = 0 pure pressure-coupled baffle sweep showing short-baffle amplification is
+        chiral (n_v > 0) and L_b = 0.60 re-destabilization is driven primarily by baffle-induced
+        frequency downshift / Crocco phase shift rather than a cold St_eff = 1.00 trough.
+  - M3: Quantifies M_bar = 0 (zero-throughflow) inviscid baffle numerical edge dissipation across
+        40x120 and 80x240 (~-0.011 -> -0.006, 1st-order numerical) vs. ~90% physical shedding.
+  - M4/M5: Converged least-squares omega_1T(0.45) (-6.7%: 0.989 -> 0.923 on 80x240), explicit
+        omega_H retuning scan showing optimal tuning targets the baffled REACTING frequency
+        (~0.89-0.90), cavity phase-offset placement audit (mid-sector 0.5 vs. blade-root 0.0:
+        36% margin loss at blade roots), and all-mode (spin_2T, cold_1L) hybrid check on 60x160.
+  - M6: Exact spin_1T subcritical trigger bracket (0.015, 0.025] at M_bar = 0.16 on 48x160 and
+        exact matching Chebyshev rows (m6).
 """
 
 from __future__ import annotations
@@ -111,10 +118,8 @@ def exact_2d_cavity_eig(
 ) -> complex:
     """Exact least-stable eigenvalue of 2D linearized Euler throughflow with faceplate Helmholtz cavities.
 
-    cav_families: list of (beta_j, omega_Hj, xi_Hj) tuples where beta_j = V_j / V_ch.
-    port_form_sq: |w_hat_m|^2 azimuthal port form factor (1.0 for continuous/point ports).
-    When n_v != 0 and m != 0, evaluates BOTH +m (counter-rotating) and -m (co-rotating) and
-    returns the least-stable eigenvalue.
+    Filtered to omega in [0.05, 5.5] by default to exclude spurious high-frequency Chebyshev boundary modes.
+    When n_v != 0 and m != 0, evaluates BOTH +m and -m and returns the least-stable root.
     """
     if check_both_chiral_signs and abs(n_v) > 0.0 and m != 0:
         vp = exact_2d_cavity_eig(M_bar, abs(m), n_p, n_v, cav_families, port_form_sq, omega_window, N, False)
@@ -221,7 +226,7 @@ def hllc_2d_normal(
     rhoL: np.ndarray, vnL: np.ndarray, vtL: np.ndarray, pL: np.ndarray,
     rhoR: np.ndarray, vnR: np.ndarray, vtR: np.ndarray, pR: np.ndarray,
 ) -> np.ndarray:
-    """Exact HLLC numerical flux along normal direction (vn) with passive tangential velocity (vt)."""
+    """HLLC numerical flux along normal direction (vn) with passive tangential velocity (vt)."""
     cL = np.sqrt(GAMMA * pL / rhoL)
     cR = np.sqrt(GAMMA * pR / rhoR)
     EL = pL / (GAMMA - 1.0) + 0.5 * rhoL * (vnL * vnL + vtL * vtL)
@@ -277,7 +282,7 @@ def apply_inlet_bc_port(U_in: np.ndarray, M_bar: float, u_port: np.ndarray) -> n
 
 
 def apply_outlet_bc(U_out: np.ndarray, M_bar: float) -> np.ndarray:
-    """Exact Marble-Candel compact choked nozzle BC at x = L_a."""
+    """Exact Marble-Candel compact choked nozzle BC at x = L_a (at M_bar = 0, reduces to solid wall ux = 0)."""
     rho0, ux0, ut0, p0, c0 = prim_2d(U_out)
     pow_g = 2.0 / (GAMMA - 1.0)
     J_plus = ux0 + pow_g * c0
@@ -315,12 +320,9 @@ def simulate_2d_hw(
     wf = np.exp(-0.5 * ((x - X_F) / SIG_F) ** 2)
     wf /= float(np.sum(wf) * dx)
 
-    # Exact integer-aligned baffle interfaces j+1/2 at theta = (j+1)*dth
     baffle_mask = np.zeros((nx, nth), dtype=bool)
-    baffle_nx = 0
     if n_baffles > 0 and L_baffle > 0.0:
         baffle_nx = int(round(L_baffle / dx))
-        # Place face j so (j+1)*dth = 2*pi*k / n_baffles (theta = 0 at interface j = nth - 1)
         baffle_faces = [(int(round(k * nth / n_baffles)) - 1) % nth for k in range(n_baffles)]
         for bf in baffle_faces:
             baffle_mask[:baffle_nx, bf] = True
@@ -328,7 +330,6 @@ def simulate_2d_hw(
     baffle_left_adj = baffle_mask.copy()
     baffle_right_adj = np.roll(baffle_mask, 1, axis=1)
 
-    # Faceplate Helmholtz cavity families
     cav_list = []
     for sp in (cav_spec or []):
         beta_f = float(sp["beta"])
@@ -350,15 +351,14 @@ def simulate_2d_hw(
             A_ok = (sig_o * 2.0 * np.pi) / nc
             r_nl = (1.0 / (2.0 * (Cd ** 2) * (A_ok ** 2))) if nl_on else 0.0
             W = np.zeros((nc, nth))
+            # Grid-regularized narrow Gaussian port profile (1.5*dth minimum width)
             sig_th = max(1.5 * dth, 0.5 * (2.0 * np.pi * sig_o / nc))
-            # Center cavities in mid-sectors (offset by 0.5 sector from baffle blades at 2*pi*k/N_b!)
             phase_off = float(sp.get("phase_offset", 0.5))
             for k in range(nc):
                 th_k = (k + phase_off) * (2.0 * np.pi / nc)
                 d_ang = np.angle(np.exp(1j * (th - th_k)))
                 wk = np.exp(-0.5 * (d_ang / sig_th) ** 2)
                 W[k] = wk / float(np.sum(wk) * dth)
-            # Compute exact azimuthal form factor |w_hat_m|^2 for Chebyshev cross-check
             pfs = {}
             for mm in (1, 2, 3):
                 wh = float(np.abs(np.sum(W[0] * np.exp(-1j * mm * th)) * dth))
@@ -368,7 +368,6 @@ def simulate_2d_hw(
                 "W": W, "Pc": np.zeros(nc), "qt": np.zeros(nc), "port_form_sq": pfs,
             })
 
-    # Initial condition
     P0 = np.zeros_like(X)
     ux0 = np.full_like(X, M_bar)
     ut0 = np.zeros_like(X)
@@ -381,7 +380,6 @@ def simulate_2d_hw(
     elif init_type == "spin_2T":
         P0 = A_eq * np.cos(2.0 * TH); ut0 = A_eq * np.cos(2.0 * TH)
     elif init_type == "stand_2T_aligned":
-        # P ~ cos(2*theta) => dP/dtheta = 0 at theta = 0, pi/2, pi, 3*pi/2 => u_theta = 0 at ALL 4 N_b=4 blades!
         P0 = np.sqrt(2.0) * A_eq * np.cos(2.0 * TH)
     elif init_type == "spin_3T":
         P0 = A_eq * np.cos(3.0 * TH); ut0 = A_eq * np.cos(3.0 * TH)
@@ -461,8 +459,6 @@ def simulate_2d_hw(
             FR_n = hllc_2d_normal(rR, -utR, uxR, pR, rR, utR, uxR, pR)
             Ft_R[0, baffle_mask] = 0.0; Ft_R[1, baffle_mask] = 0.0; Ft_R[2, baffle_mask] = FR_n[1]; Ft_R[3, baffle_mask] = 0.0
 
-            # Exact net azimuthal force exerted ON the fluid by all baffle faces:
-            # sum over baffle faces of (p_wall_R - p_wall_L) * dx
             blade_force = float(np.sum(FR_n[1] - FL_n[1]) * dx)
             dU = -(Fx[:, 1:, :] - Fx[:, :-1, :]) / dx - (Ft_L - np.roll(Ft_R, 1, axis=2)) / dth
         else:
@@ -517,15 +513,12 @@ def simulate_2d_hw(
         nonlocal max_torque_err
         rho, ux, ut, p, _ = prim_2d(U)
         Pf = p - P_BAR
-        Po = Pf - float(np.mean(Pf))
-        # Include full bulk pressure perturbation in e_wave_tot so m=0 modes are never hidden!
         ew = 0.5 * float(np.mean(Pf * Pf + (ux - M_bar) ** 2 + (ut - float(np.mean(ut))) ** 2))
         phat = np.fft.rfft(np.mean(Pf, axis=0)) / (0.5 * nth)
         if periodic_x:
             cur = np.sum(U, axis=(1, 2)) * dx * dth
             denom = np.maximum(np.abs(init_totals), 1.0)
             np.maximum(max_cons_err, np.abs(cur - init_totals) / denom, out=max_cons_err)
-            # Exact blade-torque balance: (mom_th(t) - mom_th(0)) - integral(blade_force dt) = 0
             terr = abs((cur[2] - init_totals[2]) - blade_impulse)
             if terr > max_torque_err:
                 max_torque_err = terr
@@ -563,7 +556,6 @@ def simulate_2d_hw(
             record(t)
 
     rho_f, ux_f, ut_f, p_f, _ = prim_2d(U)
-    # Compute 2D vorticity field omega_z = d(ut)/dx - d(ux)/dtheta for visualization
     dut_dx = np.gradient(ut_f, dx, axis=0)
     dux_dth = (np.roll(ux_f, -1, axis=1) - np.roll(ux_f, 1, axis=1)) / (2.0 * dth)
     vort_f = dut_dx - dux_dth
@@ -594,23 +586,22 @@ def stats_2d(r: dict, fit_start_frac: float = 0.45) -> dict:
     pk_pct = float(np.max(r["p_peak"][m2:]) / P_BAR * 100.0)
     mf = int(fit_start_frac * n)
     afit = float(np.polyfit(t[mf:], 0.5 * np.log(np.maximum(r["e_wave"][mf:], 1e-30)), 1)[0])
-
-    # Envelope spin index S_env on late window
-    p1 = r["p1_complex"][m2:]
-    mag = np.abs(p1)
-    if float(np.max(mag)) > 1e-7:
-        p1_dt = np.gradient(p1, t[m2:])
-        sgn = 1.0 if float(np.mean(-np.imag(np.conj(p1) * p1_dt))) >= 0.0 else -1.0
-        s_env = float(sgn * np.min(mag) / np.max(mag))
+    # Also compute clean linear-regime fit restricted to p_peak / P_BAR < 0.005 (Peer Review #7 M1)
+    lin_msk = (t >= 20.0) & (r["p_peak"] / P_BAR < 0.005)
+    if int(np.sum(lin_msk)) >= 8:
+        afit_lin = float(np.polyfit(t[lin_msk], 0.5 * np.log(np.maximum(r["e_wave"][lin_msk], 1e-30)), 1)[0])
+        afit_e2 = float(np.polyfit(t[lin_msk], 0.5 * np.log(np.maximum(r["e2"][lin_msk], 1e-30)), 1)[0])
     else:
-        s_env = 0.0
+        afit_lin = afit
+        afit_e2 = float(np.polyfit(t[mf:], 0.5 * np.log(np.maximum(r["e2"][mf:], 1e-30)), 1)[0])
 
     return {
         "p_over_pbar_pct": pk_pct,
         "e_wave_late": e_late,
         "e_wave_late_over_mid": float(e_late / max(e_mid, 1e-30)),
         "alpha_fit_late": afit,
-        "S_env_signed": s_env,
+        "alpha_fit_linear_clean": afit_lin,
+        "alpha_fit_e2_clean": afit_e2,
         "e1_late": float(np.mean(r["e1"][m2:])),
         "e2_late": float(np.mean(r["e2"][m2:])),
         "e3_late": float(np.mean(r["e3"][m2:])),
@@ -619,29 +610,46 @@ def stats_2d(r: dict, fit_start_frac: float = 0.45) -> dict:
     }
 
 
-def measure_cold_mode(r: dict, t_lo: float = 10.0, t_hi: float = 34.0, mode_key: str = "e1") -> tuple[float, float]:
-    """Measure cold exponential damping alpha and oscillation frequency omega from standing/spinning run."""
+def measure_cold_lsq(r: dict, t_lo: float = 10.0, t_hi: float = 34.0, mode_key: str = "e1") -> tuple[float, float]:
+    """Measure cold exponential damping alpha and accurate least-squares frequency omega from standing mode."""
     t = r["t"]
     msk = (t >= t_lo) & (t <= t_hi)
-    af = float(np.polyfit(t[msk], 0.5 * np.log(np.maximum(r["e_wave"][msk], 1e-30)), 1)[0])
-    sig = r[mode_key][msk] * np.exp(-2.0 * af * (t[msk] - t[msk][0]))
-    sig = sig - float(np.mean(sig))
-    dt_s = float(np.mean(np.diff(t[msk])))
-    nfft = len(sig) * 8
-    freqs = np.fft.rfftfreq(nfft, d=dt_s) * 2.0 * np.pi
-    spec = np.abs(np.fft.rfft(sig, n=nfft))
-    w_est = 0.5 * float(freqs[int(np.argmax(spec))])
+    tm = t[msk]
+    af = float(np.polyfit(tm, 0.5 * np.log(np.maximum(r[mode_key][msk], 1e-30)), 1)[0])
+    # For stand_1T, p1_complex(t) ~ A * exp(alpha*t) * cos(omega*t + phi) -> unwrap phase or fit cosine!
+    if mode_key == "e1":
+        sig = np.real(r["p1_complex"][msk]) * np.exp(-af * (tm - tm[0]))
+        sig = sig - float(np.mean(sig))
+        # Coarse FFT estimate then golden/grid least-squares refinement for high accuracy
+        dt_s = float(np.mean(np.diff(tm)))
+        nfft = len(sig) * 16
+        freqs = np.fft.rfftfreq(nfft, d=dt_s) * 2.0 * np.pi
+        w0 = float(freqs[int(np.argmax(np.abs(np.fft.rfft(sig, n=nfft))))])
+        w_grid = np.linspace(max(0.5, w0 - 0.08), w0 + 0.08, 401)
+        best_err = 1e30; best_w = w0
+        for wc in w_grid:
+            M = np.column_stack([np.cos(wc * tm), np.sin(wc * tm)])
+            coef, _, _, _ = np.linalg.lstsq(M, sig, rcond=None)
+            err = float(np.sum((sig - M @ coef) ** 2))
+            if err < best_err:
+                best_err = err; best_w = float(wc)
+        w_est = best_w
+    else:
+        sig = r[mode_key][msk] * np.exp(-2.0 * af * (tm - tm[0]))
+        sig = sig - float(np.mean(sig))
+        dt_s = float(np.mean(np.diff(tm)))
+        nfft = len(sig) * 16
+        freqs = np.fft.rfftfreq(nfft, d=dt_s) * 2.0 * np.pi
+        w_est = 0.5 * float(freqs[int(np.argmax(np.abs(np.fft.rfft(sig, n=nfft))))])
     return af, w_est
 
 
 def _sim_worker(task: tuple[str, dict]) -> tuple[str, dict]:
-    """Top-level picklable worker for parallel independent PDE runs."""
     label, kwargs = task
     return label, simulate_2d_hw(**kwargs)
 
 
 def run_parallel_batch(tasks: list[tuple[str, dict]], max_workers: int | None = None) -> dict[str, dict]:
-    """Run independent 2D Euler simulations in parallel while preserving deterministic ordering."""
     nw = max_workers or min(6, max(1, (os.cpu_count() or 2) - 2), len(tasks))
     if nw <= 1 or len(tasks) <= 1:
         return {lbl: simulate_2d_hw(**kw) for lbl, kw in tasks}
@@ -652,14 +660,14 @@ def run_parallel_batch(tasks: list[tuple[str, dict]], max_workers: int | None = 
 
 def main() -> None:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    print("=" * 80)
-    print("Entry 010: 2D Compressible Euler Throughflow + Protruding Baffles & Faceplate Cavities")
-    print("=" * 80)
+    print("=" * 84)
+    print("Entry 010 (Hardened per Peer Review #7): 2D Euler Baffles & Faceplate Cavity Rings")
+    print("=" * 84)
 
     # ------------------------------------------------------------------
-    # Experiment 1: Verification (Steady Preservation, Conservation + Blade Torque, Chebyshev vs PDE)
+    # Experiment 1: Verification, Per-Mode Numerical Damping Table & M_bar=0 Baffle Check
     # ------------------------------------------------------------------
-    print("\n--- Experiment 1: First-Principles Verification (40x120 & 60x160) ---")
+    print("\n--- Experiment 1: Conservation, Per-Mode Damping Audit (C1) & M_bar=0 Baffle Check (M3) ---")
     cav_4pct_disc = [
         {"beta": 0.032, "wH": W1_COLD, "xiH": 0.14, "sigma_o": 0.060, "n_cav": 5, "nonlinear": False},
         {"beta": 0.008, "wH": W2_COLD, "xiH": 0.12, "sigma_o": 0.020, "n_cav": 5, "nonlinear": False},
@@ -668,111 +676,175 @@ def main() -> None:
         {"beta": 0.032, "wH": W1_COLD, "xiH": 0.14, "sigma_o": 0.060, "n_cav": 0, "nonlinear": False},
         {"beta": 0.008, "wH": W2_COLD, "xiH": 0.12, "sigma_o": 0.020, "n_cav": 0, "nonlinear": False},
     ]
-    exp1_batch = run_parallel_batch([
+    exp1_tasks = [
         ("steady", dict(nx=40, nth=120, t_end=20.0, M_bar=0.12, n_baffles=5, L_baffle=0.45,
                         cav_spec=cav_4pct_disc, init_type="steady", A_eq=0.0, record_stride=20)),
         ("cons", dict(nx=40, nth=120, t_end=10.0, M_bar=0.12, n_baffles=5, L_baffle=0.45,
                       init_type="periodic_2d_wave", A_eq=0.10, periodic_x=True, record_stride=20)),
-        ("1T_cont_40x120", dict(nx=40, nth=120, t_end=30.0, M_bar=0.12, cav_spec=cav_4pct_cont, init_type="spin_1T", A_eq=1e-4, record_stride=10)),
-        ("1T_cont_60x160", dict(nx=60, nth=160, t_end=30.0, M_bar=0.12, cav_spec=cav_4pct_cont, init_type="spin_1T", A_eq=1e-4, record_stride=10)),
-        ("1T_disc5_40x120", dict(nx=40, nth=120, t_end=30.0, M_bar=0.12, cav_spec=cav_4pct_disc, init_type="spin_1T", A_eq=1e-4, record_stride=10)),
-        ("2T_cont_60x160", dict(nx=60, nth=160, t_end=30.0, M_bar=0.12, cav_spec=cav_4pct_cont, init_type="spin_2T", A_eq=1e-4, record_stride=10)),
-    ])
-    r_steady = exp1_batch["steady"]
-    r_cons = exp1_batch["cons"]
-    print(f"  Exp 1A Steady preservation (baffles+cavs, t=20): max |U-U0| = {r_steady['steady_max_err']:.2e}")
-    ce = r_cons["periodic_cons_err"]
-    print(f"  Exp 1B Periodic inviscid conservation (5 solid baffles, t=10): "
-          f"mass={ce['mass']:.2e}, mom_x={ce['mom_x']:.2e}, energy={ce['energy']:.2e}, "
-          f"mom_th_blade_impulse_err={ce['mom_th_blade_impulse_err']:.2e} (raw d_mom_th={ce['mom_th_raw']:.2e})")
+        # Cavity Chebyshev cross-checks
+        ("cav_1T_cont_40x120", dict(nx=40, nth=120, t_end=30.0, M_bar=0.12, cav_spec=cav_4pct_cont, init_type="spin_1T", A_eq=1e-4, record_stride=10)),
+        ("cav_1T_cont_60x160", dict(nx=60, nth=160, t_end=30.0, M_bar=0.12, cav_spec=cav_4pct_cont, init_type="spin_1T", A_eq=1e-4, record_stride=10)),
+        ("cav_1T_disc5_40x120", dict(nx=40, nth=120, t_end=30.0, M_bar=0.12, cav_spec=cav_4pct_disc, init_type="spin_1T", A_eq=1e-4, record_stride=10)),
+        ("cav_2T_cont_60x160", dict(nx=60, nth=160, t_end=30.0, M_bar=0.12, cav_spec=cav_4pct_cont, init_type="spin_2T", A_eq=1e-4, record_stride=10)),
+        # Per-mode numerical damping audit across 40x120, 60x160, 80x240 (Peer Review #7 C1)
+        ("bare_1T_40x120", dict(nx=40, nth=120, t_end=30.0, M_bar=0.12, init_type="spin_1T", A_eq=1e-4, record_stride=10)),
+        ("bare_1T_60x160", dict(nx=60, nth=160, t_end=30.0, M_bar=0.12, init_type="spin_1T", A_eq=1e-4, record_stride=10)),
+        ("bare_1T_80x240", dict(nx=80, nth=240, t_end=30.0, M_bar=0.12, init_type="spin_1T", A_eq=1e-4, record_stride=12)),
+        ("bare_2T_40x120", dict(nx=40, nth=120, t_end=30.0, M_bar=0.12, init_type="spin_2T", A_eq=1e-4, record_stride=10)),
+        ("bare_2T_60x160", dict(nx=60, nth=160, t_end=30.0, M_bar=0.12, init_type="spin_2T", A_eq=1e-4, record_stride=10)),
+        ("bare_2T_80x240", dict(nx=80, nth=240, t_end=30.0, M_bar=0.12, init_type="spin_2T", A_eq=1e-4, record_stride=12)),
+        ("bare_3T_40x120", dict(nx=40, nth=120, t_end=26.0, M_bar=0.12, init_type="spin_3T", A_eq=1e-4, record_stride=10)),
+        ("bare_3T_80x240", dict(nx=80, nth=240, t_end=26.0, M_bar=0.12, init_type="spin_3T", A_eq=1e-4, record_stride=12)),
+        # Bare reacting 2T convergence (40x120 masks +0.0114; 80x240 recovers growth!)
+        ("react_2T_40x120", dict(nx=40, nth=120, t_end=60.0, M_bar=0.12, n_p=0.22, n_v=0.04, init_type="spin_2T", A_eq=1e-4, record_stride=12)),
+        ("react_2T_80x240", dict(nx=80, nth=240, t_end=60.0, M_bar=0.12, n_p=0.22, n_v=0.04, init_type="spin_2T", A_eq=1e-4, record_stride=16)),
+        # M_bar = 0 zero-throughflow inviscid baffle numerical dissipation audit (Peer Review #7 M3)
+        ("M0_bare_40x120", dict(nx=40, nth=120, t_end=34.0, M_bar=0.0, init_type="stand_1T", A_eq=1e-4, record_stride=10)),
+        ("M0_baf045_40x120", dict(nx=40, nth=120, t_end=34.0, M_bar=0.0, n_baffles=5, L_baffle=0.45, init_type="stand_1T", A_eq=1e-4, record_stride=10)),
+        ("M0_baf045_80x240", dict(nx=80, nth=240, t_end=34.0, M_bar=0.0, n_baffles=5, L_baffle=0.45, init_type="stand_1T", A_eq=1e-4, record_stride=15)),
+    ]
+    exp1_res = run_parallel_batch(exp1_tasks)
+    r_steady = exp1_res["steady"]
+    ce = exp1_res["cons"]["periodic_cons_err"]
+    print(f"  Exp 1A Steady preservation: {r_steady['steady_max_err']:.2e}")
+    print(f"  Exp 1B Periodic conservation (5 baffles): mass={ce['mass']:.2e}, mom_x={ce['mom_x']:.2e}, "
+          f"energy={ce['energy']:.2e}, torque_bookkeeping_err={ce['mom_th_blade_impulse_err']:.2e}")
 
-    # Exp 1C: Exact Chebyshev vs 2D Euler PDE cold damping with 4% 80/20 faceplate cavity ring
     cf_4 = [(0.032, W1_COLD, 0.14), (0.008, W2_COLD, 0.12)]
-    v_ex_1T_cont = exact_2d_cavity_eig(0.12, 1, cav_families=cf_4)
-    v_ex_2T_cont = exact_2d_cavity_eig(0.12, 2, cav_families=cf_4)
-    pfs_1T = r_steady["port_form_sq"][0][1]
-    v_ex_1T_disc = exact_2d_cavity_eig(0.12, 1, cav_families=cf_4, port_form_sq=pfs_1T)
+    v_ex_cav1 = exact_2d_cavity_eig(0.12, 1, cav_families=cf_4)
+    v_ex_cav2 = exact_2d_cavity_eig(0.12, 2, cav_families=cf_4)
+    v_ex_cav1_d = exact_2d_cavity_eig(0.12, 1, cav_families=cf_4, port_form_sq=r_steady["port_form_sq"][0][1])
 
-    exp1c = {}
-    for label, v_ex in [
-        ("1T_cont_40x120", v_ex_1T_cont),
-        ("1T_cont_60x160", v_ex_1T_cont),
-        ("1T_disc5_40x120", v_ex_1T_disc),
-        ("2T_cont_60x160", v_ex_2T_cont),
+    exp1c_cav = {}
+    for lbl, vex, mkey in [
+        ("cav_1T_cont_40x120", v_ex_cav1, "e1"),
+        ("cav_1T_cont_60x160", v_ex_cav1, "e1"),
+        ("cav_1T_disc5_40x120", v_ex_cav1_d, "e1"),
+        ("cav_2T_cont_60x160", v_ex_cav2, "e2"),
     ]:
-        rc = exp1_batch[label]
+        rc = exp1_res[lbl]
         msk = (rc["t"] >= 10.0) & (rc["t"] <= 26.0)
+        af = float(np.polyfit(rc["t"][msk], 0.5 * np.log(np.maximum(rc[mkey][msk], 1e-30)), 1)[0])
+        exp1c_cav[lbl] = {"exact_alpha": vex.real, "exact_omega": vex.imag, "pde_alpha": af, "excess": af - vex.real}
+        print(f"  Exp 1C [{lbl:19s}] exact={vex.real:+.5f} | PDE={af:+.5f} (excess={af-vex.real:+.4f})")
+
+    ex_bare = {m: exact_2d_cavity_eig(0.12, m) for m in (1, 2, 3)}
+    per_mode_audit = {}
+    print("  [Per-Mode Cold Bare Numerical Damping Audit (M_bar = 0.12)]")
+    for lbl, m, mkey in [
+        ("bare_1T_40x120", 1, "e1"), ("bare_1T_60x160", 1, "e1"), ("bare_1T_80x240", 1, "e1"),
+        ("bare_2T_40x120", 2, "e2"), ("bare_2T_60x160", 2, "e2"), ("bare_2T_80x240", 2, "e2"),
+        ("bare_3T_40x120", 3, "e3"), ("bare_3T_80x240", 3, "e3"),
+    ]:
+        rc = exp1_res[lbl]
+        t_hi = 22.0 if m == 3 else 26.0
+        msk = (rc["t"] >= 10.0) & (rc["t"] <= t_hi)
+        af = float(np.polyfit(rc["t"][msk], 0.5 * np.log(np.maximum(rc[mkey][msk], 1e-30)), 1)[0])
+        per_mode_audit[lbl] = {"exact_alpha": ex_bare[m].real, "pde_alpha": af, "excess": af - ex_bare[m].real}
+        print(f"    [{lbl:14s}] exact={ex_bare[m].real:+.5f} | PDE={af:+.5f} (excess={af-ex_bare[m].real:+.4f})")
+
+    react_2T_conv = {}
+    for lbl in ("react_2T_40x120", "react_2T_80x240"):
+        st = stats_2d(exp1_res[lbl])
+        react_2T_conv[lbl] = st["alpha_fit_e2_clean"]
+    print(f"  [Reacting Bare 2T (exact +0.01137)]: 40x120={react_2T_conv['react_2T_40x120']:+.5f} (masked!) | 80x240={react_2T_conv['react_2T_80x240']:+.5f} (growing!)")
+
+    m0_audit = {}
+    for lbl in ("M0_bare_40x120", "M0_baf045_40x120", "M0_baf045_80x240"):
+        rc = exp1_res[lbl]
+        msk = (rc["t"] >= 10.0) & (rc["t"] <= 30.0)
         af = float(np.polyfit(rc["t"][msk], 0.5 * np.log(np.maximum(rc["e_wave"][msk], 1e-30)), 1)[0])
-        exp1c[label] = {"exact_alpha": v_ex.real, "exact_omega": v_ex.imag, "pde_alpha": af, "excess": af - v_ex.real}
-        print(f"  Exp 1C [{label:16s}] exact={v_ex.real:+.5f} ({v_ex.imag:.3f}) | PDE={af:+.5f} (excess={af-v_ex.real:+.4f})")
+        m0_audit[lbl] = af
+    print(f"  [M_bar=0 Baffle Numerical Dissipation (exact 0)]: bare={m0_audit['M0_bare_40x120']:+.5f} | "
+          f"Lb=0.45 40x120={m0_audit['M0_baf045_40x120']:+.5f} | 80x240={m0_audit['M0_baf045_80x240']:+.5f}")
 
     # ------------------------------------------------------------------
-    # Experiment 2: Non-Monotonic Baffle-Length Strouhal Resonance & Blade-Count Blind Spot (M_bar=0.12)
+    # Experiment 2: Clean Linear (A_0=1e-4) Baffle Sweep, n_v=0 Decomposition & 80x240 Checks
     # ------------------------------------------------------------------
-    print("\n--- Experiment 2: Baffle-Length Strouhal Resonance & Symmetry Blind Spot (M_bar=0.12) ---")
+    print("\n--- Experiment 2: Clean Linear (A_0=1e-4) Baffle Sweep, n_v=0 Decomposition & 80x240 Audit ---")
     exp2_tasks = []
     for Lb in (0.00, 0.15, 0.30, 0.45, 0.60, 0.75):
         nb = 5 if Lb > 0.0 else 0
         exp2_tasks.append((f"cold_{Lb:.2f}", dict(nx=40, nth=120, t_end=38.0, M_bar=0.12, n_baffles=nb, L_baffle=Lb,
-                                                  init_type="stand_1T", A_eq=1e-4, record_stride=5)))
-        exp2_tasks.append((f"lin_{Lb:.2f}", dict(nx=40, nth=120, t_end=110.0, M_bar=0.12, n_p=0.22, n_v=0.04,
-                                                 n_baffles=nb, L_baffle=Lb, init_type="spin_1T", A_eq=0.002, record_stride=15)))
+                                                  init_type="stand_1T", A_eq=1e-4, record_stride=4)))
+        # Clean linear reacting (A_0 = 1e-4, Peer Review #7 M1!)
+        exp2_tasks.append((f"lin_{Lb:.2f}", dict(nx=40, nth=120, t_end=80.0, M_bar=0.12, n_p=0.22, n_v=0.04,
+                                                 n_baffles=nb, L_baffle=Lb, init_type="spin_1T", A_eq=1e-4, record_stride=12)))
+        # Pure pressure-coupled n_v = 0 decomposition (Peer Review #7 M2!)
+        exp2_tasks.append((f"nv0_{Lb:.2f}", dict(nx=40, nth=120, t_end=80.0, M_bar=0.12, n_p=0.22, n_v=0.0,
+                                                 n_baffles=nb, L_baffle=Lb, init_type="spin_1T", A_eq=1e-4, record_stride=12)))
         exp2_tasks.append((f"nl_{Lb:.2f}", dict(nx=40, nth=120, t_end=150.0, M_bar=0.12, n_p=0.22, n_v=0.04,
                                                 n_baffles=nb, L_baffle=Lb, init_type="spin_1T", A_eq=0.055, record_stride=15)))
+    # 60x160 & 80x240 grid convergence on key baffle lengths (M1, M2, M3, M4)
     for Lb in (0.00, 0.30, 0.45, 0.60):
         nb = 5 if Lb > 0.0 else 0
         exp2_tasks.append((f"cold60_{Lb:.2f}", dict(nx=60, nth=160, t_end=38.0, M_bar=0.12, n_baffles=nb, L_baffle=Lb,
-                                                    init_type="stand_1T", A_eq=1e-4, record_stride=8)))
-        exp2_tasks.append((f"lin60_{Lb:.2f}", dict(nx=60, nth=160, t_end=95.0, M_bar=0.12, n_p=0.22, n_v=0.04,
-                                                   n_baffles=nb, L_baffle=Lb, init_type="spin_1T", A_eq=0.002, record_stride=20)))
-    for label, nb in [("bare_stand2T", 0), ("Nb4_even_stand2T", 4), ("Nb5_prime_stand2T", 5)]:
-        exp2_tasks.append((label, dict(nx=40, nth=120, t_end=110.0, M_bar=0.12, n_p=0.22, n_v=0.04,
-                                       n_baffles=nb, L_baffle=(0.45 if nb > 0 else 0.0), init_type="stand_2T_aligned", A_eq=0.002, record_stride=15)))
+                                                    init_type="stand_1T", A_eq=1e-4, record_stride=6)))
+        exp2_tasks.append((f"lin60_{Lb:.2f}", dict(nx=60, nth=160, t_end=80.0, M_bar=0.12, n_p=0.22, n_v=0.04,
+                                                   n_baffles=nb, L_baffle=Lb, init_type="spin_1T", A_eq=1e-4, record_stride=14)))
+    exp2_tasks.append(("cold80_0.45", dict(nx=80, nth=240, t_end=36.0, M_bar=0.12, n_baffles=5, L_baffle=0.45,
+                                           init_type="stand_1T", A_eq=1e-4, record_stride=8)))
+    exp2_tasks.append(("cold80_0.60", dict(nx=80, nth=240, t_end=36.0, M_bar=0.12, n_baffles=5, L_baffle=0.60,
+                                           init_type="stand_1T", A_eq=1e-4, record_stride=8)))
+    # Check L_b=0.60 for hidden 2T instability on 80x240 (Peer Review #7 C1!)
+    exp2_tasks.append(("Lb060_2T_80x240", dict(nx=80, nth=240, t_end=60.0, M_bar=0.12, n_p=0.22, n_v=0.04,
+                                               n_baffles=5, L_baffle=0.60, init_type="spin_2T", A_eq=1e-4, record_stride=16)))
+    # Clean aligned stand_2T blind-spot audit on 80x240 at n_v=0 (C1 + m4!)
+    for lbl, nb in [("bare_s2T_80x240", 0), ("Nb4_s2T_80x240", 4), ("Nb5_s2T_80x240", 5)]:
+        exp2_tasks.append((lbl, dict(nx=80, nth=240, t_end=60.0, M_bar=0.12, n_p=0.22, n_v=0.0,
+                                     n_baffles=nb, L_baffle=(0.45 if nb > 0 else 0.0), init_type="stand_2T_aligned", A_eq=1e-4, record_stride=16)))
 
     exp2_res = run_parallel_batch(exp2_tasks)
-
     baffle_sweep = []
-    baffle_omega_map = {}
     for Lb in (0.00, 0.15, 0.30, 0.45, 0.60, 0.75):
-        a_cold, w_cold = measure_cold_mode(exp2_res[f"cold_{Lb:.2f}"], t_lo=10.0, t_hi=34.0, mode_key="e1")
-        baffle_omega_map[Lb] = w_cold
+        a_cold, w_cold = measure_cold_lsq(exp2_res[f"cold_{Lb:.2f}"], t_lo=10.0, t_hi=34.0, mode_key="e1")
         st_eff = float(w_cold * (L_A - Lb) / (2.0 * np.pi * 0.12))
-        st_lin = stats_2d(exp2_res[f"lin_{Lb:.2f}"], fit_start_frac=0.35)
+        st_lin = stats_2d(exp2_res[f"lin_{Lb:.2f}"])
+        st_nv0 = stats_2d(exp2_res[f"nv0_{Lb:.2f}"])
         st_nl = stats_2d(exp2_res[f"nl_{Lb:.2f}"])
         row = {
-            "L_b": Lb, "L_eff": L_A - Lb, "omega_1T_cold": w_cold, "alpha_1T_cold_40x120": a_cold,
-            "St_eff": st_eff, "react_alpha_lin_40x120": st_lin["alpha_fit_late"],
+            "L_b": Lb, "L_eff": L_A - Lb, "omega_1T_cold_lsq": w_cold, "alpha_1T_cold_40x120": a_cold,
+            "St_eff": st_eff,
+            "react_alpha_chiral_40x120": st_lin["alpha_fit_linear_clean"],
+            "react_alpha_nv0_40x120": st_nv0["alpha_fit_linear_clean"],
             "react_nl_P_pct": st_nl["p_over_pbar_pct"], "react_nl_E": st_nl["e_wave_late"],
             "react_nl_lm": st_nl["e_wave_late_over_mid"],
         }
         baffle_sweep.append(row)
-        print(f"  L_b={Lb:.2f} (St_eff={st_eff:.2f}, w={w_cold:.3f}): cold={a_cold:+.5f} | react_lin={st_lin['alpha_fit_late']:+.4f} | "
-              f"NL P={st_nl['p_over_pbar_pct']:4.2f}%, E={st_nl['e_wave_late']:.2e} (l/m={st_nl['e_wave_late_over_mid']:.3f})")
+        print(f"  L_b={Lb:.2f} (w={w_cold:.4f}, St={st_eff:.2f}): cold={a_cold:+.5f} | chiral_lin={st_lin['alpha_fit_linear_clean']:+.4f} | "
+              f"nv0_lin={st_nv0['alpha_fit_linear_clean']:+.4f} | NL P={st_nl['p_over_pbar_pct']:4.2f}%, E={st_nl['e_wave_late']:.2e}")
     vort_snap_baffle = exp2_res["nl_0.45"]
 
-    baffle_60x160 = {}
-    print("\n  [60x160 Grid-Refinement Check of Baffle Strouhal Peak & L_b=0.60 Trough]")
+    baffle_refine = {}
     for Lb in (0.00, 0.30, 0.45, 0.60):
-        a60, w60 = measure_cold_mode(exp2_res[f"cold60_{Lb:.2f}"], t_lo=10.0, t_hi=34.0, mode_key="e1")
-        st60 = stats_2d(exp2_res[f"lin60_{Lb:.2f}"], fit_start_frac=0.35)
-        baffle_60x160[f"Lb_{Lb:.2f}"] = {"omega_1T_cold": w60, "alpha_1T_cold": a60, "react_alpha_lin": st60["alpha_fit_late"]}
-        print(f"    60x160 L_b={Lb:.2f}: w={w60:.3f}, cold={a60:+.5f}, react_lin={st60['alpha_fit_late']:+.4f}")
+        a60, w60 = measure_cold_lsq(exp2_res[f"cold60_{Lb:.2f}"], t_lo=10.0, t_hi=34.0, mode_key="e1")
+        st60 = stats_2d(exp2_res[f"lin60_{Lb:.2f}"])
+        baffle_refine[f"60x160_Lb_{Lb:.2f}"] = {"omega_1T_cold_lsq": w60, "alpha_1T_cold": a60, "react_alpha_chiral": st60["alpha_fit_linear_clean"]}
+        print(f"    60x160 L_b={Lb:.2f}: w={w60:.4f}, cold={a60:+.5f}, chiral_lin={st60['alpha_fit_linear_clean']:+.4f}")
+    for Lb in (0.45, 0.60):
+        a80, w80 = measure_cold_lsq(exp2_res[f"cold80_{Lb:.2f}"], t_lo=10.0, t_hi=32.0, mode_key="e1")
+        baffle_refine[f"80x240_Lb_{Lb:.2f}"] = {"omega_1T_cold_lsq": w80, "alpha_1T_cold": a80}
+        print(f"    80x240 L_b={Lb:.2f}: w={w80:.4f}, cold={a80:+.5f}")
 
-    print("\n  [Blade-Count Symmetry Blind Spot: N_b=4 (even) vs N_b=5 (prime) on aligned stand_2T, L_b=0.45]")
-    blind_spot = {}
-    for label in ("bare_stand2T", "Nb4_even_stand2T", "Nb5_prime_stand2T"):
-        st = stats_2d(exp2_res[label], fit_start_frac=0.35)
-        blind_spot[label] = st
-        print(f"    [{label:18s}] P={st['p_over_pbar_pct']:4.2f}% | E={st['e_wave_late']:.2e} (l/m={st['e_wave_late_over_mid']:.3f}) | afit={st['alpha_fit_late']:+.4f}")
+    lb060_2t_alpha = stats_2d(exp2_res["Lb060_2T_80x240"])["alpha_fit_e2_clean"]
+    print(f"  [L_b=0.60 2T Audit on 80x240 (C1)]: alpha_2T = {lb060_2t_alpha:+.5f}")
+
+    blind_spot_80 = {}
+    print("  [Aligned stand_2T Blade Symmetry Audit on 80x240 at n_v=0, n_p=0.22]")
+    for lbl in ("bare_s2T_80x240", "Nb4_s2T_80x240", "Nb5_s2T_80x240"):
+        st = stats_2d(exp2_res[lbl])
+        blind_spot_80[lbl] = {"alpha_e2": st["alpha_fit_e2_clean"], "e2_late": st["e2_late"]}
+        print(f"    [{lbl:15s}] alpha_e2={st['alpha_fit_e2_clean']:+.5f} | e2_late={st['e2_late']:.2e}")
 
     # ------------------------------------------------------------------
-    # Experiment 3: Exact Multi-Mode Cavity Spectra, Baffle-Cavity Retuning Law & M=0.12 Shootout
+    # Experiment 3: Multi-Mode Cavity Spectra, omega_H Retuning Scan, Placement Audit & Shootout
     # ------------------------------------------------------------------
-    print("\n--- Experiment 3: Multi-Mode Cavity Spectra & Baffle-Cavity Frequency-Retuning Law (M_bar=0.12) ---")
+    print("\n--- Experiment 3: Multi-Mode Cavity Spectra, omega_H Scan (M4) & Placement Audit (M5) ---")
     cav_spectra = {}
     for cname, Mb, cf in [
         ("bare_M012", 0.12, []),
-        ("80_20_2pct_M012", 0.12, [(0.016, W1_COLD, 0.10), (0.004, W2_COLD, 0.14)]),
+        ("80_20_2pct_xi12_M012", 0.12, [(0.016, W1_COLD, 0.12), (0.004, W2_COLD, 0.12)]),
+        ("80_20_2pct_opt_M012", 0.12, [(0.016, W1_COLD, 0.10), (0.004, W2_COLD, 0.14)]),
         ("100_0_4pct_M012", 0.12, [(0.040, W1_COLD, 0.16)]),
         ("50_50_4pct_M012", 0.12, [(0.020, W1_COLD, 0.12), (0.020, W2_COLD, 0.12)]),
         ("80_20_4pct_M012", 0.12, [(0.032, W1_COLD, 0.10), (0.008, W2_COLD, 0.14)]),
@@ -787,18 +859,18 @@ def main() -> None:
             "modes": {k: {"alpha": v.real, "omega": v.imag} for k, v in ms.items()},
             "alpha_max": ms[worst_m].real, "limiting_m": int(worst_m),
         }
-        print(f"  [{cname:17s}] m0={ms['0'].real:+.5f} 1T={ms['1'].real:+.5f} 2T={ms['2'].real:+.5f} 3T={ms['3'].real:+.5f} | MAX={ms[worst_m].real:+.5f} (m={worst_m})")
+        print(f"  [{cname:21s}] m0={ms['0'].real:+.5f} 1T={ms['1'].real:+.5f} 2T={ms['2'].real:+.5f} 3T={ms['3'].real:+.5f} | MAX={ms[worst_m].real:+.5f}")
 
-    # Baffle-Cavity Frequency-Retuning Law (L_b = 0.45 + 2% 80/20 cavity ring: untuned vs retuned!)
-    w_baf045 = baffle_omega_map[0.45]
-    cf_2_untuned = [
-        {"beta": 0.016, "wH": W1_COLD, "xiH": 0.12, "sigma_o": 0.045, "n_cav": 5, "nonlinear": True},
-        {"beta": 0.004, "wH": W2_COLD, "xiH": 0.12, "sigma_o": 0.015, "n_cav": 5, "nonlinear": True},
-    ]
-    cf_2_retuned = [
-        {"beta": 0.016, "wH": w_baf045, "xiH": 0.12, "sigma_o": 0.045, "n_cav": 5, "nonlinear": True},
-        {"beta": 0.004, "wH": 2.0 * w_baf045, "xiH": 0.12, "sigma_o": 0.015, "n_cav": 5, "nonlinear": True},
-    ]
+    def make_hybrid_cav(wH1: float, phase_off: float = 0.5) -> list[dict]:
+        return [
+            {"beta": 0.016, "wH": wH1, "xiH": 0.12, "sigma_o": 0.045, "n_cav": 5, "phase_offset": phase_off, "nonlinear": True},
+            {"beta": 0.004, "wH": W2_COLD, "xiH": 0.12, "sigma_o": 0.015, "n_cav": 5, "phase_offset": phase_off, "nonlinear": True},
+        ]
+
+    cf_2_untuned = make_hybrid_cav(W1_COLD, 0.5)
+    cf_2_retuned = make_hybrid_cav(0.900, 0.5)   # Tuned to baffled reacting frequency (~0.90)
+    cf_2_cold80  = make_hybrid_cav(0.923, 0.5)   # Tuned to converged cold baffled frequency (0.923)
+    cf_2_atblade = make_hybrid_cav(0.900, 0.0)   # Blade-root placement (Peer Review #7 M5)
     cf_5_wide = [
         {"beta": 0.040, "wH": W1_COLD, "xiH": 0.10, "sigma_o": 0.070, "n_cav": 5, "nonlinear": True},
         {"beta": 0.010, "wH": W2_COLD, "xiH": 0.14, "sigma_o": 0.025, "n_cav": 5, "nonlinear": True},
@@ -812,148 +884,162 @@ def main() -> None:
         {"beta": 0.010, "wH": W2_COLD, "xiH": 0.14, "sigma_o": 0.025, "n_cav": 5, "nonlinear": False},
     ]
 
-    print(f"\n  [Baffle-Cavity Frequency-Retuning Law: L_b=0.45 (omega_1T={w_baf045:.3f}) + 2% 80/20 Cavity]")
     retune_specs = [
-        ("bare_lin_40x120",            40, 120, 0, 0.00, None,         0.002, 120.0),
-        ("baffle045_alone_lin_40x120", 40, 120, 5, 0.45, None,         0.002, 120.0),
-        ("cav2_alone_lin_40x120",      40, 120, 0, 0.00, cf_2_untuned, 0.002, 120.0),
-        ("hybrid_untuned_lin_40x120",  40, 120, 5, 0.45, cf_2_untuned, 0.002, 130.0),
-        ("hybrid_retuned_lin_40x120",  40, 120, 5, 0.45, cf_2_retuned, 0.002, 130.0),
-        ("hybrid_untuned_lin_60x160",  60, 160, 5, 0.45, cf_2_untuned, 0.002, 110.0),
-        ("hybrid_retuned_lin_60x160",  60, 160, 5, 0.45, cf_2_retuned, 0.002, 110.0),
-        ("cav5_wide_lin_40x120",       40, 120, 0, 0.00, cf_5_wide,    0.002, 130.0),
+        ("bare_lin_40x120",             40, 120, 0, 0.00, None,                     "spin_1T", 1e-4, 90.0),
+        ("baffle045_alone_lin_40x120",  40, 120, 5, 0.45, None,                     "spin_1T", 1e-4, 110.0),
+        ("cav2_alone_lin_40x120",       40, 120, 0, 0.00, cf_2_untuned,             "spin_1T", 1e-4, 100.0),
+        ("hybrid_wH086_40x120",         40, 120, 5, 0.45, make_hybrid_cav(0.860),   "spin_1T", 1e-4, 110.0),
+        ("hybrid_wH090_retuned_40x120", 40, 120, 5, 0.45, cf_2_retuned,             "spin_1T", 1e-4, 120.0),
+        ("hybrid_wH0923_cold_40x120",   40, 120, 5, 0.45, cf_2_cold80,              "spin_1T", 1e-4, 110.0),
+        ("hybrid_wH096_40x120",         40, 120, 5, 0.45, make_hybrid_cav(0.960),   "spin_1T", 1e-4, 110.0),
+        ("hybrid_wH0989_untuned_40x120",40, 120, 5, 0.45, cf_2_untuned,             "spin_1T", 1e-4, 120.0),
+        ("hybrid_blade_root_40x120",    40, 120, 5, 0.45, cf_2_atblade,             "spin_1T", 1e-4, 110.0),
+        ("hybrid_untuned_60x160",       60, 160, 5, 0.45, cf_2_untuned,             "spin_1T", 1e-4, 110.0),
+        ("hybrid_retuned_60x160",       60, 160, 5, 0.45, cf_2_retuned,             "spin_1T", 1e-4, 110.0),
+        ("hybrid_retuned_2T_60x160",    60, 160, 5, 0.45, cf_2_retuned,             "spin_2T", 1e-4, 90.0),
+        ("hybrid_retuned_1L_60x160",    60, 160, 5, 0.45, cf_2_retuned,             "cold_1L", 1e-4, 90.0),
+        ("cav5_wide_lin_40x120",        40, 120, 0, 0.00, cf_5_wide,                "spin_1T", 1e-4, 110.0),
     ]
     nl_specs = [
-        ("bare_M012_NL",             0, 0.00, None),
-        ("baffle030_M012_NL",        5, 0.30, None),
-        ("cav5_tight20_M012_NL",     0, 0.00, cf_5_tight),
-        ("cav5_wide70_M012_NL",      0, 0.00, cf_5_wide),
-        ("cav5_linear_M012_NL",      0, 0.00, cf_5_lin),
+        ("bare_M012_NL",              0, 0.00, None),
+        ("baffle030_M012_NL",         5, 0.30, None),
+        ("cav5_tight20_M012_NL",      0, 0.00, cf_5_tight),
+        ("cav5_wide70_M012_NL",       0, 0.00, cf_5_wide),
+        ("cav5_linear_M012_NL",       0, 0.00, cf_5_lin),
         ("hybrid045_retuned_M012_NL", 5, 0.45, cf_2_retuned),
     ]
-    exp3_tasks = [
+    exp3_res = run_parallel_batch([
         (cid, dict(nx=nx_g, nth=nth_g, t_end=tend, M_bar=0.12, n_p=0.22, n_v=0.04,
-                   n_baffles=nb, L_baffle=Lb, cav_spec=cspec, init_type="spin_1T", A_eq=amp, record_stride=15))
-        for cid, nx_g, nth_g, nb, Lb, cspec, amp, tend in retune_specs
+                   n_baffles=nb, L_baffle=Lb, cav_spec=cspec, init_type=itype, A_eq=amp, record_stride=15))
+        for cid, nx_g, nth_g, nb, Lb, cspec, itype, amp, tend in retune_specs
     ] + [
         (cid, dict(nx=40, nth=120, t_end=160.0, M_bar=0.12, n_p=0.22, n_v=0.04,
                    n_baffles=nb, L_baffle=Lb, cav_spec=cspec, init_type="spin_1T", A_eq=0.055, record_stride=15))
         for cid, nb, Lb, cspec in nl_specs
-    ]
-    exp3_res = run_parallel_batch(exp3_tasks)
+    ])
 
     retune_runs = {}
     retune_stats = {}
+    print("  [Clean Linear (A_0=1e-4) Retuning Scan, Placement Audit & All-Mode 60x160 Checks]")
     for cid, *_ in retune_specs:
         rr = exp3_res[cid]
-        st = stats_2d(rr, fit_start_frac=0.35)
+        st = stats_2d(rr)
         retune_runs[cid] = rr
         retune_stats[cid] = st
-        print(f"    [{cid:26s}] afit={st['alpha_fit_late']:+.4f} | E={st['e_wave_late']:.2e} (l/m={st['e_wave_late_over_mid']:.3f})")
+        print(f"    [{cid:28s}] alpha_lin={st['alpha_fit_linear_clean']:+.4f} | E={st['e_wave_late']:.2e} (l/m={st['e_wave_late_over_mid']:.3f})")
 
-    print("\n  [Finite-Amplitude 6.9% Shock Shootout at M_bar=0.12 (40x120, A_0=0.055, t=160)]")
     m012_nl_stats = {}
+    print("  [Finite-Amplitude 6.9% Shock Shootout at M_bar=0.12 (40x120, A_0=0.055, t=160)]")
     for cid, *_ in nl_specs:
         st = stats_2d(exp3_res[cid])
         m012_nl_stats[cid] = st
-        print(f"    [{cid:25s}] P={st['p_over_pbar_pct']:4.2f}% | E={st['e_wave_late']:.2e} (l/m={st['e_wave_late_over_mid']:.3f}) | rho={st['rho_mean_late']:.4f}")
+        print(f"    [{cid:25s}] P={st['p_over_pbar_pct']:4.2f}% | E={st['e_wave_late']:.2e} (l/m={st['e_wave_late_over_mid']:.3f})")
 
     # ------------------------------------------------------------------
-    # Experiment 4: Disarming M_bar=0.16 2T Strouhal Trap & 2D Euler Orifice-Drag Cliff (48x160)
+    # Experiment 4: M_bar=0.16 2T Trap Rescue, 64x200 Orifice-Drag Cliff (C2) & 1T Trigger Bracket (M6)
     # ------------------------------------------------------------------
-    print("\n--- Experiment 4: M_bar=0.16 2T Trap Rescue, Orifice-Drag Cliff & 5-IC Audit (48x160, t=160) ---")
+    print("\n--- Experiment 4: M_bar=0.16 64x200 Orifice-Drag Cliff (C2) & 1T Trigger Bracket (M6) ---")
     cf_1pct_tight = [{"beta": 0.010, "wH": 1.94, "xiH": 0.08, "sigma_o": 0.012, "n_cav": 5, "nonlinear": True}]
     cf_1pct_med   = [{"beta": 0.010, "wH": 1.94, "xiH": 0.08, "sigma_o": 0.025, "n_cav": 5, "nonlinear": True}]
     cf_1pct_wide  = [{"beta": 0.010, "wH": 1.94, "xiH": 0.08, "sigma_o": 0.050, "n_cav": 5, "nonlinear": True}]
 
     exp4_specs = [
-        ("M016_bare_spin2T",          None,          "spin_2T",  0.040, 160.0),
-        ("M016_1pct_tight12_spin2T",  cf_1pct_tight, "spin_2T",  0.040, 160.0),
-        ("M016_1pct_med25_spin2T",    cf_1pct_med,   "spin_2T",  0.040, 160.0),
-        ("M016_1pct_wide50_spin2T",   cf_1pct_wide,  "spin_2T",  0.040, 160.0),
-        ("M016_1pct_wide50_spin1T",   cf_1pct_wide,  "spin_1T",  0.055, 160.0),
-        ("M016_1pct_wide50_stand1T",  cf_1pct_wide,  "stand_1T", 0.055, 160.0),
-        ("M016_1pct_wide50_spin3T",   cf_1pct_wide,  "spin_3T",  0.040, 140.0),
-        ("M016_1pct_wide50_cold1L",   cf_1pct_wide,  "cold_1L",  0.040, 140.0),
+        # Grid-refined 64x200 cliff audit (t=220, Peer Review #7 C2!)
+        ("M016_bare_spin2T_64x200",         64, 200, None,          "spin_2T",  0.040, 220.0),
+        ("M016_1pct_tight12_2T_64x200",     64, 200, cf_1pct_tight, "spin_2T",  0.040, 220.0),
+        ("M016_1pct_med25_2T_64x200",       64, 200, cf_1pct_med,   "spin_2T",  0.040, 220.0),
+        ("M016_1pct_wide50_2T_64x200",      64, 200, cf_1pct_wide,  "spin_2T",  0.040, 220.0),
+        # 48x160 comparison for med25 & wide50 + 5-IC & 1T trigger bracket (M6!)
+        ("M016_1pct_med25_2T_48x160",       48, 160, cf_1pct_med,   "spin_2T",  0.040, 220.0),
+        ("M016_1pct_wide50_2T_48x160",      48, 160, cf_1pct_wide,  "spin_2T",  0.040, 160.0),
+        ("M016_1pct_wide50_1T_A015_48x160", 48, 160, cf_1pct_wide,  "spin_1T",  0.015, 200.0),
+        ("M016_1pct_wide50_1T_A025_48x160", 48, 160, cf_1pct_wide,  "spin_1T",  0.025, 200.0),
+        ("M016_1pct_wide50_1T_A055_48x160", 48, 160, cf_1pct_wide,  "spin_1T",  0.055, 160.0),
+        ("M016_1pct_wide50_3T_48x160",      48, 160, cf_1pct_wide,  "spin_3T",  0.040, 140.0),
+        ("M016_1pct_wide50_1L_48x160",      48, 160, cf_1pct_wide,  "cold_1L",  0.040, 140.0),
     ]
     exp4_runs = run_parallel_batch([
-        (cid, dict(nx=48, nth=160, t_end=tend, M_bar=0.16, n_p=0.22, n_v=0.04,
-                   cav_spec=cspec, init_type=itype, A_eq=amp, record_stride=16))
-        for cid, cspec, itype, amp, tend in exp4_specs
+        (cid, dict(nx=nx_g, nth=nth_g, t_end=tend, M_bar=0.16, n_p=0.22, n_v=0.04,
+                   cav_spec=cspec, init_type=itype, A_eq=amp, record_stride=18))
+        for cid, nx_g, nth_g, cspec, itype, amp, tend in exp4_specs
     ])
     exp4_stats = {}
     for cid, *_ in exp4_specs:
         st = stats_2d(exp4_runs[cid])
         exp4_stats[cid] = st
-        print(f"  [{cid:26s}] P={st['p_over_pbar_pct']:5.2f}% | E={st['e_wave_late']:.2e} (l/m={st['e_wave_late_over_mid']:.3f}) | afit={st['alpha_fit_late']:+.4f} | rho={st['rho_mean_late']:.4f}")
+        print(f"  [{cid:31s}] P={st['p_over_pbar_pct']:5.2f}% | E={st['e_wave_late']:.2e} (l/m={st['e_wave_late_over_mid']:.3f}) | afit={st['alpha_fit_late']:+.4f}")
 
     # ------------------------------------------------------------------
-    # Figure 1: Non-Monotonic Baffle Strouhal Resonance & Baffle-Cavity Retuning Law
+    # Figure 1: Clean Linear Baffle Curve (Chiral vs n_v=0) & omega_H Retuning / Placement Law
     # ------------------------------------------------------------------
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.2, 5.5), dpi=150)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.4, 5.6), dpi=150)
 
     Lbs = [r["L_b"] for r in baffle_sweep]
     c_damp = [-r["alpha_1T_cold_40x120"] for r in baffle_sweep]
-    r_grow = [r["react_alpha_lin_40x120"] for r in baffle_sweep]
-    w_arr = [r["omega_1T_cold"] for r in baffle_sweep]
+    r_chiral = [r["react_alpha_chiral_40x120"] for r in baffle_sweep]
+    r_nv0 = [r["react_alpha_nv0_40x120"] for r in baffle_sweep]
+    w_arr = [r["omega_1T_cold_lsq"] for r in baffle_sweep]
 
-    l1, = ax1.plot(Lbs, c_damp, "o-", color="#1f77b4", lw=2.3, ms=6.5, label="Cold $1T$ damping $-\\alpha_{1T}$ ($40\\times 120$)")
-    l2, = ax1.plot(Lbs, r_grow, "s-", color="#d62728", lw=2.3, ms=6.5, label="Reacting $1T$ growth $\\alpha_{1T}$ ($n_p=0.22, n_v=0.04$)")
+    l1, = ax1.plot(Lbs, c_damp, "o-", color="#1f77b4", lw=2.2, ms=6.0, label="Cold $1T$ damping $-\\alpha_{1T}$ ($40\\times 120$)")
+    l2, = ax1.plot(Lbs, r_chiral, "s-", color="#d62728", lw=2.2, ms=6.0, label="Reacting chiral ($n_v=0.04$, $A_0=10^{-4}$)")
+    l3, = ax1.plot(Lbs, r_nv0, "D--", color="#ff7f0e", lw=1.9, ms=5.5, label="Reacting pressure-only ($n_v=0$)")
     lbs60 = [0.00, 0.30, 0.45, 0.60]
-    ax1.scatter(lbs60, [-baffle_60x160[f"Lb_{x:.2f}"]["alpha_1T_cold"] for x in lbs60],
-                marker="^", s=70, color="#0b3c70", zorder=6, label="$60\\times 160$ cold verification")
-    ax1.scatter(lbs60, [baffle_60x160[f"Lb_{x:.2f}"]["react_alpha_lin"] for x in lbs60],
-                marker="D", s=55, color="#8b0000", zorder=6, label="$60\\times 160$ reacting verification")
-    ax1.axvline(0.45, color="#2ca02c", ls="--", lw=1.2, alpha=0.8)
-    ax1.axvline(0.60, color="#ff7f0e", ls=":", lw=1.4, alpha=0.9)
-    ax1.annotate("Strouhal peak\n($L_b=0.45$)", xy=(0.45, c_damp[3]), xytext=(0.48, 0.118), fontsize=8.0, color="#1f77b4", fontweight="bold")
-    ax1.annotate("$\\mathrm{St}_{\\mathrm{eff}}=1.00$ trough!\n(re-destabilizes)", xy=(0.60, r_grow[4]), xytext=(0.445, 0.042),
-                 fontsize=7.8, color="#b85a00", arrowprops=dict(arrowstyle="->", color="#ff7f0e", lw=1.1))
+    ax1.scatter(lbs60, [-baffle_refine[f"60x160_Lb_{x:.2f}"]["alpha_1T_cold"] for x in lbs60],
+                marker="^", s=65, color="#0b3c70", zorder=6)
+    ax1.scatter(lbs60, [baffle_refine[f"60x160_Lb_{x:.2f}"]["react_alpha_chiral"] for x in lbs60],
+                marker="v", s=60, color="#8b0000", zorder=6)
+    ax1.axhline(0.0, color="#333333", lw=0.9, alpha=0.6)
+    ax1.axvline(0.45, color="#2ca02c", ls="--", lw=1.1, alpha=0.8)
+    ax1.annotate("Cold shedding peak\n($L_b=0.45$)", xy=(0.45, c_damp[3]), xytext=(0.48, 0.112), fontsize=8.0, color="#1f77b4", fontweight="bold")
+    ax1.annotate("Freq-downshift\nphase re-destabilization", xy=(0.60, r_chiral[4]), xytext=(0.44, 0.056),
+                 fontsize=7.6, color="#8b0000", arrowprops=dict(arrowstyle="->", color="#d62728", lw=1.1))
     ax1.set_xlabel("Protruding inviscid baffle length $L_b$ ($N_b = 5, L_a = 1.5, x_f = 0.25$)")
-    ax1.set_ylabel("Damping $-\\alpha_{1T}$ (blue) / Growth $\\alpha_{1T}$ (red)")
-    ax1.set_ylim(0.0, 0.135)
+    ax1.set_ylabel("Cold damping $-\\alpha_{1T}$ (blue) / Reacting growth $\\alpha_{1T}$")
+    ax1.set_ylim(-0.015, 0.132)
     ax1.grid(True, alpha=0.28)
     ax1_r = ax1.twinx()
-    l3, = ax1_r.plot(Lbs, w_arr, "^--", color="#6c757d", lw=1.5, ms=5.5, alpha=0.85, label="Baffled $1T$ freq $\\omega_{1T}(L_b)$ (right)")
+    l4, = ax1_r.plot(Lbs, w_arr, "^:", color="#6c757d", lw=1.5, ms=5.0, alpha=0.85, label="Cold $\\omega_{1T}(L_b)$ (right)")
     ax1_r.set_ylabel("Cold $1T$ frequency $\\omega_{1T}(L_b)$", color="#555555")
-    ax1_r.set_ylim(0.75, 1.05)
-    ax1.set_title("Inviscid Baffle Strouhal Resonance & Freq Downshift ($\\bar{M}=0.12$)", fontweight="bold")
-    lines_all = [l1, l2, l3]
-    ax1.legend(lines_all, [ll.get_label() for ll in lines_all], loc="lower left", fontsize=7.6, framealpha=0.92)
+    ax1_r.set_ylim(0.76, 1.04)
+    ax1.set_title("Clean Linear ($A_0=10^{-4}$) Baffle Resonance & $n_v=0$ Split", fontweight="bold")
+    ax1.legend([l1, l2, l3, l4], [ll.get_label() for ll in (l1, l2, l3, l4)], loc="lower left", fontsize=7.3, framealpha=0.93)
 
-    for cid, lbl, col, ls in [
-        ("bare_lin_40x120",            "Bare chamber (exact $\\alpha = +0.035$)", "#d62728", "-"),
-        ("cav2_alone_lin_40x120",      "$2\\%$ 80/20 cavity alone (unstable)", "#ff7f0e", "--"),
-        ("baffle045_alone_lin_40x120", "$N_b=5, L_b=0.45$ baffles alone (unstable)", "#9467bd", "-."),
-        ("hybrid_untuned_lin_40x120",  "Naive hybrid: $L_b=0.45$ + untuned $2\\%$ ($\\omega_H=0.99$)", "#7f7f7f", ":"),
-        ("hybrid_retuned_lin_40x120",  "Retuned hybrid: $L_b=0.45$ + $2\\%$ ($\\omega_H=\\omega_{1T}(L_b)$)", "#2ca02c", "-"),
-        ("hybrid_retuned_lin_60x160",  "Retuned hybrid ($60\\times 160$ grid check)", "#0b5e20", "--"),
-    ]:
-        rr = retune_runs[cid]
-        ax2.semilogy(rr["t"], np.maximum(rr["e_wave"], 1e-16), ls, color=col, lw=2.1, label=lbl)
-    ax2.set_xlabel("Time $t$")
-    ax2.set_ylabel("2D Wave Energy $E_{\\mathrm{wave}}(t)$ (log scale)")
-    ax2.set_ylim(1e-9, 5e-3)
-    ax2.set_title("Baffle-Cavity Frequency-Retuning Law ($\\bar{M}=0.12, A_0=0.002$)", fontweight="bold")
-    ax2.grid(True, which="both", alpha=0.25)
-    ax2.legend(loc="lower left", fontsize=7.6, framealpha=0.92)
+    # Right panel: omega_H retuning scan + mid-sector vs blade-root placement
+    wh_pts = [0.860, 0.900, 0.923, 0.960, 0.9893]
+    wh_keys = ["hybrid_wH086_40x120", "hybrid_wH090_retuned_40x120", "hybrid_wH0923_cold_40x120",
+               "hybrid_wH096_40x120", "hybrid_wH0989_untuned_40x120"]
+    wh_alphas = [retune_stats[k]["alpha_fit_linear_clean"] for k in wh_keys]
+    ax2.plot(wh_pts, wh_alphas, "o-", color="#2ca02c", lw=2.4, ms=7.5, label="Mid-sector hybrid ($40\\times 120$, phase $= 0.5$)")
+    ax2.scatter([0.900, 0.9893],
+                [retune_stats["hybrid_retuned_60x160"]["alpha_fit_linear_clean"],
+                 retune_stats["hybrid_untuned_60x160"]["alpha_fit_linear_clean"]],
+                marker="D", s=75, color="#0b5e20", zorder=7, label="Mid-sector hybrid ($60\\times 160$ check)")
+    ax2.scatter([0.900], [retune_stats["hybrid_blade_root_40x120"]["alpha_fit_linear_clean"]],
+                marker="X", s=110, color="#d62728", zorder=8, label="Blade-root ports (phase $= 0.0$: $-36\\%$ margin!)")
+    ax2.axhline(retune_stats["baffle045_alone_lin_40x120"]["alpha_fit_linear_clean"], color="#9467bd", ls="-.", lw=1.5, label="$L_b=0.45$ baffles alone (unstable)")
+    ax2.axhline(retune_stats["cav2_alone_lin_40x120"]["alpha_fit_linear_clean"], color="#ff7f0e", ls="--", lw=1.5, label="$2\\%$ cavity alone (unstable)")
+    ax2.axhline(0.0, color="#333333", lw=1.0, alpha=0.7)
+    ax2.axvline(0.923, color="#6c757d", ls=":", lw=1.2, label="Converged cold baffled $\\omega_{1T}(0.45) = 0.923$")
+    ax2.set_xlabel("Faceplate $1T$ cavity tuning frequency $\\omega_H$ ($L_b = 0.45 + 2\\%$ 80/20)")
+    ax2.set_ylabel("Clean linear $1T$ growth rate $\\alpha_{1T}$ ($A_0 = 10^{-4}$)")
+    ax2.set_ylim(-0.026, 0.022)
+    ax2.set_title("Baffle-Cavity Retuning Scan & Placement Sensitivity ($\\bar{M}=0.12$)", fontweight="bold")
+    ax2.grid(True, alpha=0.28)
+    ax2.legend(loc="lower right", fontsize=7.2, framealpha=0.93)
 
-    fig.suptitle("Rocket Combustion Entry 010 (Part 1): Inviscid Baffle Strouhal Shedding & Baffle-Cavity Retuning", fontsize=11.5, fontweight="bold")
+    fig.suptitle("Rocket Combustion Entry 010 (Part 1, Hardened): Baffle Resonance & Reacting-Frequency Retuning Law", fontsize=11.4, fontweight="bold")
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     fig.savefig(RESULTS_DIR / "exp010_baffle_strouhal_retuning.png")
     plt.close(fig)
 
     # ------------------------------------------------------------------
-    # Figure 2: 2D Baffle-Tip Vorticity Shedding & M=0.16 2T Orifice-Drag Cliff (48x160)
+    # Figure 2: 2D Baffle-Tip Vorticity Shedding & Grid-Verified 64x200 Orifice-Drag Cliff
     # ------------------------------------------------------------------
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.2, 5.5), dpi=150)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.4, 5.6), dpi=150)
 
     vf = vort_snap_baffle["vort_final"]
     vmax = float(np.percentile(np.abs(vf), 98.5))
-    im = ax1.pcolormesh(
-        vort_snap_baffle["theta"], vort_snap_baffle["x"], vf,
-        shading="auto", cmap="RdBu_r", vmin=-vmax, vmax=vmax,
-    )
+    im = ax1.pcolormesh(vort_snap_baffle["theta"], vort_snap_baffle["x"], vf, shading="auto", cmap="RdBu_r", vmin=-vmax, vmax=vmax)
     for k in range(5):
         th_b = k * 2.0 * np.pi / 5.0
         ax1.plot([th_b, th_b], [0.0, 0.45], color="#111111", lw=3.0)
@@ -967,23 +1053,24 @@ def main() -> None:
     cb.set_label("Vorticity $\\omega_z = \\partial_x u_\\theta - \\partial_\\theta u_x$")
 
     for cid, lbl, col, ls in [
-        ("M016_bare_spin2T",         "Bare $\\bar{M}=0.16$ ($2T$ trap: $6.5\\%$ rotating shock!)", "#d62728", "-"),
-        ("M016_1pct_tight12_spin2T", "Micro $1\\%$ $2T$-trim: tight neck $\\sigma_o=1.2\\%$ (CHOKES!)", "#ff7f0e", "--"),
-        ("M016_1pct_med25_spin2T",   "Micro $1\\%$ $2T$-trim: medium $\\sigma_o=2.5\\%$ (slow bleed)", "#9467bd", "-."),
-        ("M016_1pct_wide50_spin2T",  "Micro $1\\%$ $2T$-trim: wide mouth $\\sigma_o=5.0\\%$ ($2T$ QUENCH!)", "#2ca02c", "-"),
-        ("M016_1pct_wide50_spin1T",  "Micro $1\\%$ $2T$-trim: $1T$ $6.9\\%$ bomb (subcrit. $3.95\\%$)", "#1f77b4", ":"),
-        ("M016_1pct_wide50_stand1T", "Micro $1\\%$ $2T$-trim: standing $1T$ bomb (subcrit. $3.95\\%$)", "#17becf", "-."),
+        ("M016_bare_spin2T_64x200",         "Bare $\\bar{M}=0.16$ ($64\\times 200$: $7.2\\%$ $2T$ shock)", "#d62728", "-"),
+        ("M016_1pct_tight12_2T_64x200",     "$1\\%$ trim $\\sigma_o=1.2\\%$ ($64\\times 200$: $5.8\\%$ shock)", "#ff7f0e", "--"),
+        ("M016_1pct_med25_2T_64x200",       "$1\\%$ trim $\\sigma_o=2.5\\%$ ($64\\times 200$: CHOKES $4.0\\%$!)", "#9467bd", "-"),
+        ("M016_1pct_med25_2T_48x160",       "$1\\%$ trim $\\sigma_o=2.5\\%$ ($48\\times 160$: coarse artifact)", "#9467bd", ":"),
+        ("M016_1pct_wide50_2T_64x200",      "$1\\%$ trim $\\sigma_o=5.0\\%$ ($64\\times 200$: $2T$ QUENCH!)", "#2ca02c", "-"),
+        ("M016_1pct_wide50_1T_A025_48x160", "$1\\%$ trim: $1T$ $A_0=0.025$ (subcrit. $3.95\\%$)", "#1f77b4", "-."),
+        ("M016_1pct_wide50_1T_A015_48x160", "$1\\%$ trim: $1T$ $A_0=0.015$ (decays!)", "#17becf", "--"),
     ]:
         rr = exp4_runs[cid]
-        ax2.semilogy(rr["t"], np.maximum(rr["e_wave"], 1e-16), ls, color=col, lw=2.1, label=lbl)
+        ax2.semilogy(rr["t"], np.maximum(rr["e_wave"], 1e-16), ls, color=col, lw=2.0, label=lbl)
     ax2.set_xlabel("Time $t$")
     ax2.set_ylabel("2D Wave Energy $E_{\\mathrm{wave}}(t)$ (log scale)")
     ax2.set_ylim(1e-10, 5e-3)
-    ax2.set_title("2D Euler Orifice-Drag Cliff & $2T$-Trap Rescue ($\\bar{M}=0.16, 48\\times 160$)", fontweight="bold")
+    ax2.set_title("Grid-Verified $64\\times 200$ Orifice-Drag Cliff & $1T$ Trigger Bracket", fontweight="bold")
     ax2.grid(True, which="both", alpha=0.25)
-    ax2.legend(loc="lower left", fontsize=7.5, framealpha=0.92)
+    ax2.legend(loc="lower left", fontsize=7.2, framealpha=0.93)
 
-    fig.suptitle("Rocket Combustion Entry 010 (Part 2): Inviscid Baffle Vorticity Shedding & Micro-Cavity Orifice-Drag Cliff", fontsize=11.5, fontweight="bold")
+    fig.suptitle("Rocket Combustion Entry 010 (Part 2, Hardened): Baffle Vortex Streets & 64x200 Orifice-Drag Cliff", fontsize=11.4, fontweight="bold")
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     fig.savefig(RESULTS_DIR / "exp010_orifice_cliff_and_2T_rescue.png")
     plt.close(fig)
@@ -993,20 +1080,23 @@ def main() -> None:
             "steady_max_err": r_steady["steady_max_err"],
             "periodic_conservation_5_baffles": ce,
             "port_form_sq_40x120_Nc5": r_steady["port_form_sq"],
-            "exp1c_chebyshev_vs_pde": exp1c,
+            "exp1c_cavity_chebyshev_vs_pde": exp1c_cav,
+            "per_mode_bare_numerical_damping_M012": per_mode_audit,
+            "bare_reacting_2T_grid_convergence": react_2T_conv,
+            "M0_inviscid_baffle_numerical_damping": m0_audit,
         },
         "exp2_baffle_strouhal": {
-            "sweep_40x120": baffle_sweep,
-            "refine_60x160": baffle_60x160,
-            "blade_symmetry_blind_spot": blind_spot,
+            "sweep_40x120_clean_linear": baffle_sweep,
+            "grid_refinement_60_80": baffle_refine,
+            "Lb060_2T_alpha_80x240": lb060_2t_alpha,
+            "blade_symmetry_nv0_80x240": blind_spot_80,
         },
         "exp3_cavities_and_retuning": {
             "chebyshev_multimode_spectra": cav_spectra,
-            "baffle_omega_045": w_baf045,
-            "retuning_linear_stats": retune_stats,
+            "retuning_and_placement_clean_linear": retune_stats,
             "m012_nonlinear_shootout": m012_nl_stats,
         },
-        "exp4_m016_orifice_cliff_48x160": exp4_stats,
+        "exp4_m016_orifice_cliff_64x200": exp4_stats,
     }
     out_json = RESULTS_DIR / "exp010_metrics.json"
     out_json.write_text(json.dumps(metrics, indent=2))
