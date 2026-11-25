@@ -1,6 +1,6 @@
 """Entry 009 (rocket-combustion): 2D (x, theta) Compressible Euler Annular Combustor with
-Physical Steady Axial Throughflow — Strouhal Acoustic-Vorticity Damping Resonance,
-First-Principles Entropy/Swirl Stationarity & High-Gain Spin Re-Emergence.
+Physical Steady Axial Throughflow — Multi-Mode Strouhal Vorticity Resonance,
+First-Principles Entropy/Swirl Stationarity & 2D Rotating-Shock Control (Hardened per Peer Review #6).
 
 Replaces the 1D periodic ring's ad-hoc entropy-flush closure (S_ent) and zero-inflow momentum
 sink (Entries 007-008) with first-principles 2D conservative compressible Euler equations on
@@ -17,31 +17,22 @@ Exact nonlinear characteristic boundary conditions (ZERO ad-hoc closures):
   - Outlet x = L_a (exact compact choked nozzle, Marble & Candel 1977):
       ux_out / c_out = M_bar,   outgoing (J_+, s, ut) extrapolated (naturally generates indirect entropy noise).
 
-Numerical methods:
-  - 2D unsplit conservative 2nd-order MUSCL-MC + HLLC Riemann solver + SSP-RK2.
-  - Exact 1D-in-x Chebyshev-Gauss-Lobatto generalized eigenvalue solver (N_cheb = 36) for 2D linearized
-    Euler throughflow (including vorticity waves, entropy advection, Marble-Candel nozzle coupling, and
-    DC-blocked Erlang-4 flame dynamics).
-
-Experiments:
-1. Verification Suite:
-   (1a) Exact steady-throughflow preservation (max |U - U_0| < 1e-15).
-   (1b) Exact 2D doubly periodic inviscid conservation of mass, x/theta momentum, and energy (< 1e-15).
-   (1c) Exact Chebyshev 2D linearized eigenvalues vs. 2D Euler MC PDE cold damping (1L, 1T, 2T, 3T)
-        and grid convergence (24x72, 32x96, 48x144) quantifying per-mode numerical damping.
-   (1d) First-principles entropy & mean-swirl residence flushing (tau_res = L_a / M_bar = 12.5) plus
-        Marble-Candel indirect entropy-noise acoustic echo at x = L_a.
-2. Strouhal Acoustic-Vorticity Damping Resonance (M_bar in [0.06, 0.30]):
-   Maps exact cold 1T damping alpha_1T(M_bar) and hot 1T Hopf threshold n_pH,1T(M_bar), verified at
-   5 Mach numbers in 2D cold Euler PDE, revealing 3.5x cold-damping / 4.8x Hopf peaks at half-integer
-   Strouhal numbers M_bar ~ L_a / (2*pi*(k + 1/2)) vs. vulnerable integer-Strouhal troughs.
-3. First-Principles Stationarity & Landau Standing-to-Spinning Reversal (n_v = 0, ZERO ad-hoc S_ent):
-   Tests both low-gain (M_bar=0.06, n_p=0.105) and high-gain (M_bar=0.12, n_p=0.220) regimes from
-   seeded standing and perturbed spin (plus 48x144 grid check) using the boundary-layer-free envelope
-   spin index S_env = min_T|P_hat_1| / max_T|P_hat_1|.
-4. 2D Chiral Rotating-Shock Control Shootout (M_bar=0.12, n_p=0.22, n_v=0.04, A_0=6.9%, t=300):
-   Compares bare 2D rotating shock, zero-hardware M=2 Bragg trap, zero-hardware odd M=5 staggering
-   (tau in {0.55, 2.55}, plus 48x144 grid check), and passive Strouhal Mach-shift (M_bar=0.12 -> 0.18).
+Hardening upgrades per double-model Peer Review #6 (Claude + Antigravity Gemini):
+  1. Multi-mode global Hopf envelope (m = 0 rumble/1L, 1T, 2T, 3T): reveals that while 1T Hopf jumps
+     4.77x from M_bar=0.12 to 0.18 (0.1338 -> 0.6382), the true global all-mode Hopf gain is 3.18x
+     (0.1338 -> 0.4260, limited by m=0 rumble at 0.4260 and 2T at 0.4300), AND exposes the 2T Strouhal
+     harmonic trap at M_bar=0.16 (St_1T ~ 1.5 => St_2T ~ 3.0 integer trough, n_pH,2T = 0.2354; verified
+     in 48x144 2D PDE where 2T grows to a 6.5% rotating limit cycle while 32x96 falsely damps it!).
+  2. Zero-tail Exp 1D entropy pulse (x_0 = 0.55, sigma = 0.08 => inlet tail 5.5e-11): eliminates the
+     initial inlet-mismatch compression bounce and isolates the pure negative Marble-Candel rarefaction
+     pulse arriving at the exact convective time (L_a - 0.55)/M_bar = 7.92.
+  3. Exp 3 grid-refined 48x144 runs (t = 420): transparently documents that on well-resolved 48x144
+     low-gain (M=0.06, n_p=0.105) is bistable (standing S_env ~ 0.04 and spinning S_env ~ 0.90 coexist,
+     whereas coarse 28x96 vorticity damping pushed spinning to standing), while high-gain (M=0.12, n_p=0.22)
+     destabilizes standing on ALL grids into a unique 2D rotating sawtooth shock (S_env -> +0.99).
+  4. Exp 4 & 4B: verifies M=5 linear_flame=True decay at A_0=0.030, compares against a matched-margin
+     uniform-tau baseline, tests M=5 at A_0=0.015 on 48x144 (triggering due to lower numerical damping),
+     and verifies M_bar=0.18 all-mode stabilization on 48x144 (1T, 2T) & standing IC!
 """
 
 from __future__ import annotations
@@ -105,9 +96,19 @@ def exact_2d_throughflow_eig(
     n_v: float = 0.0,
     tau_bar: float = TAU_BAR,
     omega_window: tuple[float, float] | None = None,
-    N: int = 34,
+    N: int = 36,
+    check_both_chiral_signs: bool = True,
 ) -> complex:
-    """Exact least-stable acoustic eigenvalue of 2D linearized compressible Euler with mean flow M_bar."""
+    """Exact least-stable acoustic/rumble eigenvalue of 2D linearized compressible Euler with mean flow M_bar.
+
+    When n_v != 0 and m != 0, positive and negative azimuthal wavenumbers (+m counter-rotating vs.
+    -m co-rotating for omega > 0) have distinct growth rates; with check_both_chiral_signs=True
+    (default), both +m and -m are evaluated and the least-stable root is returned.
+    """
+    if check_both_chiral_signs and abs(n_v) > 0.0 and m != 0:
+        v_pos = exact_2d_throughflow_eig(M_bar, abs(m), n_p, n_v, tau_bar, omega_window, N, False)
+        v_neg = exact_2d_throughflow_eig(M_bar, -abs(m), n_p, n_v, tau_bar, omega_window, N, False)
+        return v_pos if v_pos.real >= v_neg.real else v_neg
     x, Dx, w_cc = cheb_diff(N, L_A)
     n = N + 1
     I = np.eye(n)
@@ -142,14 +143,12 @@ def exact_2d_throughflow_eig(
         A[sl(3), ib + 4] = n_p * wf
         A[sl(3), ib + 9] = n_v * wf
 
-    # Inlet BCs at x=0: rho'(0)-P(0)=0, ux'(0)+M*P(0)=0, ut'(0)=0
     for r_idx in (0, n, 2 * n):
         A[r_idx, :] = 0.0; B[r_idx, :] = 0.0
     A[0, 0] = 1.0; A[0, 3 * n] = -1.0
     A[n, n] = 1.0; A[n, 3 * n] = M_bar
     A[2 * n, 2 * n] = 1.0
 
-    # Outlet Marble-Candel choked-nozzle BC at x=L_a: ux'(L_a) - 0.5*M*(gamma*P - rho') = 0
     r_out = 3 * n + N
     A[r_out, :] = 0.0; B[r_out, :] = 0.0
     A[r_out, n + N] = 1.0
@@ -157,7 +156,7 @@ def exact_2d_throughflow_eig(
     A[r_out, 0 * n + N] = +0.5 * M_bar
 
     vals = eig(A, B, right=False)
-    w_lo, w_hi = omega_window if omega_window is not None else (0.5, 5.5)
+    w_lo, w_hi = omega_window if omega_window is not None else (0.05, 5.5)
     cands = [v for v in vals if np.isfinite(v) and w_lo <= v.imag <= w_hi and -0.45 < v.real < 0.35]
     cands.sort(key=lambda z: z.real, reverse=True)
     return complex(cands[0])
@@ -266,7 +265,6 @@ def simulate_2d_euler_annulus(
     inv_gm1 = 2.0 / (GAMMA - 1.0)
     has_f = (abs(n_p) > 0.0 or abs(n_v) > 0.0)
 
-    # Initial conditions
     ux0 = np.full((nx, nth), M_bar)
     ut0 = np.zeros((nx, nth))
     p0 = np.full((nx, nth), P_BAR)
@@ -280,8 +278,9 @@ def simulate_2d_euler_annulus(
         ux0 = M_bar + 0.5 * A_eq * np.sin(2.0 * np.pi * x[:, None] / L_A)
         ut0 = 0.5 * A_eq * np.cos(th[None, :]) * np.ones((nx, 1))
     elif init_type == "entropy_swirl_pulse":
-        # Localized hot entropy spot near x=0.25 (zero pressure perturbation!) + uniform swirl ut = 0.04
-        s_init = 0.05 * np.exp(-0.5 * ((x - 0.25) / 0.12) ** 2)[:, None] * np.ones((1, nth))
+        # Zero-tail Gaussian hot entropy spot at x0=0.55, sigma=0.08 (inlet tail = 5.5e-11 => zero inlet mismatch!)
+        # + uniform azimuthal swirl ut = 0.04 to test physical residence flushing of both fields.
+        s_init = 0.05 * np.exp(-0.5 * ((x - 0.55) / 0.08) ** 2)[:, None] * np.ones((1, nth))
         rho0 = np.exp(-s_init / GAMMA)
         ut0 = np.full((nx, nth), 0.04)
     elif init_type == "cold_1L":
@@ -293,12 +292,14 @@ def simulate_2d_euler_annulus(
         rho0 = (p0 / P_BAR) ** (1.0 / GAMMA)
         ut0 = A_eq * np.cos(m_k * th)[None, :] * np.ones((nx, 1))
     elif init_type == "stand_seed":
+        # S_env_0 = 0.085 (S_flux_0 = 0.169)
         eps = 0.12
         a_s = A_eq / np.sqrt(1.0 + 0.5 * eps * eps)
         p0 = P_BAR + np.sqrt(2.0) * a_s * np.cos(th)[None, :] * np.ones((nx, 1))
         rho0 = (p0 / P_BAR) ** (1.0 / GAMMA)
         ut0 = eps * a_s * np.cos(th)[None, :] * np.ones((nx, 1))
     elif init_type == "spin_pert":
+        # S_env_0 = 0.818 (S_flux_0 = 0.980)
         eps_c = 0.10
         a_p = A_eq / np.sqrt(1.0 + eps_c * eps_c)
         a_m = eps_c * a_p
@@ -327,7 +328,6 @@ def simulate_2d_euler_annulus(
                                 np.maximum(rR, 1e-10), uxR, utR, np.maximum(pR, 1e-10))
             div_x = (Fx - np.roll(Fx, 1, axis=1)) / dx
         else:
-            # Exact characteristic choked zero-swirl isentropic injector at x = 0
             Jm = ux[0] - inv_gm1 * c[0]
             c_in = np.ones_like(Jm)
             for _ in range(5):
@@ -340,7 +340,6 @@ def simulate_2d_euler_annulus(
             p_in = P_BAR * (rho_in ** GAMMA)
             ut_in = np.zeros_like(Jm)
 
-            # Exact Marble-Candel compact choked nozzle at x = L_a
             Jp = ux[-1] + inv_gm1 * c[-1]
             s_out = np.log(np.maximum((p[-1] / P_BAR) / (rho[-1] ** GAMMA), 1e-15))
             c_out = Jp / (M_bar + inv_gm1)
@@ -363,7 +362,6 @@ def simulate_2d_euler_annulus(
                                 np.maximum(rR, 1e-10), uxR, utR, np.maximum(pR, 1e-10))
             div_x = (Fx[:, 1:, :] - Fx[:, :-1, :]) / dx
 
-        # Periodic theta fluxes
         def rt(v):
             s = mc_limiter(v - np.roll(v, 1, axis=1), np.roll(v, -1, axis=1) - v)
             return v + 0.5 * s, np.roll(v - 0.5 * s, -1, axis=1)
@@ -479,7 +477,6 @@ def envelope_spin_index(r: dict, win: float = 25.0) -> tuple[float, float]:
     p1 = r["p1_complex"][m]
     amp = np.abs(p1)
     s_mag = float(np.min(amp) / max(np.max(amp), 1e-30))
-    # Propagation sign: cos(theta - omega*t) has P_hat_1 ~ exp(-i*omega*t) => Im(p1^* dp1/dt) < 0 => +1!
     rot = float(np.mean(np.imag(np.conj(p1[:-1]) * np.diff(p1))))
     sgn = 1.0 if rot <= 0.0 else -1.0
     return sgn * s_mag, s_mag
@@ -500,33 +497,11 @@ def stats_2d(r: dict) -> dict:
         "S_env_signed": s_env_signed,
         "S_env_abs": s_env_abs,
         "harmonic_2T_over_1T_pct": e2_m / max(e1_m, 1e-30) * 100.0,
+        "e1_late": e1_m,
+        "e2_late": e2_m,
         "rho_mean_late": float(np.mean(r["rho_mean"][m])),
         "ut_mean_late": float(np.mean(r["ut_mean"][m])),
     }
-
-
-def run_exp4_m5_subcritical_audit() -> dict:
-    """Verify M=5 staggering is linearly stable (A=1e-4) yet subcritically triggers for A >= 0.030."""
-    print("\n--- Experiment 4B: M=5 Stagger Linear Stability vs. Erlang-4 Cubic-Asymmetry Bomb Triggering ---")
-    tau_M5 = make_staggered_tau_2d(96, 5, tau_1=0.55, tau_2=2.55)
-    r_lin = simulate_2d_euler_annulus(
-        nx=32, nth=96, t_end=100.0, M_bar=0.12, n_p=0.22, n_v=0.04,
-        tau_arr=tau_M5, init_type="spin_1T", A_eq=1e-4, record_stride=10,
-    )
-    m = r_lin["t"] >= 25.0
-    alpha_lin = float(np.polyfit(r_lin["t"][m], 0.5 * np.log(np.maximum(r_lin["e_wave"][m], 1e-30)), 1)[0])
-    e_ratio_lin = float(r_lin["e_wave"][-1] / max(r_lin["e_wave"][0], 1e-30))
-    print(f"  [M=5 linear A=1e-4] alpha={alpha_lin:+.5f}, E(100)/E(0)={e_ratio_lin:.3e}")
-    out = {"linear_A1e4": {"alpha": alpha_lin, "e_final_over_init": e_ratio_lin}, "bombs": {}}
-    for amp in (0.015, 0.030):
-        rb = simulate_2d_euler_annulus(
-            nx=32, nth=96, t_end=140.0, M_bar=0.12, n_p=0.22, n_v=0.04,
-            tau_arr=tau_M5, init_type="spin_1T", A_eq=amp, record_stride=15,
-        )
-        st = stats_2d(rb)
-        out["bombs"][f"A_{amp:.3f}"] = st
-        print(f"  [M=5 bomb A={amp:.3f}] P={st['p_over_pbar_pct']:.2f}%, E_wave={st['e_wave_late']:.2e}, l/m={st['e_wave_late_over_mid']:.3f}")
-    return out
 
 
 # ---------------------------------------------------------------------------
@@ -535,10 +510,10 @@ def run_exp4_m5_subcritical_audit() -> dict:
 
 def main() -> None:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    print("=== Entry 009 (rocket-combustion): 2D (x, theta) Compressible Euler Annulus with Axial Throughflow ===\n")
+    print("=== Entry 009 (Hardened per Peer Review #6): 2D Compressible Euler Annulus with Axial Throughflow ===\n")
 
     # ------------------------------------------------------------------
-    # Experiment 1: Verification Suite & Physical Entropy/Swirl Flushing
+    # Experiment 1: Verification Suite & Clean Zero-Tail Marble-Candel Flushing
     # ------------------------------------------------------------------
     print("--- Experiment 1A & 1B: Steady-State Preservation & 2D Inviscid Conservation ---")
     r_st = simulate_2d_euler_annulus(nx=32, nth=96, t_end=20.0, M_bar=0.12, init_type="steady", record_stride=50)
@@ -566,31 +541,52 @@ def main() -> None:
             row.append(f"{nx_g}x{nth_g}:{afit:+.5f}({afit-ex.real:+.1e})")
         print(f"  [{m_name}] Exact={ex.real:+.5f} (w={ex.imag:.4f}) | " + " | ".join(row))
 
-    print("\n--- Experiment 1D: First-Principles Entropy & Swirl Residence Flushing (tau_res = 12.5, ZERO S_ent!) ---")
-    r_flush = simulate_2d_euler_annulus(nx=32, nth=96, t_end=22.0, M_bar=0.12, init_type="entropy_swirl_pulse", record_stride=4)
+    print("\n--- Experiment 1D: First-Principles Zero-Tail Entropy & Swirl Flushing (x0=0.55, tau_conv=7.92, ZERO S_ent!) ---")
+    r_flush = simulate_2d_euler_annulus(nx=48, nth=16, t_end=20.0, M_bar=0.12, init_type="entropy_swirl_pulse", record_stride=2)
     idx_15 = int(np.argmin(np.abs(r_flush["t"] - 15.0)))
-    idx_22 = -1
-    m_mc = (r_flush["t"] >= 6.0) & (r_flush["t"] <= 16.0)
-    idx_echo = int(np.where(m_mc)[0][int(np.argmax(np.abs(r_flush["p_exit_mean"][m_mc])))])
-    t_echo = float(r_flush["t"][idx_echo])
-    p_echo = float(r_flush["p_exit_mean"][idx_echo] / P_BAR * 100.0)
+    idx_min = int(np.argmin(r_flush["p_exit_mean"]))
+    idx_max = int(np.argmax(np.abs(r_flush["p_exit_mean"])))
+    t_rare = float(r_flush["t"][idx_min])
+    p_rare = float(r_flush["p_exit_mean"][idx_min] / P_BAR * 100.0)
+    t_conv_ex = (L_A - 0.55) / 0.12
     print(
-        f"  Entropy mean: t=0 -> {r_flush['ent_mean'][0]:.5f}, t=15 -> {r_flush['ent_mean'][idx_15]:.2e}, t=22 -> {r_flush['ent_mean'][idx_22]:.2e} | "
+        f"  Entropy mean: t=0 -> {r_flush['ent_mean'][0]:.5f}, t=15 -> {r_flush['ent_mean'][idx_15]:.2e}, t=20 -> {r_flush['ent_mean'][-1]:.2e} | "
         f"Swirl ut_m: t=0 -> {r_flush['ut_mean'][0]:.4f}, t=15 -> {r_flush['ut_mean'][idx_15]:.2e} | "
-        f"Post-transient exit echo (t in [6,16]): P={p_echo:+.4f}% at t={t_echo:.2f} (center conv time {(L_A-0.25)/0.12:.2f})"
+        f"Pure Marble-Candel negative rarefaction: P_exit={p_rare:+.3f}% at t={t_rare:.2f} (exact conv time={t_conv_ex:.2f}, global max |P_exit| at t={r_flush['t'][idx_max]:.2f})"
     )
 
     # ------------------------------------------------------------------
-    # Experiment 2: Strouhal Acoustic-Vorticity Damping Resonance (M_bar Sweep)
+    # Experiment 2: Multi-Mode Strouhal Resonance (m=0, 1, 2, 3) & 2T Harmonic Trap!
     # ------------------------------------------------------------------
-    print("\n--- Experiment 2: Strouhal Acoustic-Vorticity Damping Resonance (M_bar in [0.06, 0.30]) ---")
+    print("\n--- Experiment 2: Multi-Mode Global Strouhal Hopf Envelope (m=0, 1, 2, 3; M_bar in [0.06, 0.30]) ---")
     M_sweep = np.linspace(0.06, 0.30, 25)
     strouhal_curve = []
     for Mb in M_sweep:
-        vc = exact_2d_throughflow_eig(float(Mb), 1, omega_window=(0.65, 1.35))
-        npH = float(brentq(lambda npv: exact_2d_throughflow_eig(float(Mb), 1, n_p=npv, omega_window=(0.65, 1.35)).real, 0.01, 0.85))
-        st_num = float(vc.imag * L_A / (2.0 * np.pi * Mb))
-        strouhal_curve.append({"M_bar": float(Mb), "St": st_num, "cold_alpha_1T": vc.real, "cold_omega_1T": vc.imag, "hot_n_pH_1T": npH})
+        Mb_f = float(Mb)
+        vc = exact_2d_throughflow_eig(Mb_f, 1, omega_window=(0.65, 1.35))
+        npH_by_m = {}
+        for m_k in (0, 1, 2, 3):
+            w_win = (0.05, 5.5) if m_k != 1 else (0.65, 1.35)
+            f_m = lambda npv, mk=m_k, ww=w_win: exact_2d_throughflow_eig(Mb_f, mk, n_p=npv, omega_window=ww).real
+            if f_m(0.85) > 0.0:
+                npH_by_m[m_k] = float(brentq(f_m, 0.01, 0.85))
+            else:
+                npH_by_m[m_k] = 0.85
+        glob_val = min(npH_by_m.values())
+        glob_m = min(npH_by_m, key=npH_by_m.get)
+        st_num = float(vc.imag * L_A / (2.0 * np.pi * Mb_f))
+        strouhal_curve.append({
+            "M_bar": Mb_f, "St_1T": st_num,
+            "cold_alpha_1T": vc.real, "cold_omega_1T": vc.imag,
+            "n_pH_m0": npH_by_m[0], "n_pH_1T": npH_by_m[1],
+            "n_pH_2T": npH_by_m[2], "n_pH_3T": npH_by_m[3],
+            "n_pH_global": glob_val, "global_limiting_m": int(glob_m),
+        })
+        if round(Mb_f, 2) in (0.08, 0.10, 0.12, 0.16, 0.18, 0.25):
+            print(
+                f"  M={Mb_f:.2f}: cold_1T={vc.real:+.5f} | n_pH: m0={npH_by_m[0]:.4f}, 1T={npH_by_m[1]:.4f}, "
+                f"2T={npH_by_m[2]:.4f} => GLOBAL={glob_val:.4f} (m={glob_m})"
+            )
 
     pde_mach_ver = []
     for Mb_chk in (0.08, 0.12, 0.16, 0.18, 0.25):
@@ -599,71 +595,85 @@ def main() -> None:
         msk = rc["t"] >= 14.0
         afit = float(np.polyfit(rc["t"][msk], 0.5 * np.log(np.maximum(rc["e_wave"][msk], 1e-30)), 1)[0])
         pde_mach_ver.append({"M_bar": Mb_chk, "exact_alpha": vc.real, "pde_alpha": afit, "abs_diff": abs(afit - vc.real)})
-        print(f"  [Cold 1T PDE check M={Mb_chk:.2f}] Exact={vc.real:+.5f} | 2D PDE={afit:+.5f} | |diff|={abs(afit-vc.real):.2e}")
+
+    # Direct 2D PDE verification of the 2T Strouhal Harmonic Trap at M_bar = 0.16 (n_p=0.22, n_v=0.04)!
+    print("\n  [Direct 2D PDE Proof of 2T Strouhal Harmonic Trap at M_bar=0.16 (n_p=0.22, n_v=0.04)]")
+    trap_2T_stats = {}
+    for cid, nx_g, nth_g, amp, tend in [
+        ("M016_2T_32x96_masked",   32, 96,  0.005, 160.0),
+        ("M016_2T_48x144_growing", 48, 144, 0.005, 180.0),
+        ("M016_2T_48x144_LC",      48, 144, 0.040, 180.0),
+    ]:
+        rt = simulate_2d_euler_annulus(nx=nx_g, nth=nth_g, t_end=tend, M_bar=0.16, n_p=0.22, n_v=0.04, init_type="spin_2T", A_eq=amp, record_stride=15)
+        st = stats_2d(rt)
+        trap_2T_stats[cid] = st
+        print(f"    [{cid:22s}] P={st['p_over_pbar_pct']:4.2f}% | E_wave={st['e_wave_late']:.2e} (l/m={st['e_wave_late_over_mid']:.3f}) | e2={st['e2_late']:.2e}")
 
     # ------------------------------------------------------------------
-    # Experiment 3: First-Principles Stationarity & Landau Standing-to-Spinning Reversal (n_v = 0)
+    # Experiment 3: First-Principles Stationarity & Grid-Verified Bistable-to-Spinning Flip (n_v = 0)
     # ------------------------------------------------------------------
-    print("\n--- Experiment 3: First-Principles Stationarity & Landau Mode Reversal (n_v=0, ZERO S_ent!) ---")
-    exp3_runs = {}
+    print("\n--- Experiment 3: First-Principles Stationarity & Bistable-to-Spinning Transition (n_v=0, ZERO S_ent!) ---")
     exp3_stats = {}
     for label, Mb, np_v, itype, tend, nx_g, nth_g in [
-        ("low_gain_stand",  0.06, 0.105, "stand_seed", 360.0, 28, 96),
-        ("low_gain_spin",   0.06, 0.105, "spin_pert",  360.0, 28, 96),
-        ("high_gain_stand", 0.12, 0.220, "stand_seed", 360.0, 28, 96),
-        ("high_gain_spin",  0.12, 0.220, "spin_pert",  360.0, 28, 96),
-        ("high_gain_48x144", 0.12, 0.220, "spin_pert", 200.0, 48, 144),
+        ("low_stand_28x96",  0.06, 0.105, "stand_seed", 360.0, 28, 96),
+        ("low_spin_28x96",   0.06, 0.105, "spin_pert",  360.0, 28, 96),
+        ("low_stand_48x144", 0.06, 0.105, "stand_seed", 420.0, 48, 144),
+        ("low_spin_48x144",  0.06, 0.105, "spin_pert",  420.0, 48, 144),
+        ("high_stand_28x96", 0.12, 0.220, "stand_seed", 360.0, 28, 96),
+        ("high_spin_28x96",  0.12, 0.220, "spin_pert",  360.0, 28, 96),
+        ("high_stand_48x144", 0.12, 0.220, "stand_seed", 420.0, 48, 144),
+        ("high_spin_48x144",  0.12, 0.220, "spin_pert",  420.0, 48, 144),
     ]:
-        rr = simulate_2d_euler_annulus(nx=nx_g, nth=nth_g, t_end=tend, M_bar=Mb, n_p=np_v, n_v=0.0, init_type=itype, A_eq=0.035, record_stride=12)
+        rr = simulate_2d_euler_annulus(nx=nx_g, nth=nth_g, t_end=tend, M_bar=Mb, n_p=np_v, n_v=0.0, init_type=itype, A_eq=0.035, record_stride=16)
         st = stats_2d(rr)
-        exp3_runs[label] = rr
         exp3_stats[label] = st
         print(
-            f"  [{label:16s}] M={Mb:.2f} np={np_v:.3f} | S_env={st['S_env_signed']:+.3f} | P={st['p_over_pbar_pct']:4.2f}% | "
-            f"E2/E1={st['harmonic_2T_over_1T_pct']:4.1f}% | rho={st['rho_mean_late']:.4f} | ut_m={st['ut_mean_late']:+.5f}"
+            f"  [{label:17s}] M={Mb:.2f} np={np_v:.3f} | S_env={st['S_env_signed']:+.3f} | P={st['p_over_pbar_pct']:4.2f}% | "
+            f"l/m={st['e_wave_late_over_mid']:.3f} | rho={st['rho_mean_late']:.4f} | ut_m={st['ut_mean_late']:+.5f}"
         )
 
     # ------------------------------------------------------------------
-    # Experiment 4: 2D Chiral Rotating-Shock Control Shootout (n_p=0.22, n_v=0.04, A_0=6.9%)
+    # Experiment 4: 2D Chiral Rotating-Shock Control & Multi-IC / 48x144 Audit
     # ------------------------------------------------------------------
-    print("\n--- Experiment 4: 2D Chiral Rotating-Shock Control Shootout (n_p=0.22, n_v=0.04, A_0=6.9%, t=280) ---")
+    print("\n--- Experiment 4: 2D Chiral Rotating-Shock Control (n_p=0.22, n_v=0.04, A_0=6.9%, t=280) ---")
     tau_M2_96 = make_staggered_tau_2d(96, 2, tau_1=0.55, tau_2=2.55)
     tau_M5_96 = make_staggered_tau_2d(96, 5, tau_1=0.55, tau_2=2.55)
     tau_M5_144 = make_staggered_tau_2d(144, 5, tau_1=0.55, tau_2=2.55)
 
     exp4_runs = {}
     exp4_stats = {}
-    for cid, Mb, tau_c, nx_g, nth_g, tend in [
-        ("bare_2d_chiral",      0.12, TAU_BAR,    32, 96,  280.0),
-        ("stagger_M2_bragg",    0.12, tau_M2_96,  32, 96,  280.0),
-        ("stagger_M5_odd",      0.12, tau_M5_96,  32, 96,  280.0),
-        ("strouhal_M018_shift", 0.18, TAU_BAR,    32, 96,  280.0),
-        ("stagger_M5_48x144",   0.12, tau_M5_144, 48, 144, 180.0),
+    for cid, Mb, tau_c, nx_g, nth_g, itype, amp, tend, lin_f in [
+        ("bare_2d_chiral",         0.12, TAU_BAR,    32, 96,  "spin_1T",    0.055, 280.0, False),
+        ("stagger_M2_bragg",       0.12, tau_M2_96,  32, 96,  "spin_1T",    0.055, 280.0, False),
+        ("stagger_M5_odd",         0.12, tau_M5_96,  32, 96,  "spin_1T",    0.055, 280.0, False),
+        ("stagger_M5_48x144",      0.12, tau_M5_144, 48, 144, "spin_1T",    0.055, 180.0, False),
+        ("strouhal_M018_spin1T",   0.18, TAU_BAR,    32, 96,  "spin_1T",    0.055, 280.0, False),
+        ("strouhal_M018_stand",    0.18, TAU_BAR,    32, 96,  "stand_seed", 0.055, 200.0, False),
+        ("strouhal_M018_48x144_1T", 0.18, TAU_BAR,   48, 144, "spin_1T",    0.055, 160.0, False),
+        ("strouhal_M018_48x144_2T", 0.18, TAU_BAR,   48, 144, "spin_2T",    0.055, 160.0, False),
+        ("M5_linear_flame_A030",   0.12, tau_M5_96,  32, 96,  "spin_1T",    0.030, 140.0, True),
+        ("M5_A015_32x96",          0.12, tau_M5_96,  32, 96,  "spin_1T",    0.015, 160.0, False),
+        ("M5_A015_48x144",         0.12, tau_M5_144, 48, 144, "spin_1T",    0.015, 160.0, False),
     ]:
         rr = simulate_2d_euler_annulus(
             nx=nx_g, nth=nth_g, t_end=tend, M_bar=Mb, n_p=0.22, n_v=0.04,
-            tau_arr=tau_c, init_type="spin_1T", A_eq=0.055, record_stride=12,
+            tau_arr=tau_c, linear_flame=lin_f, init_type=itype, A_eq=amp, record_stride=14,
         )
         st = stats_2d(rr)
         exp4_runs[cid] = rr
         exp4_stats[cid] = st
         print(
-            f"  [{cid:20s}] P={st['p_over_pbar_pct']:4.2f}% | E_wave={st['e_wave_late']:.2e} (l/m={st['e_wave_late_over_mid']:.3f}) | "
-            f"S_env={st['S_env_signed']:+.3f} | rho={st['rho_mean_late']:.4f} | ut_m={st['ut_mean_late']:+.5f}"
+            f"  [{cid:23s}] P={st['p_over_pbar_pct']:4.2f}% | E_wave={st['e_wave_late']:.2e} (l/m={st['e_wave_late_over_mid']:.3f}) | "
+            f"S_env={st['S_env_signed']:+.3f} | rho={st['rho_mean_late']:.4f}"
         )
 
-    # Experiment 4B: M=5 Linear Stability vs. Nonlinear Erlang-4 Cubic-Asymmetry Subcritical Triggering
-    exp4b_m5_audit = run_exp4_m5_subcritical_audit()
-
     # ------------------------------------------------------------------
-    # Figure 1: Strouhal Acoustic-Vorticity Damping Resonance & Physical Flushing
+    # Figure 1: Multi-Mode Strouhal Resonance & 2T Harmonic Trap
     # ------------------------------------------------------------------
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.0, 5.4), dpi=150)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.2, 5.5), dpi=150)
 
     M_arr = [d["M_bar"] for d in strouhal_curve]
-    a_arr = [-d["cold_alpha_1T"] for d in strouhal_curve]
-    npH_arr = [d["hot_n_pH_1T"] for d in strouhal_curve]
-    ax1.plot(M_arr, a_arr, "-", color="#1f77b4", lw=2.3, label="Exact Chebyshev cold damping $-\\alpha_{1T}(\\bar{M})$")
+    ax1.plot(M_arr, [-d["cold_alpha_1T"] for d in strouhal_curve], "-", color="#1f77b4", lw=2.3, label="Exact Chebyshev cold damping $-\\alpha_{1T}(\\bar{M})$")
     ax1.scatter(
         [d["M_bar"] for d in pde_mach_ver], [-d["pde_alpha"] for d in pde_mach_ver],
         color="#d62728", s=65, zorder=6, label="2D Euler MC PDE ($32\\times 96$)",
@@ -674,25 +684,29 @@ def main() -> None:
             ax1.axvline(m_tr, color="gray", ls=":", lw=1.0, alpha=0.8)
     ax1.set_xlabel("Chamber axial Mach number $\\bar{M}$ ($L_a = 1.5$)")
     ax1.set_ylabel("Cold $1T$ damping rate $-\\alpha_{1T}$")
-    ax1.set_title("Strouhal Acoustic-Vorticity Damping Peaks", fontweight="bold")
+    ax1.set_title("Strouhal Acoustic-Vorticity Cold $1T$ Damping", fontweight="bold")
     ax1.grid(True, alpha=0.28)
-    ax1.legend(loc="upper left", fontsize=8.2, framealpha=0.92)
+    ax1.legend(loc="upper left", fontsize=8.1, framealpha=0.92)
 
-    ax2.plot(M_arr, npH_arr, "-", color="#2ca02c", lw=2.4, label="Exact hot $1T$ Hopf threshold $n_{pH,1T}(\\bar{M})$")
-    ax2.axhline(0.22, color="#d62728", ls="--", lw=1.6, label="Test flame gain $n_p = 0.22$")
-    ax2.scatter([0.12, 0.18], [0.1338, 0.6382], color=["#d62728", "#2ca02c"], s=75, zorder=6)
-    ax2.annotate("Integer St$\\approx 2$ trough\n($n_{pH}=0.134$, UNSTABLE)", xy=(0.12, 0.134), xytext=(0.135, 0.06),
-                 arrowprops=dict(arrowstyle="->", color="#d62728"), fontsize=8.0, color="#d62728")
-    ax2.annotate("Half-integer St peak\n($n_{pH}=0.638$, $4.8\\times$ higher!)", xy=(0.18, 0.638), xytext=(0.185, 0.56),
-                 arrowprops=dict(arrowstyle="->", color="#2ca02c"), fontsize=8.0, color="#1a7f37")
+    np1 = [d["n_pH_1T"] for d in strouhal_curve]
+    np2 = [d["n_pH_2T"] for d in strouhal_curve]
+    np0 = [d["n_pH_m0"] for d in strouhal_curve]
+    npg = [d["n_pH_global"] for d in strouhal_curve]
+    ax2.plot(M_arr, np1, "-", color="#2ca02c", lw=2.2, label="$1T$ Hopf $n_{pH,1T}$ (peaks $0.638$ at $0.18$)")
+    ax2.plot(M_arr, np2, "--", color="#ff7f0e", lw=2.0, label="$2T$ Hopf $n_{pH,2T}$ ($2T$ trap $0.235$ at $0.16$!)")
+    ax2.plot(M_arr, np0, ":", color="#9467bd", lw=2.0, label="$m=0$ rumble/1L Hopf ($0.426$ at $0.18$)")
+    ax2.fill_between(M_arr, 0.0, npg, color="#2ca02c", alpha=0.14, label="Global all-mode stable region ($3.18\\times$ gain)")
+    ax2.axhline(0.22, color="#d62728", ls="-.", lw=1.5, label="Test flame $n_p = 0.22$")
+    ax2.scatter([0.12, 0.16, 0.18], [0.1338, 0.2354, 0.4260], color=["#d62728", "#ff7f0e", "#2ca02c"], s=70, zorder=6)
     ax2.set_xlabel("Chamber axial Mach number $\\bar{M}$ ($L_a = 1.5, \\bar{\\tau} = 0.55$)")
-    ax2.set_ylabel("Hot $1T$ linear Hopf threshold $n_{pH,1T}$")
-    ax2.set_title("Non-Monotonic $4.8\\times$ Passive Stability Gain via $\\bar{M}$", fontweight="bold")
+    ax2.set_ylabel("Linear Hopf threshold $n_{pH}$")
+    ax2.set_ylim(0.0, 0.72)
+    ax2.set_title("Multi-Mode Global Hopf & $2T$ Strouhal Harmonic Trap", fontweight="bold")
     ax2.grid(True, alpha=0.28)
-    ax2.legend(loc="upper left", fontsize=8.2, framealpha=0.92)
+    ax2.legend(loc="upper left", fontsize=7.6, framealpha=0.92)
 
     fig.suptitle(
-        "Rocket Combustion Entry 009 (Part 1): 2D Compressible Throughflow Strouhal Vorticity-Interference Law",
+        "Rocket Combustion Entry 009 (Part 1): 2D Throughflow Multi-Mode Strouhal Resonance & 2T Trap",
         fontsize=11.6, fontweight="bold",
     )
     fig.tight_layout(rect=(0, 0, 1, 0.94))
@@ -700,11 +714,10 @@ def main() -> None:
     plt.close(fig)
 
     # ------------------------------------------------------------------
-    # Figure 2: First-Principles 2D Landau Flip & Chiral Rotating-Shock Control
+    # Figure 2: 2D Rotating Shock Structure & Chiral Control Shootout
     # ------------------------------------------------------------------
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.0, 5.4), dpi=150)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.2, 5.5), dpi=150)
 
-    # Left: 2D pressure contour snapshot of the saturated rotating shock (bare_2d_chiral)
     r_ch = exp4_runs["bare_2d_chiral"]
     cf = ax1.contourf(r_ch["theta"], r_ch["x"], r_ch["P_final"] / P_BAR * 100.0, levels=25, cmap="RdBu_r")
     cb = fig.colorbar(cf, ax=ax1, pad=0.02)
@@ -715,12 +728,12 @@ def main() -> None:
     ax1.set_title("2D Compressible Euler Rotating Shock ($n_p=0.22, n_v=0.04$)", fontweight="bold")
     ax1.legend(loc="upper right", fontsize=8.0, framealpha=0.90)
 
-    # Right: Control shootout log wave-energy evolution
     c_styles = [
-        ("bare_2d_chiral",      "-",  "#d62728", "Bare 2D chiral shock ($\\bar{M}=0.12$)"),
-        ("stagger_M2_bragg",    "--", "#ff7f0e", "Zero-HW $M=2$ stagger (Bragg trap!)"),
-        ("stagger_M5_odd",      "-",  "#2ca02c", "Zero-HW $M=5$ odd stagger (no cavities!)"),
-        ("strouhal_M018_shift", "-.", "#1f77b4", "Passive Strouhal shift ($\\bar{M}=0.12 \\rightarrow 0.18$)"),
+        ("bare_2d_chiral",         "-",  "#d62728", "Bare 2D chiral shock ($\\bar{M}=0.12$)"),
+        ("stagger_M2_bragg",       "--", "#ff7f0e", "Zero-HW $M=2$ stagger (Bragg trap, $\\alpha=+0.008$)"),
+        ("stagger_M5_odd",         "-",  "#2ca02c", "Zero-HW $M=5$ stagger (subcritically triggered!)"),
+        ("M5_linear_flame_A030",   ":",  "#2ca02c", "$M=5$ stagger linear flame ($A_0=0.03$, decays!)"),
+        ("strouhal_M018_spin1T",   "-.", "#1f77b4", "Passive Strouhal shift ($\\bar{M}=0.18$, all-mode!)"),
     ]
     for cid, ls, col, lbl in c_styles:
         rr = exp4_runs[cid]
@@ -728,12 +741,12 @@ def main() -> None:
     ax2.set_xlabel("Dimensionless time $t \\bar{c} / R$")
     ax2.set_ylabel("2D oscillatory wave energy $E_{\\mathrm{wave}}(t)$ (log)")
     ax2.set_ylim(1e-11, 1e-2)
-    ax2.set_title("2D Chiral Rotating-Shock Control ($A_0 = 6.9\\%$, ZERO $S_{\\mathrm{ent}}$)", fontweight="bold")
+    ax2.set_title("2D Chiral Shock Control ($A_0 = 6.9\\%$, ZERO $S_{\\mathrm{ent}}$)", fontweight="bold")
     ax2.grid(True, which="both", alpha=0.24)
-    ax2.legend(loc="lower left", fontsize=7.9, framealpha=0.92)
+    ax2.legend(loc="lower left", fontsize=7.6, framealpha=0.92)
 
     fig.suptitle(
-        "Rocket Combustion Entry 009 (Part 2): 2D Rotating Shock Structure & Zero-Hardware Control Shootout",
+        "Rocket Combustion Entry 009 (Part 2): 2D Rotating Shock Structure & Zero-Hardware Control Audit",
         fontsize=11.6, fontweight="bold",
     )
     fig.tight_layout(rect=(0, 0, 1, 0.94))
@@ -751,24 +764,26 @@ def main() -> None:
         "exp1c_cold_damping_and_grid_convergence": cold_ver,
         "exp1d_physical_flushing": {
             "tau_res_exact": L_A / 0.12,
+            "tau_conv_center_exact": t_conv_ex,
             "ent_t0": float(r_flush["ent_mean"][0]),
             "ent_t15": float(r_flush["ent_mean"][idx_15]),
-            "ent_t22": float(r_flush["ent_mean"][idx_22]),
+            "ent_t20": float(r_flush["ent_mean"][-1]),
             "swirl_t0": float(r_flush["ut_mean"][0]),
             "swirl_t15": float(r_flush["ut_mean"][idx_15]),
-            "marble_candel_echo_pct": p_echo,
-            "marble_candel_echo_time": t_echo,
+            "marble_candel_rarefaction_pct": p_rare,
+            "marble_candel_rarefaction_time": t_rare,
+            "global_max_abs_exit_time": float(r_flush["t"][idx_max]),
         },
-        "exp2_strouhal_curve": strouhal_curve,
+        "exp2_strouhal_multimode_curve": strouhal_curve,
         "exp2_pde_cold_verification": pde_mach_ver,
-        "exp3_stationarity_and_landau_flip": exp3_stats,
+        "exp2_2T_harmonic_trap_pde": trap_2T_stats,
+        "exp3_stationarity_and_bistable_flip": exp3_stats,
         "exp4_2d_chiral_control_shootout": exp4_stats,
-        "exp4b_m5_subcritical_asymmetry_audit": exp4b_m5_audit,
     }
     with open(RESULTS_DIR / "exp009_metrics.json", "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)
 
-    print(f"\nSaved Entry 009 plots and metrics to {RESULTS_DIR}")
+    print(f"\nSaved hardened Entry 009 plots and metrics to {RESULTS_DIR}")
 
 
 if __name__ == "__main__":
