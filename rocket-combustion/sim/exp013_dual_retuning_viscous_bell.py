@@ -502,12 +502,15 @@ def simulate_2d_viscous_transonic(
     wf_col = wf[:, None]
 
     baffle_mask = np.zeros((nx, nth), dtype=bool)
+    bm_xf = np.zeros((nx + 1, nth), dtype=bool)
     if n_baffles > 0 and L_baffle > 0.0:
         nx_b = int(round(L_baffle / dx))
         blade_faces = [int(round(k * nth / n_baffles)) % nth for k in range(n_baffles)]
         for jf in blade_faces:
             baffle_mask[:nx_b, jf] = True
+            bm_xf[:nx_b + 1, jf] = True
     bm_r = np.roll(baffle_mask, -1, axis=1)
+    bmr_xf = np.roll(bm_xf, -1, axis=1)
 
     cavs = []
     if cav_spec:
@@ -552,6 +555,10 @@ def simulate_2d_viscous_transonic(
         dp = A_eq * np.cos(TH2) * ch_env; rho += dp; p += dp; ut += A_eq * np.cos(TH2) * ch_env
     elif init_type == "spin_2T":
         dp = A_eq * np.cos(2.0 * TH2) * ch_env; rho += dp; p += dp; ut += A_eq * np.cos(2.0 * TH2) * ch_env
+    elif init_type == "stand_1T":
+        dp = A_eq * np.sqrt(2.0) * np.cos(TH2) * ch_env; rho += dp; p += dp
+    elif init_type == "stand_2T":
+        dp = A_eq * np.sqrt(2.0) * np.cos(2.0 * TH2) * ch_env; rho += dp; p += dp
     else:
         raise ValueError(f"Unknown init_type={init_type}")
 
@@ -641,6 +648,12 @@ def simulate_2d_viscous_transonic(
             ux_f = 0.5 * (ux_g[1:] + ux_g[:-1]); ut_f = 0.5 * (ut_g[1:] + ut_g[:-1])
             dux_dth_f = (np.roll(ux_f, -1, axis=1) - np.roll(ux_f, 1, axis=1)) / (2.0 * dth)
             dut_dth_f = (np.roll(ut_f, -1, axis=1) - np.roll(ut_f, 1, axis=1)) / (2.0 * dth)
+            if n_baffles > 0 and L_baffle > 0.0:
+                # Wall-aware one-sided theta-differences on x-faces adjacent to solid blades (Review #10 M1)
+                dux_dth_f = np.where(bm_xf, (np.roll(ux_f, -1, axis=1) - ux_f) / dth,
+                                     np.where(bmr_xf, (ux_f - np.roll(ux_f, 1, axis=1)) / dth, dux_dth_f))
+                dut_dth_f = np.where(bm_xf, (np.roll(ut_f, -1, axis=1) - ut_f) / dth,
+                                     np.where(bmr_xf, (ut_f - np.roll(ut_f, 1, axis=1)) / dth, dut_dth_f))
             tau_xx_f = mu * ((4.0 / 3.0) * dux_dx_f - (2.0 / 3.0) * dut_dth_f / R_f)
             tau_xt_f = mu * (dux_dth_f / R_f + dut_dx_f)
             Fx_W[1] -= A_f * tau_xx_f
@@ -846,124 +859,212 @@ def plot_fig1(metrics: dict) -> None:
     for rtag, lbl, col, ls in [
         ("inf",  "Inviscid Bell ($\\mathrm{Re}=\\infty$, $2T$ cutoff collapse)", "#d62728", "-"),
         ("2000", f"Viscous Bell ($\\mathrm{{Re}}=2000$, $2T$ lifted ${lift_2000:.1f}\\times$)", "#ff7f0e", "--"),
-        ("1000", "Viscous Bell ($\\mathrm{Re}=1000$, $2T$ rescued)", "#1f77b4", "-."),
-        ("500",  "Viscous Bell ($\\mathrm{Re}=500$, $1T$-limited everywhere)", "#2ca02c", "-"),
+        ("1000", "Viscous Bell ($\\mathrm{Re}=1000$, $1T$-limited to $0.20$)", "#1f77b4", "-."),
+        ("500",  "Viscous Bell ($\\mathrm{Re}=500$, $1T$-limited to $0.20$, $m=0$ at $0.22$)", "#2ca02c", "-"),
     ]:
         ax1.plot(M_a, [d["n_pH_global"] for d in visc_bell_hopf[rtag]], "o", ls=ls, color=col, lw=2.3, label=lbl)
-    ax1.axhline(0.22, color="#555555", ls=":", lw=1.4, label="Benchmark flame $n_p = 0.22$")
+    ax1.axhline(0.22, color="#555555", ls=":", lw=1.4, label="Reference $n_p = 0.22$ ($n_v = 0$; benchmark has $n_v = 0.04$)")
     ax1.set_xlabel("Chamber Mean Mach Number $\\bar{M}_c$", fontsize=11)
-    ax1.set_ylabel("Multi-Mode Global Hopf Gain $n_{pH,\\mathrm{global}}$ ($m=0..5$)", fontsize=11)
-    ax1.set_title("Viscous Rescue of Bell-Nozzle $2T$ Evanescent Collapse ($L_n=0.50$)", fontsize=12, fontweight="bold")
-    ax1.set_ylim(-0.01, 0.45)
+    ax1.set_ylabel("Pressure-Coupled Global Hopf $n_{pH,\\mathrm{global}}$ ($n_v=0, m=0..5$)", fontsize=10.5)
+    ax1.set_title("Viscous Rescue of Bell-Nozzle $2T$ Evanescent Collapse ($L_n=0.50, N=96$)", fontsize=11.5, fontweight="bold")
+    ax1.set_ylim(-0.01, 0.52)
     ax1.grid(True, alpha=0.28)
-    ax1.legend(fontsize=8.2, loc="upper left", framealpha=0.94)
+    ax1.legend(fontsize=7.8, loc="upper left", framealpha=0.94)
 
     lin_damps = [-exp3_stats[f"lin2T_w{w2:.2f}"]["alpha_fit_win"] for w2 in w2_grid]
     nl_peaks = [exp3_stats[f"NL2T_w{w2:.2f}"]["p_over_pbar_pct"] for w2 in w2_grid]
     ax2_r = ax2.twinx()
-    l1, = ax2.plot(w2_grid, lin_damps, "o-", color="#1f77b4", lw=2.4, label="Linear $2T$ damping $-\\alpha_{2T}$ ($A_0=10^{-4}$)")
+    l1, = ax2.plot(w2_grid, lin_damps, "o-", color="#1f77b4", lw=2.4, label="Linear $2T$ damping $-\\alpha_{2T}$ ($80\\times 200, A_0=10^{-4}$)")
     l2, = ax2_r.plot(w2_grid, nl_peaks, "s--", color="#d62728", lw=2.2, label="Direct $2T$ shock $P_{\\mathrm{peak}}/\\bar{p}$ (%)")
-    ax2.axvline(w2_bare, color="#777777", ls=":", lw=1.5, label=f"Unbaffled bare $\\omega_{{2T}} = {w2_bare:.2f}$ (detuned!)")
+    ax2.axvline(w2_bare, color="#777777", ls=":", lw=1.5, label=f"Unbaffled bare FFT $\\omega_{{2T}} = {w2_bare:.2f}$ (vs. prior $2.01$)")
     ax2.axvline(w2_baf, color="#2ca02c", ls="-.", lw=1.7, label=f"Baffled FFT $\\omega_{{2T}} = {w2_baf:.2f}$ ({baffle_downshift['shift_2T_pct']:+.1f}%)")
     ax2.set_xlabel("$2T$ Cavity Tuning Frequency $\\omega_{H,2T}$ (Fixed $2\\%$ $80/20$ Budget)", fontsize=11)
     ax2.set_ylabel("Linear $2T$ Damping Rate $-\\alpha_{2T}$", fontsize=11, color="#1f77b4")
     ax2_r.set_ylabel("Direct $6.9\\%$ $2T$ Bomb Limit Cycle (%)", fontsize=11, color="#d62728")
-    ax2.set_ylim(0.010, 0.044)
+    ax2.set_ylim(0.010, 0.045)
     ax2_r.set_ylim(4.05, 5.75)
-    ax2.set_title("Higher-Harmonic Baffle-Cavity Retuning Law ($N_b=5, L_b=0.45$)", fontsize=12, fontweight="bold")
+    ax2.set_title("Higher-Harmonic Baffle-Cavity Retuning Law ($N_b=5, L_b=0.45$)", fontsize=11.5, fontweight="bold")
     ax2.grid(True, alpha=0.28)
     lines = [l1, l2] + ax2.get_lines()[1:]
-    ax2.legend(lines, [ln.get_label() for ln in lines], fontsize=8.0, loc="upper right", framealpha=0.94)
+    ax2.legend(lines, [ln.get_label() for ln in lines], fontsize=7.8, loc="upper right", framealpha=0.94)
 
     fig.tight_layout()
     fig.savefig(RESULTS_DIR / "exp013_viscous_bell_rescue_and_2T_retuning.png", dpi=150)
     plt.close(fig)
 
 
+def run_exp2_hopf_n96() -> tuple[dict, list[dict]]:
+    """Experiment 2 (Hardened Review #10 M3-M5): N=96 multi-mode Hopf (n_v=0, m=0..5) + M_c=0.12 Re sweep."""
+    print("\n--- Experiment 2: Coupled Viscous-Transonic Bell Global Hopf (N=96, n_v=0, m=0..5) ---")
+    M_grid = [0.10, 0.12, 0.14, 0.16, 0.18, 0.20, 0.22]
+    visc_bell_hopf = {}
+    for Re_v in (np.inf, 2000.0, 1000.0, 500.0):
+        rtag = "inf" if not np.isfinite(Re_v) else f"{int(Re_v)}"
+        rows = []
+        for Mb in M_grid:
+            npH = {}; colds = {}
+            for mm in (0, 1, 2, 3, 4, 5):
+                ww = (0.55, 1.50) if mm == 1 else (0.05, 7.0)
+                vc = exact_viscous_transonic_eig(Mb, mm, 0.50, "bell", Re=Re_v, omega_window=ww, N=96)
+                colds[mm] = vc.real
+                if vc.real >= 0.0:
+                    npH[mm] = 0.0
+                else:
+                    f = lambda nv, m_k=mm, w_w=ww: exact_viscous_transonic_eig(Mb, m_k, 0.50, "bell", Re=Re_v, n_p=nv, omega_window=w_w, N=96).real
+                    npH[mm] = float(brentq(f, 0.0, 0.85)) if f(0.85) > 0.0 else 0.85
+            gm_m = min(npH, key=npH.get)
+            r1 = exact_viscous_transonic_eig(Mb, 1, 0.50, "bell", Re=Re_v, n_p=0.22, n_v=0.04, omega_window=(0.55, 1.50), N=96)
+            r2 = exact_viscous_transonic_eig(Mb, 2, 0.50, "bell", Re=Re_v, n_p=0.22, n_v=0.04, omega_window=(1.40, 3.00), N=96)
+            rows.append({
+                "M_c": Mb, "cold_1T": colds[1], "cold_2T": colds[2],
+                "cold_m3": colds[3], "cold_m4": colds[4], "cold_m5": colds[5],
+                "react_1T": r1.real, "react_1T_omega": r1.imag, "react_2T": r2.real,
+                "n_pH_m0": npH[0], "n_pH_1T": npH[1], "n_pH_2T": npH[2],
+                "n_pH_3T": npH[3], "n_pH_m4": npH[4], "n_pH_m5": npH[5],
+                "n_pH_global": npH[gm_m], "limiting_m": int(gm_m),
+            })
+        visc_bell_hopf[rtag] = rows
+        print(f"  Bell NS (N=96) Re={rtag:4s}: " + " | ".join(f"M={r['M_c']:.2f}:{r['n_pH_global']:.3f}(m{r['limiting_m']})" for r in rows))
+
+    # 11-point Re sweep at M_c = 0.12 exposing non-monotonic bare reacting 1T stability window (Review #10 M4)
+    re_sweep = []
+    for Re_v in (np.inf, 4000.0, 2000.0, 1500.0, 1200.0, 1000.0, 800.0, 700.0, 600.0, 500.0, 400.0):
+        v = exact_viscous_transonic_eig(0.12, 1, 0.50, "bell", Re=Re_v, n_p=0.22, n_v=0.04, omega_window=(0.55, 1.50), N=96)
+        re_sweep.append({"Re": "inf" if not np.isfinite(Re_v) else int(Re_v), "react_1T": v.real, "omega_1T": v.imag})
+    print("  M_c=0.12 Re sweep (react_1T, N=96): " + " | ".join(f"{r['Re']}:{r['react_1T']:+.4f}" for r in re_sweep))
+    return visc_bell_hopf, re_sweep
+
+
+def run_exp3_grid_re_check() -> dict:
+    """Experiment 3 addendum (Review #10 M7 & m10): 120x300 inviscid & 80x200 Re=1000 e_2t fits."""
+    print("\n--- Experiment 3 Grid/Re Check (120x300 inviscid & 80x200 Re=1000, e_2t fits) ---")
+    W120_inf, _ = relax_1d_viscous_transonic_base(120, 0.12, 0.50, "bell", np.inf)
+    W80_1000, _ = relax_1d_viscous_transonic_base(80, 0.12, 0.50, "bell", 1000.0)
+    w2_sub = [1.45, 1.65, 1.90, 2.01]
+    tasks = []
+    for w2 in w2_sub:
+        cf = make_hyb(w1=0.96, w2=w2, frac1=0.80, sig1=0.045, sig2=0.050)
+        tasks.append((f"G120_inf_w{w2:.2f}", dict(nx=120, nth=300, t_end=60.0, M_c=0.12, L_n=0.50, geom="bell", Re=np.inf, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf, init_type="spin_2T", A_eq=1e-4, W_base=W120_inf, record_stride=16)))
+        tasks.append((f"G80_Re1000_w{w2:.2f}", dict(nx=80, nth=200, t_end=60.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf, init_type="spin_2T", A_eq=1e-4, W_base=W80_1000, record_stride=12)))
+    res = run_batch(tasks)
+    out = {}
+    for cid, _ in tasks:
+        a_e2 = fit_alpha(res[cid], 18.0, 55.0, key="e_2t")
+        a_ech = fit_alpha(res[cid], 18.0, 55.0, key="e_ch")
+        out[cid] = {"alpha_2T_e2t": a_e2, "alpha_2T_ech": a_ech}
+        print(f"  [{cid:18s}] alpha(e_2t)={a_e2:+.5f}, alpha(e_ch)={a_ech:+.5f}")
+    out["ratio_120_inf_165_over_201"] = abs(out["G120_inf_w1.65"]["alpha_2T_e2t"]) / abs(out["G120_inf_w2.01"]["alpha_2T_e2t"])
+    out["ratio_80_Re1000_165_over_201"] = abs(out["G80_Re1000_w1.65"]["alpha_2T_e2t"]) / abs(out["G80_Re1000_w2.01"]["alpha_2T_e2t"])
+    print(f"  Ratios (1.65/2.01): 120x300 inviscid={out['ratio_120_inf_165_over_201']:.2f}x | 80x200 Re=1000={out['ratio_80_Re1000_165_over_201']:.2f}x")
+    return out
+
+
 def run_exp5_viscous_1t_backreaction() -> tuple[dict, dict]:
-    """Experiment 5: Viscous Bell 1T Back-Reaction Mechanism & Resolved 120x300 All-Mode Quench."""
-    print("\n--- Experiment 5: Viscous Bell 1T Back-Reaction & Resolved 120x300 3.0% 85/15 Quench ---")
+    """Experiment 5 (Hardened Review #10 C1, M1, M2, M6, m5, m6): Long-window [50,95] one-sided-stencil
+    linear back-reaction audit (80x200 & 120x300), Re=1000 3.0% 85/15 scope robustness, and no-slip wakes."""
+    print("\n--- Experiment 5: Long-Window Viscous Bell 1T Audit & 3.0% 85/15 Scope Robustness ---")
     W80_inf, _ = relax_1d_viscous_transonic_base(80, 0.12, 0.50, "bell", np.inf)
     W80_1000, _ = relax_1d_viscous_transonic_base(80, 0.12, 0.50, "bell", 1000.0)
     W80_500, _ = relax_1d_viscous_transonic_base(80, 0.12, 0.50, "bell", 500.0)
+    W80_1000_M16, _ = relax_1d_viscous_transonic_base(80, 0.16, 0.50, "bell", 1000.0)
     W80_c_inf, _ = relax_1d_viscous_transonic_base(80, 0.12, 0.05, "annular", np.inf)
     W80_c_1000, _ = relax_1d_viscous_transonic_base(80, 0.12, 0.05, "annular", 1000.0)
     W120_inf, _ = relax_1d_viscous_transonic_base(120, 0.12, 0.50, "bell", np.inf)
     W120_1000, _ = relax_1d_viscous_transonic_base(120, 0.12, 0.50, "bell", 1000.0)
 
+    wake_80_500 = simulate_2d_viscous_transonic(
+        nx=80, nth=200, t_end=150.0, M_c=0.12, L_n=0.50, geom="bell", Re=500.0,
+        n_baffles=5, L_baffle=0.45, baffle_bc="noslip", init_type="steady", A_eq=0.0,
+        W_base=W80_500, record_stride=80,
+    )
+    W80_500_noslip = wake_80_500["W_final"]
+    print(f"  One-sided stencil 80x200 t=150 no-slip bell wake (Re=500): rhs={wake_80_500['final_rhs_max']:.2e}")
+
     cf_20 = make_hyb(w1=0.96, w2=1.65, frac1=0.80, sig1=0.045, sig2=0.050, beta_tot=0.020)
+    cf_25 = make_hyb(w1=0.96, w2=1.65, frac1=0.85, sig1=0.055, sig2=0.050, beta_tot=0.025)
     cf_30 = make_hyb(w1=0.96, w2=1.65, frac1=0.85, sig1=0.060, sig2=0.050, beta_tot=0.030)
 
+    # Long-window (t_end = 100) linear runs eliminating beating-window contamination (Review #10 C1 & M2)
     lin_tasks = [
-        ("cold_baf_bell_inf",  dict(nx=80, nth=200, t_end=50.0, M_c=0.12, L_n=0.50, geom="bell", Re=np.inf, n_baffles=5, L_baffle=0.45, init_type="spin_1T", A_eq=1e-4, W_base=W80_inf, record_stride=8)),
-        ("cold_baf_bell_1000", dict(nx=80, nth=200, t_end=50.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_baffles=5, L_baffle=0.45, init_type="spin_1T", A_eq=1e-4, W_base=W80_1000, record_stride=8)),
-        ("cold_baf_bell_500",  dict(nx=80, nth=200, t_end=50.0, M_c=0.12, L_n=0.50, geom="bell", Re=500.0,  n_baffles=5, L_baffle=0.45, init_type="spin_1T", A_eq=1e-4, W_base=W80_500, record_stride=8)),
-        ("react_baf_bell_inf_80",   dict(nx=80, nth=200, t_end=50.0, M_c=0.12, L_n=0.50, geom="bell", Re=np.inf, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, init_type="spin_1T", A_eq=1e-4, W_base=W80_inf, record_stride=8)),
-        ("react_baf_bell_1000_80",  dict(nx=80, nth=200, t_end=50.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, init_type="spin_1T", A_eq=1e-4, W_base=W80_1000, record_stride=8)),
-        ("react_baf_comp_inf_80",   dict(nx=80, nth=200, t_end=50.0, M_c=0.12, L_n=0.05, geom="annular", Re=np.inf, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, init_type="spin_1T", A_eq=1e-4, W_base=W80_c_inf, record_stride=8)),
-        ("react_baf_comp_1000_80",  dict(nx=80, nth=200, t_end=50.0, M_c=0.12, L_n=0.05, geom="annular", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, init_type="spin_1T", A_eq=1e-4, W_base=W80_c_1000, record_stride=8)),
-        ("hyb20_bell_inf_80",       dict(nx=80, nth=200, t_end=50.0, M_c=0.12, L_n=0.50, geom="bell", Re=np.inf, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_20, init_type="spin_1T", A_eq=1e-4, W_base=W80_inf, record_stride=8)),
-        ("hyb20_bell_1000_80",      dict(nx=80, nth=200, t_end=50.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_20, init_type="spin_1T", A_eq=1e-4, W_base=W80_1000, record_stride=8)),
-        ("hyb20_bell_500_80",       dict(nx=80, nth=200, t_end=50.0, M_c=0.12, L_n=0.50, geom="bell", Re=500.0,  n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_20, init_type="spin_1T", A_eq=1e-4, W_base=W80_500, record_stride=8)),
-        ("react_baf_bell_inf_120",  dict(nx=120, nth=300, t_end=50.0, M_c=0.12, L_n=0.50, geom="bell", Re=np.inf, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, init_type="spin_1T", A_eq=1e-4, W_base=W120_inf, record_stride=12)),
-        ("react_baf_bell_1000_120", dict(nx=120, nth=300, t_end=50.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, init_type="spin_1T", A_eq=1e-4, W_base=W120_1000, record_stride=12)),
+        ("cold_baf_bell_inf",       dict(nx=80, nth=200, t_end=100.0, M_c=0.12, L_n=0.50, geom="bell", Re=np.inf, n_baffles=5, L_baffle=0.45, init_type="spin_1T", A_eq=1e-4, W_base=W80_inf, record_stride=12)),
+        ("cold_baf_bell_1000",      dict(nx=80, nth=200, t_end=100.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_baffles=5, L_baffle=0.45, init_type="spin_1T", A_eq=1e-4, W_base=W80_1000, record_stride=12)),
+        ("cold_baf_bell_500",       dict(nx=80, nth=200, t_end=100.0, M_c=0.12, L_n=0.50, geom="bell", Re=500.0,  n_baffles=5, L_baffle=0.45, init_type="spin_1T", A_eq=1e-4, W_base=W80_500, record_stride=12)),
+        ("react_baf_bell_inf_80",   dict(nx=80, nth=200, t_end=100.0, M_c=0.12, L_n=0.50, geom="bell", Re=np.inf, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, init_type="spin_1T", A_eq=1e-4, W_base=W80_inf, record_stride=12)),
+        ("react_baf_bell_1000_80",  dict(nx=80, nth=200, t_end=100.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, init_type="spin_1T", A_eq=1e-4, W_base=W80_1000, record_stride=12)),
+        ("react_baf_comp_inf_80",   dict(nx=80, nth=200, t_end=100.0, M_c=0.12, L_n=0.05, geom="annular", Re=np.inf, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, init_type="spin_1T", A_eq=1e-4, W_base=W80_c_inf, record_stride=12)),
+        ("react_baf_comp_1000_80",  dict(nx=80, nth=200, t_end=100.0, M_c=0.12, L_n=0.05, geom="annular", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, init_type="spin_1T", A_eq=1e-4, W_base=W80_c_1000, record_stride=12)),
+        ("hyb20_bell_inf_80",       dict(nx=80, nth=200, t_end=100.0, M_c=0.12, L_n=0.50, geom="bell", Re=np.inf, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_20, init_type="spin_1T", A_eq=1e-4, W_base=W80_inf, record_stride=12)),
+        ("hyb20_bell_1000_80",      dict(nx=80, nth=200, t_end=100.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_20, init_type="spin_1T", A_eq=1e-4, W_base=W80_1000, record_stride=12)),
+        ("hyb20_bell_500_80",       dict(nx=80, nth=200, t_end=100.0, M_c=0.12, L_n=0.50, geom="bell", Re=500.0,  n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_20, init_type="spin_1T", A_eq=1e-4, W_base=W80_500, record_stride=12)),
+        ("react_baf_bell_inf_120",  dict(nx=120, nth=300, t_end=100.0, M_c=0.12, L_n=0.50, geom="bell", Re=np.inf, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, init_type="spin_1T", A_eq=1e-4, W_base=W120_inf, record_stride=16)),
+        ("react_baf_bell_1000_120", dict(nx=120, nth=300, t_end=100.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, init_type="spin_1T", A_eq=1e-4, W_base=W120_1000, record_stride=16)),
+        ("hyb20_bell_inf_120",      dict(nx=120, nth=300, t_end=100.0, M_c=0.12, L_n=0.50, geom="bell", Re=np.inf, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_20, init_type="spin_1T", A_eq=1e-4, W_base=W120_inf, record_stride=16)),
+        ("hyb20_bell_1000_120",     dict(nx=120, nth=300, t_end=100.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_20, init_type="spin_1T", A_eq=1e-4, W_base=W120_1000, record_stride=16)),
     ]
     lin_res = run_batch(lin_tasks)
     lin_out = {}
     for cid, _ in lin_tasks:
-        a = fit_alpha(lin_res[cid], 20.0, 48.0, key="e_1t")
-        w = measure_fft_omega(lin_res[cid]["t"], lin_res[cid]["p1_re"])
-        lin_out[cid] = {"alpha_1T": a, "omega_1T": w}
-        print(f"  [{cid:25s}] alpha_1T={a:+.5f}, omega_1T={w:.4f}")
+        a_long = fit_alpha(lin_res[cid], 50.0, 95.0, key="e_1t")
+        a_short = fit_alpha(lin_res[cid], 20.0, 48.0, key="e_1t")
+        w = measure_fft_omega(lin_res[cid]["t"], lin_res[cid]["p1_re"], t_lo=30.0)
+        lin_out[cid] = {"alpha_1T_long_50_95": a_long, "alpha_1T_short_20_48": a_short, "omega_1T": w}
+        print(f"  [{cid:25s}] long[50,95]={a_long:+.5f} | short[20,48]={a_short:+.5f} | w={w:.4f}")
 
-    # Resolved 120x300 verification of 3.0% 85/15 dual-retuned all-mode quench at Re=1000 + 80x200 2.0/2.5/3.0 comparison
-    cf_25 = make_hyb(w1=0.96, w2=1.65, frac1=0.85, sig1=0.055, sig2=0.050, beta_tot=0.025)
+    # Nonlinear quench ladder + scope robustness (standing, A0=0.08, M_c=0.16) + no-slip 3.0% & t=300 2T check
     nl_tasks = [
-        ("R80_Re1000_20_8020_1T",  dict(nx=80, nth=200, t_end=200.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_20, init_type="spin_1T", A_eq=0.055, W_base=W80_1000, record_stride=24)),
-        ("R80_Re1000_25_8515_1T",  dict(nx=80, nth=200, t_end=200.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_25, init_type="spin_1T", A_eq=0.055, W_base=W80_1000, record_stride=24)),
-        ("R80_Re1000_30_8515_1T",  dict(nx=80, nth=200, t_end=200.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_30, init_type="spin_1T", A_eq=0.055, W_base=W80_1000, record_stride=24)),
-        ("R120_Re1000_30_8515_1T", dict(nx=120, nth=300, t_end=240.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_30, init_type="spin_1T", A_eq=0.055, W_base=W120_1000, record_stride=32)),
-        ("R120_Re1000_30_8515_2T", dict(nx=120, nth=300, t_end=240.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_30, init_type="spin_2T", A_eq=0.055, W_base=W120_1000, record_stride=32)),
+        ("R80_Re1000_20_8020_1T",    dict(nx=80, nth=200, t_end=200.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_20, init_type="spin_1T", A_eq=0.055, W_base=W80_1000, record_stride=24)),
+        ("R80_Re1000_25_8515_1T",    dict(nx=80, nth=200, t_end=200.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_25, init_type="spin_1T", A_eq=0.055, W_base=W80_1000, record_stride=24)),
+        ("R80_Re1000_30_8515_1T",    dict(nx=80, nth=200, t_end=200.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_30, init_type="spin_1T", A_eq=0.055, W_base=W80_1000, record_stride=24)),
+        ("R120_Re1000_30_8515_1T",   dict(nx=120, nth=300, t_end=240.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_30, init_type="spin_1T", A_eq=0.055, W_base=W120_1000, record_stride=32)),
+        ("R120_Re1000_30_8515_2T",   dict(nx=120, nth=300, t_end=240.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_30, init_type="spin_2T", A_eq=0.055, W_base=W120_1000, record_stride=32)),
+        # Scope robustness & Review #10 M6 / m6 additions
+        ("R80_Re1000_30_stand1T",    dict(nx=80, nth=200, t_end=200.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_30, init_type="stand_1T", A_eq=0.055, W_base=W80_1000, record_stride=24)),
+        ("R80_Re1000_30_stand2T",    dict(nx=80, nth=200, t_end=200.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_30, init_type="stand_2T", A_eq=0.055, W_base=W80_1000, record_stride=24)),
+        ("R80_Re1000_30_A08_1T",     dict(nx=80, nth=200, t_end=200.0, M_c=0.12, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_30, init_type="spin_1T", A_eq=0.080, W_base=W80_1000, record_stride=24)),
+        ("R80_Re1000_30_M16_1T",     dict(nx=80, nth=200, t_end=200.0, M_c=0.16, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_30, init_type="spin_1T", A_eq=0.055, W_base=W80_1000_M16, record_stride=24)),
+        ("R80_Re1000_30_M16_2T",     dict(nx=80, nth=200, t_end=200.0, M_c=0.16, L_n=0.50, geom="bell", Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, cav_spec=cf_30, init_type="spin_2T", A_eq=0.055, W_base=W80_1000_M16, record_stride=24)),
+        ("R80_Re500_noslip_30_1T",   dict(nx=80, nth=200, t_end=200.0, M_c=0.12, L_n=0.50, geom="bell", Re=500.0,  n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_30, init_type="spin_1T", A_eq=0.055, W_base=W80_500_noslip, record_stride=24)),
+        ("R80_Re500_noslip_2T_t300", dict(nx=80, nth=200, t_end=300.0, M_c=0.12, L_n=0.50, geom="bell", Re=500.0,  n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_20, init_type="spin_2T", A_eq=0.055, W_base=W80_500_noslip, record_stride=24)),
     ]
     nl_res = run_batch(nl_tasks)
     nl_out = {}
     for cid, _ in nl_tasks:
         st = stats_nl(nl_res[cid])
         nl_out[cid] = st
-        print(f"  [{cid:23s}] t={st['t_end']:4.0f} | P={st['p_over_pbar_pct']:5.2f}% | E={st['e_wave_late']:.2e} (e2/e1={st['e2_over_e1_late']:.2f}) | tail={st['alpha_tail']:+.4f}")
+        print(f"  [{cid:25s}] t={st['t_end']:4.0f} | P={st['p_over_pbar_pct']:5.2f}% | E={st['e_wave_late']:.2e} (l/m={st['e_wave_late_over_mid']:.3f}, e2/e1={st['e2_over_e1_late']:.2f}) | tail={st['alpha_tail']:+.4f}")
 
-    # Figure 3: Viscous Bell 1T Back-Reaction & Resolved 120x300 All-Mode Quench
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.4, 5.5), dpi=150)
+    # Figure 3: Long-Window [50,95] One-Sided-Stencil Linear Audit & Re=1000 All-Mode Quench Ladder
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.6, 5.5), dpi=150)
 
-    labels = ["Cold Bell\n(Baffled)", "Reacting Bell\n(Baffled, 120x300)", "Reacting Compact\n(Baffled, Ln=0.05)", "Reacting Bell\n(Baffle+2% Hyb)"]
+    labels = ["Cold Bell\n(Baffled, 80x200)", "Reacting Bell\n(Baffled, 120x300)", "Reacting Compact\n(Baffled, 80x200)", "Reacting Bell\n(Baffle+2% Hyb, 120x300)"]
     vals_inf = [
-        -lin_out["cold_baf_bell_inf"]["alpha_1T"],
-        -lin_out["react_baf_bell_inf_120"]["alpha_1T"],
-        -lin_out["react_baf_comp_inf_80"]["alpha_1T"],
-        -lin_out["hyb20_bell_inf_80"]["alpha_1T"],
+        -lin_out["cold_baf_bell_inf"]["alpha_1T_long_50_95"],
+        -lin_out["react_baf_bell_inf_120"]["alpha_1T_long_50_95"],
+        -lin_out["react_baf_comp_inf_80"]["alpha_1T_long_50_95"],
+        -lin_out["hyb20_bell_inf_120"]["alpha_1T_long_50_95"],
     ]
     vals_1000 = [
-        -lin_out["cold_baf_bell_1000"]["alpha_1T"],
-        -lin_out["react_baf_bell_1000_120"]["alpha_1T"],
-        -lin_out["react_baf_comp_1000_80"]["alpha_1T"],
-        -lin_out["hyb20_bell_1000_80"]["alpha_1T"],
+        -lin_out["cold_baf_bell_1000"]["alpha_1T_long_50_95"],
+        -lin_out["react_baf_bell_1000_120"]["alpha_1T_long_50_95"],
+        -lin_out["react_baf_comp_1000_80"]["alpha_1T_long_50_95"],
+        -lin_out["hyb20_bell_1000_120"]["alpha_1T_long_50_95"],
     ]
     x_pos = np.arange(len(labels))
     w = 0.35
     ax1.bar(x_pos - w / 2, vals_inf, w, color="#1f77b4", label="Inviscid ($\\mathrm{Re}=\\infty$)")
-    ax1.bar(x_pos + w / 2, vals_1000, w, color="#d62728", label="Viscous ($\\mathrm{Re}=1000$)")
+    ax1.bar(x_pos + w / 2, vals_1000, w, color="#d62728", label="Viscous ($\\mathrm{Re}=1000$, one-sided stencil)")
     ax1.axhline(0.0, color="#333333", lw=1.2)
     ax1.set_xticks(x_pos)
-    ax1.set_xticklabels(labels, fontsize=9.2)
-    ax1.set_ylabel("Linear $1T$ Damping Margin $-\\alpha_{1T}$ (>0 stable)", fontsize=11)
-    ax1.set_title("Viscous Bell $1T$ Back-Reaction vs. Compact Nozzle", fontsize=12, fontweight="bold")
-    ax1.set_ylim(-0.015, 0.112)
+    ax1.set_xticklabels(labels, fontsize=8.8)
+    ax1.set_ylabel("Long-Window $1T$ Margin $-\\alpha_{1T}$ ($t\\in[50,95]$, >0 stable)", fontsize=10.5)
+    ax1.set_title("Baffled Bell Sign Flip vs. Hybrid Linear Margin Increase", fontsize=11.5, fontweight="bold")
+    ax1.set_ylim(-0.015, 0.085)
     ax1.grid(True, axis="y", alpha=0.28)
-    ax1.legend(fontsize=9.2, loc="upper left", framealpha=0.94)
+    ax1.legend(fontsize=8.6, loc="upper right", framealpha=0.94)
 
     for cid, lbl, col, ls in [
         ("R80_Re1000_20_8020_1T",  "Re=1000, 2.0% 80/20: 1T bomb (80x200)", "#d62728", "--"),
-        ("R80_Re1000_25_8515_1T",  "Re=1000, 2.5% 85/15: 1T bomb (80x200)", "#ff7f0e", "-."),
+        ("R80_Re1000_25_8515_1T",  "Re=1000, 2.5% 85/15: 1T bomb (80x200, transient)", "#ff7f0e", "-."),
         ("R120_Re1000_30_8515_1T", "Re=1000, 3.0% 85/15: 1T bomb (120x300)", "#1f77b4", "-"),
         ("R120_Re1000_30_8515_2T", "Re=1000, 3.0% 85/15: 2T bomb (120x300)", "#2ca02c", "-"),
     ]:
@@ -972,31 +1073,64 @@ def run_exp5_viscous_1t_backreaction() -> tuple[dict, dict]:
                      label=f"{lbl} (P={st['p_over_pbar_pct']:.2f}%)")
     ax2.set_xlabel("Time $t$", fontsize=11)
     ax2.set_ylabel("Chamber Wave Energy $E_{\\mathrm{wave}}(t)$", fontsize=11)
-    ax2.set_title("Resolved 120x300 All-Mode Quench at $\\mathrm{Re}=1000$ ($3.0\\%$ $85/15$)", fontsize=12, fontweight="bold")
+    ax2.set_title("Viscous Bell ($\\mathrm{Re}=1000$) Quench Ladder ($80\\times 200$ & $120\\times 300$)", fontsize=11.5, fontweight="bold")
     ax2.set_ylim(1e-12, 1e-2)
     ax2.grid(True, which="both", alpha=0.25)
-    ax2.legend(fontsize=8.3, loc="lower left", framealpha=0.94)
+    ax2.legend(fontsize=8.0, loc="lower left", framealpha=0.94)
 
     fig.tight_layout()
     fig.savefig(RESULTS_DIR / "exp013_viscous_1T_backreaction_and_quench.png", dpi=150)
     plt.close(fig)
     print("Saved plot -> exp013_viscous_1T_backreaction_and_quench.png")
-    return {"linear_backreaction": lin_out, "resolved_quench_3pct": nl_out}, nl_res
+    return {
+        "noslip_wake_80_onesided_rhs": wake_80_500["final_rhs_max"],
+        "linear_backreaction": lin_out,
+        "resolved_quench_3pct_and_scope": nl_out,
+    }, nl_res
+
+
+def collect_base_and_spec_diagnostics() -> tuple[dict, dict]:
+    """Record Chebyshev viscous base M_in/M_exit & complex spec moduli in JSON (Review #10 M6)."""
+    x96, Dx96, _ = cheb_diff(96, L_A + 0.50 + L_D)
+    base_diag = {}
+    for Re_v in (np.inf, 1000.0, 500.0):
+        rtag = "inf" if not np.isfinite(Re_v) else f"{int(Re_v)}"
+        bc = solve_1d_viscous_cheb_base(x96, Dx96, 0.12, 0.50, Re_v, geom="bell")
+        base_diag[rtag] = {
+            "cheb_N96_M_in": float(bc["M"][0]), "cheb_N96_M_exit": float(bc["M"][-1]),
+            "cheb_N96_rho_in": float(bc["rho"][0]), "cheb_N96_p_in": float(bc["p"][0]),
+        }
+    spec_moduli = {}
+    for lbl, Re_v, mm in [("pde_bell_Re500_1T", 500.0, 1), ("pde_bell_Re1000_1T", 1000.0, 1),
+                          ("pde_bell_Re500_2T", 500.0, 2), ("pde_bell_Re1000_2T", 1000.0, 2)]:
+        ww = (0.55, 1.50) if mm == 1 else (1.40, 3.00)
+        v72 = exact_viscous_transonic_eig(0.12, mm, 0.50, "bell", Re=Re_v, omega_window=ww, N=72)
+        v96 = exact_viscous_transonic_eig(0.12, mm, 0.50, "bell", Re=Re_v, omega_window=ww, N=96)
+        spec_moduli[lbl] = float(abs(v96 - v72))
+    return base_diag, spec_moduli
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--only-exp5", action="store_true", help="Run Exp 5 only, merge into existing exp013_metrics.json, and refresh Fig 1 & Fig 3.")
+    parser.add_argument("--harden-review10", action="store_true", help="Run all Peer Review #10 hardened modules, merge into exp013_metrics.json, and refresh Fig 1 & Fig 3.")
     args = parser.parse_args()
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     out_path = RESULTS_DIR / "exp013_metrics.json"
-    if args.only_exp5:
+    if args.harden_review10:
         metrics = json.loads(out_path.read_text(encoding="utf-8"))
+        base_diag, spec_moduli = collect_base_and_spec_diagnostics()
+        metrics["exp1_coupled_benchmarks"]["base_diagnostics_cheb_N96"] = base_diag
+        for lbl, sm in spec_moduli.items():
+            metrics["exp1_coupled_benchmarks"]["visc_cheb_vs_pde_96x200"][lbl]["spec_complex_diff_N96_N72"] = sm
+        visc_bell_hopf, re_sweep = run_exp2_hopf_n96()
+        metrics["exp2_viscous_bell_rescue_hopf"] = visc_bell_hopf
+        metrics["exp2_Mc012_nonmonotonic_Re_sweep_N96"] = re_sweep
+        metrics["exp3_dual_retuning_curve"]["grid_and_re_check"] = run_exp3_grid_re_check()
         exp5_data, _ = run_exp5_viscous_1t_backreaction()
         metrics["exp5_viscous_1T_backreaction_and_quench"] = exp5_data
         out_path.write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
         plot_fig1(metrics)
-        print(f"Updated metrics -> {out_path} and refreshed Fig 1 & Fig 3.")
+        print(f"Hardened Review #10 metrics -> {out_path} and refreshed Fig 1 & Fig 3.")
         return
 
     print("=" * 92)
@@ -1041,8 +1175,14 @@ def main() -> None:
         v96 = exact_viscous_transonic_eig(0.12, mm, 0.50, "bell", Re=Re_v, omega_window=ww, N=96)
         ap = fit_alpha(exp1_res[lbl], 30.0, 52.0, key=fkey)
         rel = abs(ap - v96.real) / abs(v96.real) * 100.0
-        visc_cheb_vs_pde[lbl] = {"exact_N72": v72.real, "exact_N96": v96.real, "omega": v96.imag, "pde_96x200": ap, "rel_err_pct": rel}
+        visc_cheb_vs_pde[lbl] = {
+            "exact_N72": v72.real, "exact_N96": v96.real, "omega": v96.imag,
+            "spec_complex_diff_N96_N72": float(abs(v96 - v72)),
+            "pde_96x200": ap, "rel_err_pct": rel,
+        }
         print(f"  Exp 1C [{lbl:18s}] exact(N=96)={v96.real:+.5f} (spec={abs(v96-v72):.1e}) | PDE(96x200,{fkey})={ap:+.5f} (rel={rel:.2f}%)")
+
+    base_diag, _ = collect_base_and_spec_diagnostics()
 
     w1_bare = measure_fft_omega(exp1_res["fft_bare_1T"]["t"], exp1_res["fft_bare_1T"]["p1_re"])
     w1_baf = measure_fft_omega(exp1_res["fft_baf_1T"]["t"], exp1_res["fft_baf_1T"]["p1_re"])
@@ -1055,36 +1195,9 @@ def main() -> None:
     print(f"  Exp 1D Baffle Downshift FFT: 1T {w1_bare:.3f} -> {w1_baf:.3f} ({baffle_downshift['shift_1T_pct']:+.1f}%) | 2T {w2_bare:.3f} -> {w2_baf:.3f} ({baffle_downshift['shift_2T_pct']:+.1f}%)")
 
     # ------------------------------------------------------------------
-    # Experiment 2: Viscous Rescue of the Bell-Nozzle 2T Cutoff Collapse (m = 0..5)
+    # Experiment 2: Viscous Rescue of the Bell-Nozzle 2T Cutoff Collapse (N=96, m=0..5)
     # ------------------------------------------------------------------
-    print("\n--- Experiment 2: Coupled Viscous-Transonic Bell Global Hopf Envelopes (m = 0..5) ---")
-    M_grid = [0.10, 0.12, 0.14, 0.16, 0.18, 0.20, 0.22]
-    visc_bell_hopf = {}
-    for Re_v in (np.inf, 2000.0, 1000.0, 500.0):
-        rtag = "inf" if not np.isfinite(Re_v) else f"{int(Re_v)}"
-        rows = []
-        for Mb in M_grid:
-            npH = {}; colds = {}
-            for mm in (0, 1, 2, 3, 4, 5):
-                ww = (0.55, 1.50) if mm == 1 else (0.05, 7.0)
-                vc = exact_viscous_transonic_eig(Mb, mm, 0.50, "bell", Re=Re_v, omega_window=ww, N=72)
-                colds[mm] = vc.real
-                if vc.real >= 0.0:
-                    npH[mm] = 0.0
-                else:
-                    f = lambda nv, m_k=mm, w_w=ww: exact_viscous_transonic_eig(Mb, m_k, 0.50, "bell", Re=Re_v, n_p=nv, omega_window=w_w, N=72).real
-                    npH[mm] = float(brentq(f, 0.0, 0.85)) if f(0.85) > 0.0 else 0.85
-            gm_m = min(npH, key=npH.get)
-            r1 = exact_viscous_transonic_eig(Mb, 1, 0.50, "bell", Re=Re_v, n_p=0.22, n_v=0.04, omega_window=(0.55, 1.50), N=72)
-            r2 = exact_viscous_transonic_eig(Mb, 2, 0.50, "bell", Re=Re_v, n_p=0.22, n_v=0.04, omega_window=(1.40, 3.00), N=72)
-            rows.append({
-                "M_c": Mb, "cold_1T": colds[1], "cold_2T": colds[2],
-                "react_1T": r1.real, "react_2T": r2.real,
-                "n_pH_m0": npH[0], "n_pH_1T": npH[1], "n_pH_2T": npH[2], "n_pH_3T": npH[3],
-                "n_pH_global": npH[gm_m], "limiting_m": int(gm_m),
-            })
-        visc_bell_hopf[rtag] = rows
-        print(f"  Bell NS Re={rtag:4s}: " + " | ".join(f"M={r['M_c']:.2f}:{r['n_pH_global']:.3f}(m{r['limiting_m']})" for r in rows))
+    visc_bell_hopf, re_sweep = run_exp2_hopf_n96()
 
     # ------------------------------------------------------------------
     # Experiment 3: Dual-Harmonic Baffle-Cavity Retuning Curve (80x200, wH_2T sweep & split)
@@ -1110,6 +1223,8 @@ def main() -> None:
         st = stats_nl(exp3_res[cid])
         exp3_stats[cid] = st
         print(f"  [{cid:18s}] P={st['p_over_pbar_pct']:5.2f}% | E={st['e_wave_late']:.2e} | a={st['alpha_fit_win']:+.4f} | tail={st['alpha_tail']:+.4f}")
+
+    exp3_grid_re = run_exp3_grid_re_check()
 
     # ------------------------------------------------------------------
     # Experiment 4: Resolved 120x300 (t = 300) Breaking of the 1T -> 2T Cascade Attractor
@@ -1161,13 +1276,16 @@ def main() -> None:
             "quiescent_bell_Re500_err": exp1_res["quiescent_bell_Re500"]["quiescent_err"],
             "periodic_bell_Re200_cons_err": ce,
             "base_rhs_96": {"Re500": rhs_96_500, "Re1000": rhs_96_1000},
+            "base_diagnostics_cheb_N96": base_diag,
             "visc_cheb_vs_pde_96x200": visc_cheb_vs_pde,
             "baffle_downshift_fft": baffle_downshift,
         },
         "exp2_viscous_bell_rescue_hopf": visc_bell_hopf,
+        "exp2_Mc012_nonmonotonic_Re_sweep_N96": re_sweep,
         "exp3_dual_retuning_curve": {
             "w2_grid": w2_grid,
             "runs": exp3_stats,
+            "grid_and_re_check": exp3_grid_re,
         },
         "exp4_resolved_120x300_quench": {
             "noslip_wake_80_rhs": wake_80_500["final_rhs_max"],
@@ -1200,7 +1318,7 @@ def main() -> None:
                      label=f"{lbl} (P={st['p_over_pbar_pct']:.2f}%)")
     ax1.set_xlabel("Time $t$", fontsize=11)
     ax1.set_ylabel("Chamber Wave Energy $E_{\\mathrm{wave}}(t)$", fontsize=11)
-    ax1.set_title("6.9% 1T Bomb: Breaking the 1T -> 2T Cascade on 120x300", fontsize=12, fontweight="bold")
+    ax1.set_title("6.9% 1T Bomb: Breaking the 1T -> 2T Cascade (120x300 & 80x200)", fontsize=11.5, fontweight="bold")
     ax1.set_ylim(1e-9, 1e-2)
     ax1.grid(True, which="both", alpha=0.25)
     ax1.legend(fontsize=7.9, loc="lower left", framealpha=0.92)
