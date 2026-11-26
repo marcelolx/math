@@ -2,7 +2,7 @@
 
 Investigating thermoacoustic combustion instability in rocket chambers—modeling the feedback loop between acoustic pressure waves and unsteady heat release (Rayleigh criterion) to explore stabilization mechanisms, geometric damping, nonlinear triggering, and 1D/2D compressible Euler shock dynamics.
 
-> **Consolidated Monograph:** See [`SYNTHESIS.md`](./SYNTHESIS.md) for the unified quantitative design laws, documented dead ends, and verified scope across Entries `000`–`010`. Audit receipts are archived in [`../reviews/README.md`](../reviews/README.md).
+> **Consolidated Monograph:** See [`SYNTHESIS.md`](./SYNTHESIS.md) for the unified quantitative design laws, documented dead ends, and verified scope across Entries `000`–`011`. Audit receipts are archived in [`../reviews/README.md`](../reviews/README.md).
 
 ## Entries
 
@@ -19,3 +19,4 @@ Investigating thermoacoustic combustion instability in rocket chambers—modelin
 | [008-chiral-shock-competition.md](./entries/008-chiral-shock-competition.md) | Chiral Swirl vs. Gasdynamic Shock Competition, Even-$|u|$ Coupling & Rotating-Shock Control | ✅ | Review #5 (`ea4f8f3`) |
 | [009-2d-euler-throughflow.md](./entries/009-2d-euler-throughflow.md) | 2D $(x, \theta)$ Compressible Euler Annular Combustor with Physical Axial Throughflow | ✅ | [Review #6](../reviews/peer-review-06-rocket-009.md) (`2a294f4`) |
 | [010-2d-throughflow-baffles-cavities.md](./entries/010-2d-throughflow-baffles-cavities.md) | 2D Compressible Euler Throughflow with Protruding Baffles & Wide-Mouth Faceplate Cavity Rings | ✅ | [Review #7](../reviews/peer-review-07-rocket-010.md) (`47ceabc`) |
+| [011-2d-viscous-ns-baffle-tips.md](./entries/011-2d-viscous-ns-baffle-tips.md) | 2D Compressible Navier–Stokes: Vorticity-Wave Attenuation, Baffle Convergence & No-Slip Wakes | 🟡 | *(pending Review #8)* |
