@@ -1,33 +1,35 @@
 """Entry 011 (rocket-combustion): 2D Conservative Compressible Navier-Stokes Annular
 Combustor — Vorticity-Wave Viscous Attenuation Law, Finite-Re Baffle-Tip Convergence,
-and the No-Slip Viscous Wake Penalty.
+and the No-Slip Viscous Wake Penalty (Hardened per Peer Review #8).
 
 Upgrades Entry 010's inviscid 2D compressible Euler solver to full 2D conservative
 compressible Navier-Stokes (Stokes' hypothesis lambda = -2/3*mu, Fourier heat conduction
-kappa = mu / ((gamma - 1) * Pr), Pr = 0.72, acoustic Reynolds number Re = rho_bar*c_bar*R/mu)
-with BOTH free-slip and no-slip adiabatic solid-wall baffles (pre-relaxed to exact steady
-viscous baffle wakes) and nonlinear faceplate Helmholtz cavity rings.
+kappa = mu / ((gamma - 1) * Pr), Pr = 0.72, effective acoustic Reynolds number
+Re = rho_bar*c_bar*R/mu) with BOTH free-slip and no-slip adiabatic solid-wall baffles
+(pre-relaxed to converged steady wakes at t = 150, max |dU/dt| ~ 1e-9) and nonlinear
+faceplate Helmholtz cavity rings.
 
-Four verification & discovery experiments:
-  Exp 1: Exact NS benchmarks — steady slip-baffle preservation (~1e-16), periodic NS
-         conservation with and without 5 no-slip adiabatic baffles (~1e-16 mass & total E),
-         exact Stokes-Kirchhoff acoustic attenuation (<1% err), exact viscous shear diffusion
-         (<0.1% err), and exact 1D-in-x Chebyshev linearized compressible NS eigen-solver
-         (N=48/64 converged to <1e-5) cross-checked directly against the 2D finite-volume NS PDE.
-  Exp 2: Vorticity-Wave Viscous Attenuation Law (L_visc,vort / L_a = Re * M_bar^3 / (omega^2 * L_a)):
-         Multi-mode Chebyshev NS global Hopf envelope (m = 0, +-1, +-2, +-3) across
-         Re in {300, 500, 1000, 2000, 5000, inf} and M_bar in [0.08, 0.25], showing how
-         viscous/turbulent eddy diffusion fills in the M_bar=0.12 trough (24x stronger than
-         Stokes-Kirchhoff) and naturally disarms Entry 009's M_bar=0.16 2T Strouhal trap.
-  Exp 3: Finite-Re Resolution of Peer Review #7 M3 & The No-Slip Viscous Wake Penalty:
-         Grid convergence across 40x120 -> 60x160 -> 80x240 for L_b=0.45 baffles at
-         M_bar=0 (Stokes-layer convergence) and M_bar=0.12 comparing inviscid Euler vs.
-         free-slip NS (Re=500, 1000) vs. pre-relaxed no-slip adiabatic NS wakes (Re=500,
-         1000, 2000), quantifying both wake-induced cold-damping loss and viscous dp/p drop.
-  Exp 4: Reacting Linear (A_0=1e-4) & Finite-Amplitude 6.9% Shock Shootout at M_bar=0.12:
-         Tests bare chamber, L_b=0.45 baffles alone, untuned vs. reacting-frequency retuned
-         2% hybrid (mid-sector & blade-root), and all-mode 2T/1L stability across Euler,
-         free-slip NS, and no-slip wake NS (Re=500, 1000, 2000), including 60x160 grid checks.
+Hardening upgrades per independent cross-model Peer Review #8 (Claude):
+  - C1: Adds direct nonlinear 64x200 spin_2T runs at M_bar=0.16 (Re=1000, 2000, 5000) and
+        computes exact linear crossing Re_cross ~ 5960, showing 2T is linearly stabilized for
+        Re <= 5960 but subcritically triggers at Re=2000 (4.38%) & Re=5000 (5.95%) and is
+        nonlinearly quenched only for Re <= 1000 (A_0 <= 0.055).
+  - C2 & M1: Pre-relaxes ALL no-slip steady wakes to t = 150 (max |dU/dt| ~ 1e-9 vs 1.4e-5
+        at t=65), checks floor energy explicitly, and evaluates linear hybrid margins on the
+        grid-consistent t in [18, 60] window across 40x120, 60x160, and 80x240.
+  - M2 & M3: Adds 100x300 grid convergence for free-slip & no-slip Re=500 baffles (~18.9%
+        converged no-slip wake penalty) and reports downstream wake velocity (x > L_b) rather
+        than the upstream wall-adjacent cell minimum.
+  - M4: Extends Exp 1D Chebyshev-vs-PDE runs to t=42 and fits on t in [20, 40] (0.4-1.4%
+        agreement across all four cases, eliminating the higher-mode initial transient).
+  - M5: Adds 60x160 nonlinear spin_2T test on the retuned hybrid (exposing a sustained 4.12%
+        pure-2T upper branch) and A_0=0.010 vs 0.015 spin_1T bracket showing trigger onset in
+        A_0 in (0.010, 0.015].
+  - M6: Adds M_bar=0 bare NS run on 80x240 to decompose the converged -0.0260 damping into
+        bulk Stokes-Kirchhoff (-0.0017), injector-face u_theta=0 shear (-0.0098), and sharp-tip
+        viscous dissipation (-0.0145; blade no-slip minus free-slip < 0.1%).
+  - M7 & Minors: Clarifies constant-eddy-viscosity closure scope, exact N=44/60 convergence,
+        Re=5000 cold metric in JSON, periodic wall drag disclosure, and zoomed Fig 2 Right y-axis.
 """
 
 from __future__ import annotations
@@ -104,12 +106,7 @@ def exact_2d_ns_eig(
     N: int = 44,
     check_both_chiral_signs: bool = True,
 ) -> complex:
-    """Exact least-stable eigenvalue of 2D linearized compressible Navier-Stokes with throughflow M_bar.
-
-    Variables: (rho', ux', ut', P) with T' = gamma*P - rho'.
-    Filtered to omega in [0.05, 5.5] by default to exclude spurious high-frequency Chebyshev modes.
-    Evaluates both +m and -m whenever n_v != 0 and m != 0.
-    """
+    """Exact least-stable eigenvalue of 2D linearized compressible Navier-Stokes with throughflow M_bar."""
     if check_both_chiral_signs and abs(n_v) > 0.0 and m != 0:
         vp = exact_2d_ns_eig(M_bar, abs(m), Re, n_p, n_v, omega_window, N, False)
         vn = exact_2d_ns_eig(M_bar, -abs(m), Re, n_p, n_v, omega_window, N, False)
@@ -164,14 +161,12 @@ def exact_2d_ns_eig(
         A[sl(3), ib + 4] = n_p * wf
         A[sl(3), ib + 9] = n_v * wf
 
-    # Inlet BCs at x = 0 (choked zero-swirl isentropic injector)
     for r_idx in (0, n, 2 * n):
         A[r_idx, :] = 0.0; B[r_idx, :] = 0.0
     A[0, 0] = 1.0; A[0, 3 * n] = -1.0
     A[n, n] = 1.0; A[n, 3 * n] = M_bar
     A[2 * n, 2 * n] = 1.0
 
-    # Outlet BCs at x = L_a (Marble-Candel + zero viscous shear/heat-flux outflow for mu > 0)
     r_out_p = 3 * n + N
     A[r_out_p, :] = 0.0; B[r_out_p, :] = 0.0
     A[r_out_p, n + N] = 1.0
@@ -390,7 +385,6 @@ def simulate_2d_ns(
     has_flame = (abs(n_p) > 0.0 or abs(n_v) > 0.0)
     inv_ts = 4.0 / TAU_BAR
 
-    # Precompute padded baffle masks for cross-derivative evaluation on x-faces
     bl_pad = np.zeros((nx + 2, nth), dtype=bool)
     br_pad = np.zeros((nx + 2, nth), dtype=bool)
     if has_baffle:
@@ -459,7 +453,6 @@ def simulate_2d_ns(
         else:
             dU = -(Fx[:, 1:, :] - Fx[:, :-1, :]) / dx - (Ft - np.roll(Ft, 1, axis=2)) / dth
 
-        # Conservative 2nd-order face-centered viscous & Fourier heat fluxes
         if has_visc:
             ux_gx = ux_x[1:-1, :]
             ut_gx = ut_x[1:-1, :]
@@ -595,6 +588,7 @@ def simulate_2d_ns(
         u2_list.append(float(np.mean(uxo * uxo)))
 
     t = 0.0; step = 0; record(0.0)
+    last_rhs_max = 0.0
     while t < t_end - 1e-12:
         _, ux_c, ut_c, _, c_c = prim_2d(U)
         dt_adv = cfl / float(np.max((np.abs(ux_c) + c_c) / dx + (np.abs(ut_c) + c_c) / dth))
@@ -610,6 +604,8 @@ def simulate_2d_ns(
         cav_states = [(0.5 * (Pc + Pc1 + dt * dPc2), 0.5 * (qt + qt1 + dt * dqt2))
                       for (Pc, qt), (Pc1, qt1), (dPc2, dqt2) in zip(cav_states, cs1, k2[5])]
         t += dt; step += 1
+        if t >= t_end - 1e-12:
+            last_rhs_max = float(np.max(np.abs(k1[0])))
         if step % record_stride == 0 or t >= t_end - 1e-12:
             record(t)
 
@@ -617,6 +613,7 @@ def simulate_2d_ns(
     return {
         "x": x, "theta": th, "U_final": U, "ux_final": ux_f, "p_final": p_f,
         "steady_max_err": float(np.max(np.abs(U - U_init))),
+        "final_rhs_max": last_rhs_max,
         "periodic_cons_err": {
             "mass": float(max_cons_err[0]), "mom_x": float(max_cons_err[1]),
             "mom_th": float(max_cons_err[2]), "energy": float(max_cons_err[3]),
@@ -626,18 +623,19 @@ def simulate_2d_ns(
     }
 
 
-def stats_ns(r: dict, t_lin_lo: float = 18.0) -> dict:
+def stats_ns(r: dict, win_lo: float = 18.0, win_hi: float = 60.0) -> dict:
     t = r["t"]; n = len(t)
     m1 = int(0.45 * n); m2 = int(0.75 * n)
     em = float(np.mean(r["e_wave"][m1:m2])); el = float(np.mean(r["e_wave"][m2:]))
     pk_pct = float(np.max(r["p_peak"][m2:]) / P_BAR * 100.0)
     afit = float(np.polyfit(t[m1:], 0.5 * np.log(np.maximum(r["e_wave"][m1:], 1e-30)), 1)[0])
-    lmsk = (t >= t_lin_lo) & (r["p_peak"] / P_BAR < 0.005)
-    afit_lin = float(np.polyfit(t[lmsk], 0.5 * np.log(np.maximum(r["e_wave"][lmsk], 1e-30)), 1)[0]) if int(np.sum(lmsk)) >= 8 else afit
+    wmsk = (t >= win_lo) & (t <= win_hi) & (r["p_peak"] / P_BAR < 0.005)
+    afit_win = float(np.polyfit(t[wmsk], 0.5 * np.log(np.maximum(r["e_wave"][wmsk], 1e-30)), 1)[0]) if int(np.sum(wmsk)) >= 8 else afit
     return {
         "p_over_pbar_pct": pk_pct, "e_wave_late": el,
         "e_wave_late_over_mid": float(el / max(em, 1e-30)),
-        "alpha_fit_late": afit, "alpha_fit_linear_clean": afit_lin,
+        "alpha_fit_late": afit, "alpha_fit_win_18_60": afit_win,
+        "e1_late": float(np.mean(r["e1"][m2:])), "e2_late": float(np.mean(r["e2"][m2:])),
     }
 
 
@@ -653,8 +651,17 @@ def _wake_and_pert_worker(args):
         rb = simulate_2d_ns(**base_kw)
         U_base = rb["U_final"]
         _, ux_w, _, p_w, _ = prim_2d(U_base)
+        xv = rb["x"]
+        # Downstream wake velocity metrics (strictly x > L_b = 0.45, Peer Review #8 M3!)
+        ds_mask = xv > 0.45
+        idx_050 = int(np.argmin(np.abs(xv - 0.50)))
+        idx_075 = int(np.argmin(np.abs(xv - 0.75)))
         wake_info = {
-            "ux_min": float(np.min(ux_w)), "ux_max": float(np.max(ux_w)),
+            "base_rhs_max": rb["final_rhs_max"],
+            "ux_wake_min_downstream": float(np.min(ux_w[ds_mask, :])),
+            "ux_wake_min_x050": float(np.min(ux_w[idx_050, :])),
+            "ux_wake_min_x075": float(np.min(ux_w[idx_075, :])),
+            "ux_core_max": float(np.max(ux_w)),
             "dp_over_pbar_pct": float((np.mean(p_w[0]) - np.mean(p_w[-1])) / P_BAR * 100.0),
         }
     pkw = dict(pert_kw); pkw["U_base"] = U_base
@@ -662,6 +669,7 @@ def _wake_and_pert_worker(args):
     if base_kw is not None:
         rp["wake_info"] = wake_info
         rp["ux_base"] = ux_w
+        rp["U_base_saved"] = U_base
     return lbl, rp
 
 
@@ -675,14 +683,14 @@ def run_batch(tasks, worker=_sim_worker, max_workers: int | None = None) -> dict
 
 def main() -> None:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    print("=" * 84)
-    print("Entry 011: 2D Compressible Navier-Stokes — Vorticity-Wave Attenuation & Baffle Wakes")
-    print("=" * 84)
+    print("=" * 86)
+    print("Entry 011 (Hardened per Peer Review #8): 2D Compressible NS — Vorticity & Baffle Wakes")
+    print("=" * 86)
 
     # ------------------------------------------------------------------
-    # Experiment 1: Exact NS Benchmarks (Conservation, SK, Shear Diffusion, Chebyshev NS)
+    # Experiment 1: Exact NS Benchmarks & Clean t in [20, 40] Chebyshev-vs-PDE Check (M4)
     # ------------------------------------------------------------------
-    print("\n--- Experiment 1: Exact Compressible Navier-Stokes Verification ---")
+    print("\n--- Experiment 1: Exact Compressible NS Benchmarks & t in [20, 40] Chebyshev Check ---")
     Re_b = 200.0; mu_b = 1.0 / Re_b
     a_sk_ex = -0.5 * mu_b * (2.0 ** 2) * (4.0 / 3.0 + (GAMMA - 1.0) / PR)
     a_sh_ex = -mu_b * (2.0 ** 2)
@@ -693,18 +701,17 @@ def main() -> None:
         ("cons_ns_noslip5", dict(nx=40, nth=120, t_end=8.0, M_bar=0.12, Re=200.0, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", init_type="periodic_2d_wave", A_eq=0.10, periodic_x=True, record_stride=20)),
         ("sk_k2", dict(nx=16, nth=160, t_end=40.0, M_bar=0.0, Re=Re_b, init_type="sk_acoustic_k2", A_eq=1e-4, periodic_x=True, record_stride=10)),
         ("sh_k2", dict(nx=16, nth=160, t_end=40.0, M_bar=0.0, Re=Re_b, init_type="shear_diff_k2", A_eq=1e-4, periodic_x=True, record_stride=10)),
-        # Cross-check Chebyshev NS vs 2D NS PDE (60x160) at M_bar=0.12 & 0.18, Re=500 & 1000
-        ("pde_M012_Re500", dict(nx=60, nth=160, t_end=34.0, M_bar=0.12, Re=500.0, init_type="spin_1T", A_eq=1e-4, record_stride=10)),
-        ("pde_M012_Re1000", dict(nx=60, nth=160, t_end=34.0, M_bar=0.12, Re=1000.0, init_type="spin_1T", A_eq=1e-4, record_stride=10)),
-        ("pde_M018_Re500", dict(nx=60, nth=160, t_end=34.0, M_bar=0.18, Re=500.0, init_type="spin_1T", A_eq=1e-4, record_stride=10)),
-        ("pde_M018_Re1000", dict(nx=60, nth=160, t_end=34.0, M_bar=0.18, Re=1000.0, init_type="spin_1T", A_eq=1e-4, record_stride=10)),
+        ("pde_M012_Re500", dict(nx=60, nth=160, t_end=42.0, M_bar=0.12, Re=500.0, init_type="spin_1T", A_eq=1e-4, record_stride=10)),
+        ("pde_M012_Re1000", dict(nx=60, nth=160, t_end=42.0, M_bar=0.12, Re=1000.0, init_type="spin_1T", A_eq=1e-4, record_stride=10)),
+        ("pde_M018_Re500", dict(nx=60, nth=160, t_end=42.0, M_bar=0.18, Re=500.0, init_type="spin_1T", A_eq=1e-4, record_stride=10)),
+        ("pde_M018_Re1000", dict(nx=60, nth=160, t_end=42.0, M_bar=0.18, Re=1000.0, init_type="spin_1T", A_eq=1e-4, record_stride=10)),
     ])
 
     ce_bare = exp1_res["cons_ns_bare"]["periodic_cons_err"]
     ce_baf = exp1_res["cons_ns_noslip5"]["periodic_cons_err"]
     print(f"  Exp 1A Steady slip-baffle NS: {exp1_res['steady_slip']['steady_max_err']:.2e}")
-    print(f"  Exp 1B Periodic NS cons (bare):   mass={ce_bare['mass']:.2e}, mx={ce_bare['mom_x']:.2e}, mt={ce_bare['mom_th']:.2e}, E={ce_bare['energy']:.2e}")
-    print(f"  Exp 1B Periodic NS cons (5 baf):  mass={ce_baf['mass']:.2e}, E={ce_baf['energy']:.2e}")
+    print(f"  Exp 1B Periodic NS (bare):   mass={ce_bare['mass']:.2e}, mx={ce_bare['mom_x']:.2e}, mt={ce_bare['mom_th']:.2e}, E={ce_bare['energy']:.2e}")
+    print(f"  Exp 1B Periodic NS (5 baf):  mass={ce_baf['mass']:.2e}, E={ce_baf['energy']:.2e} (wall drag: dmx={ce_baf['mom_x']:.3f}, dmt={ce_baf['mom_th']:.4f})")
 
     m_sk = exp1_res["sk_k2"]["t"] >= 5.0
     a_sk_pde = float(np.polyfit(exp1_res["sk_k2"]["t"][m_sk], 0.5 * np.log(np.maximum(exp1_res["sk_k2"]["e_wave"][m_sk], 1e-30)), 1)[0])
@@ -720,19 +727,19 @@ def main() -> None:
     ]:
         v44 = exact_2d_ns_eig(Mb, 1, Re_v, omega_window=(0.65, 1.35), N=44)
         v60 = exact_2d_ns_eig(Mb, 1, Re_v, omega_window=(0.65, 1.35), N=60)
-        rc = exp1_res[lbl]; m = (rc["t"] >= 12.0) & (rc["t"] <= 30.0)
+        rc = exp1_res[lbl]; m = (rc["t"] >= 20.0) & (rc["t"] <= 40.0)
         af = float(np.polyfit(rc["t"][m], 0.5 * np.log(np.maximum(rc["e_wave"][m], 1e-30)), 1)[0])
-        cheb_vs_pde[lbl] = {"exact_N44": v44.real, "exact_N60": v60.real, "pde_60x160": af, "diff": af - v60.real}
-        print(f"  Exp 1D [{lbl:16s}] exact(N=60)={v60.real:+.5f} (N44-N60={abs(v44.real-v60.real):.1e}) | PDE(60x160)={af:+.5f} (diff={af-v60.real:+.4f})")
+        rel = abs(af - v60.real) / abs(v60.real) * 100.0
+        cheb_vs_pde[lbl] = {"exact_N44": v44.real, "exact_N60": v60.real, "pde_60x160_t20_40": af, "rel_err_pct": rel}
+        print(f"  Exp 1D [{lbl:16s}] exact(N=60)={v60.real:+.5f} | PDE(t=20-40)={af:+.5f} (rel={rel:.2f}%)")
 
     # ------------------------------------------------------------------
-    # Experiment 2: Vorticity-Wave Viscous Attenuation Law (Multi-Mode Chebyshev NS Envelope)
+    # Experiment 2: Vorticity-Wave Viscous Law & Nonlinear 64x200 2T Trap Audit (C1)
     # ------------------------------------------------------------------
-    print("\n--- Experiment 2: Vorticity-Wave Viscous Attenuation Law & Multi-Mode Hopf Envelope ---")
+    print("\n--- Experiment 2: Vorticity-Wave Viscous Law & Nonlinear 64x200 2T Trap Audit (C1) ---")
     M_grid = np.linspace(0.08, 0.25, 18)
-    Re_list = [500.0, 1000.0, 2000.0, np.inf]
     hopf_envelopes = {}
-    for Re_v in Re_list:
+    for Re_v in (500.0, 1000.0, 2000.0, np.inf):
         rtag = "inf" if not np.isfinite(Re_v) else f"{int(Re_v)}"
         curve = []
         for Mb in M_grid:
@@ -743,23 +750,17 @@ def main() -> None:
                 ww = (0.65, 1.35) if mk == 1 else (0.05, 5.5)
                 fm = lambda npv, m_k=mk, w_w=ww: exact_2d_ns_eig(Mb_f, m_k, Re_v, n_p=npv, omega_window=w_w).real
                 npH_m[mk] = float(brentq(fm, 0.01, 0.90)) if fm(0.90) > 0.0 else 0.90
-            g_val = min(npH_m.values())
-            g_m = min(npH_m, key=npH_m.get)
+            g_val = min(npH_m.values()); g_m = min(npH_m, key=npH_m.get)
             curve.append({
                 "M_bar": Mb_f, "cold_alpha_1T": vc1.real, "cold_omega_1T": vc1.imag,
                 "n_pH_m0": npH_m[0], "n_pH_1T": npH_m[1], "n_pH_2T": npH_m[2], "n_pH_3T": npH_m[3],
                 "n_pH_global": g_val, "limiting_m": int(g_m),
             })
         hopf_envelopes[rtag] = curve
-        c12 = [d for d in curve if abs(d["M_bar"] - 0.12) < 1e-4][0]
-        c16 = [d for d in curve if abs(d["M_bar"] - 0.16) < 1e-4][0]
-        c18 = [d for d in curve if abs(d["M_bar"] - 0.18) < 1e-4][0]
-        # Also check chiral 2T at M=0.16, n_p=0.22, n_v=0.04!
-        v2_16 = exact_2d_ns_eig(0.16, 2, Re_v, n_p=0.22, n_v=0.04)
-        print(f"  Re={rtag:>4s} | M=0.12: cold={c12['cold_alpha_1T']:+.5f}, glob_npH={c12['n_pH_global']:.4f} | "
-              f"M=0.16: 2T_npH={c16['n_pH_2T']:.4f}, chiral_2T={v2_16.real:+.5f} | M=0.18: glob_npH={c18['n_pH_global']:.4f}")
 
-    # Exact chiral 2T & 1T at M=0.16 (n_p=0.22, n_v=0.04) across Re to pinpoint where the 2T trap vanishes!
+    # Exact linear crossing Re_cross for chiral 2T at M=0.16 (n_p=0.22, n_v=0.04)
+    re_cross_2t = float(brentq(lambda r: exact_2d_ns_eig(0.16, 2, r, n_p=0.22, n_v=0.04).real, 2000.0, 15000.0))
+    cold_M012_Re5000 = exact_2d_ns_eig(0.12, 1, 5000.0, omega_window=(0.65, 1.35)).real
     m016_chiral_vs_Re = {}
     for Re_v in (300.0, 500.0, 1000.0, 1500.0, 2000.0, 5000.0, np.inf):
         rtag = "inf" if not np.isfinite(Re_v) else f"{int(Re_v)}"
@@ -767,63 +768,70 @@ def main() -> None:
         v2 = exact_2d_ns_eig(0.16, 2, Re_v, n_p=0.22, n_v=0.04)
         lv2 = (Re_v * (0.16 ** 3) / ((v2.imag ** 2) * L_A)) if np.isfinite(Re_v) else None
         m016_chiral_vs_Re[rtag] = {"alpha_1T": v1.real, "alpha_2T": v2.real, "L_visc_2T_over_La": lv2}
-    print("  [M=0.16 Chiral 2T Trap vs Re]: " + ", ".join(f"Re={k}: {v['alpha_2T']:+.4f}" for k, v in m016_chiral_vs_Re.items()))
+    print(f"  Exact M=0.16 chiral 2T linear crossing: Re_cross = {re_cross_2t:.0f} (cold M=0.12 Re=5000: {cold_M012_Re5000:+.5f})")
+
+    # Direct nonlinear 64x200 2T trap audit across Re = 1000, 2000, 5000 (Peer Review #8 C1!)
+    nl2t_runs = run_batch([
+        ("M016_2T_Re1000_A040", dict(nx=64, nth=200, t_end=180.0, M_bar=0.16, Re=1000.0, n_p=0.22, n_v=0.04, init_type="spin_2T", A_eq=0.040, record_stride=18)),
+        ("M016_2T_Re2000_A020", dict(nx=64, nth=200, t_end=180.0, M_bar=0.16, Re=2000.0, n_p=0.22, n_v=0.04, init_type="spin_2T", A_eq=0.020, record_stride=18)),
+        ("M016_2T_Re2000_A040", dict(nx=64, nth=200, t_end=180.0, M_bar=0.16, Re=2000.0, n_p=0.22, n_v=0.04, init_type="spin_2T", A_eq=0.040, record_stride=18)),
+        ("M016_2T_Re5000_A040", dict(nx=64, nth=200, t_end=180.0, M_bar=0.16, Re=5000.0, n_p=0.22, n_v=0.04, init_type="spin_2T", A_eq=0.040, record_stride=18)),
+    ])
+    nl2t_stats = {}
+    for cid, rr in nl2t_runs.items():
+        st = stats_ns(rr)
+        nl2t_stats[cid] = st
+        print(f"  [{cid:20s}] P={st['p_over_pbar_pct']:5.2f}% | E={st['e_wave_late']:.2e} (l/m={st['e_wave_late_over_mid']:.3f})")
 
     # ------------------------------------------------------------------
-    # Experiment 3: Finite-Re Baffle-Tip Convergence & No-Slip Viscous Wake Penalty
+    # Experiment 3: Converged t=150 Wake, 100x300 No-Slip Penalty (M2/M3) & M=0 Decomposition (M6)
     # ------------------------------------------------------------------
-    print("\n--- Experiment 3: Finite-Re Baffle-Tip Grid Convergence & No-Slip Wake Penalty ---")
+    print("\n--- Experiment 3: t=150 Steady Wakes, 100x300 Convergence (M2/M3) & M=0 Split (M6) ---")
     exp3_jobs = []
-    # 3A: Free-slip & Euler grid convergence (40x120, 60x160, 80x240) at L_b=0.45, M_bar=0.12
-    for Re_v, rtag in [(np.inf, "Euler"), (1000.0, "Re1000"), (500.0, "Re500")]:
-        for nx_g, nth_g in [(40, 120), (60, 160), (80, 240)]:
+    for Re_v, rtag, grids in [
+        (np.inf, "Euler", [(40, 120), (60, 160), (80, 240)]),
+        (500.0, "Re500", [(40, 120), (60, 160), (80, 240), (100, 300)]),
+    ]:
+        for nx_g, nth_g in grids:
             exp3_jobs.append((
                 f"slip_{rtag}_{nx_g}x{nth_g}", None,
                 dict(nx=nx_g, nth=nth_g, t_end=34.0, M_bar=0.12, Re=Re_v, n_baffles=5, L_baffle=0.45,
                      baffle_bc="slip", init_type="stand_1T", A_eq=1e-4, record_stride=10),
             ))
-    # 3B: No-slip adiabatic wake convergence at Re=500 (40, 60, 80) + Re=1000 (60, 80) + Re=2000 (60)
-    for Re_v, rtag, grids in [
-        (500.0, "Re500", [(40, 120), (60, 160), (80, 240)]),
-        (1000.0, "Re1000", [(60, 160), (80, 240)]),
-        (2000.0, "Re2000", [(60, 160)]),
-    ]:
-        for nx_g, nth_g in grids:
-            exp3_jobs.append((
-                f"noslip_{rtag}_{nx_g}x{nth_g}",
-                dict(nx=nx_g, nth=nth_g, t_end=65.0, M_bar=0.12, Re=Re_v, n_baffles=5, L_baffle=0.45,
-                     baffle_bc="noslip", init_type="steady", A_eq=0.0, record_stride=40),
-                dict(nx=nx_g, nth=nth_g, t_end=34.0, M_bar=0.12, Re=Re_v, n_baffles=5, L_baffle=0.45,
-                     baffle_bc="noslip", init_type="stand_1T", A_eq=1e-4, record_stride=10),
-            ))
-    # 3C: M_bar = 0 zero-throughflow baffle Stokes-layer convergence (Euler vs Re=500 slip & noslip)
-    for Re_v, bc, tag in [(np.inf, "slip", "Euler"), (500.0, "slip", "slip500"), (500.0, "noslip", "noslip500")]:
-        for nx_g, nth_g in [(40, 120), (80, 240)]:
-            exp3_jobs.append((
-                f"M0_{tag}_{nx_g}x{nth_g}", None,
-                dict(nx=nx_g, nth=nth_g, t_end=34.0, M_bar=0.0, Re=Re_v, n_baffles=5, L_baffle=0.45,
-                     baffle_bc=bc, init_type="stand_1T", A_eq=1e-4, record_stride=10),
-            ))
+    for nx_g, nth_g in [(40, 120), (60, 160), (80, 240), (100, 300)]:
+        exp3_jobs.append((
+            f"noslip_Re500_{nx_g}x{nth_g}",
+            dict(nx=nx_g, nth=nth_g, t_end=150.0, M_bar=0.12, Re=500.0, n_baffles=5, L_baffle=0.45,
+                 baffle_bc="noslip", init_type="steady", A_eq=0.0, record_stride=80),
+            dict(nx=nx_g, nth=nth_g, t_end=34.0, M_bar=0.12, Re=500.0, n_baffles=5, L_baffle=0.45,
+                 baffle_bc="noslip", init_type="stand_1T", A_eq=1e-4, record_stride=10),
+        ))
+    # M_bar = 0 decomposition on 80x240: bare vs slip baffles vs noslip baffles (Peer Review #8 M6!)
+    exp3_jobs.extend([
+        ("M0_Euler_baf_80x240", None, dict(nx=80, nth=240, t_end=34.0, M_bar=0.0, Re=np.inf, n_baffles=5, L_baffle=0.45, baffle_bc="slip", init_type="stand_1T", A_eq=1e-4, record_stride=12)),
+        ("M0_bare_Re500_80x240", None, dict(nx=80, nth=240, t_end=34.0, M_bar=0.0, Re=500.0, n_baffles=0, L_baffle=0.0, init_type="stand_1T", A_eq=1e-4, record_stride=12)),
+        ("M0_slip_Re500_80x240", None, dict(nx=80, nth=240, t_end=34.0, M_bar=0.0, Re=500.0, n_baffles=5, L_baffle=0.45, baffle_bc="slip", init_type="stand_1T", A_eq=1e-4, record_stride=12)),
+        ("M0_noslip_Re500_80x240", None, dict(nx=80, nth=240, t_end=34.0, M_bar=0.0, Re=500.0, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", init_type="stand_1T", A_eq=1e-4, record_stride=12)),
+    ])
 
     exp3_res = run_batch(exp3_jobs, worker=_wake_and_pert_worker)
     exp3_stats = {}
     for lbl, _, _ in exp3_jobs:
-        rr = exp3_res[lbl]
-        t = rr["t"]; m = (t >= 10.0) & (t <= 30.0)
+        rr = exp3_res[lbl]; t = rr["t"]; m = (t >= 10.0) & (t <= 30.0)
         af = float(np.polyfit(t[m], 0.5 * np.log(np.maximum(rr["e_wave"][m], 1e-30)), 1)[0])
         entry = {"cold_alpha_1T": af}
         if "wake_info" in rr:
             entry.update(rr["wake_info"])
         exp3_stats[lbl] = entry
-        extra = f" | umin={entry['ux_min']:.4f}, umax={entry['ux_max']:.4f}, dp/p={entry['dp_over_pbar_pct']:+.3f}%" if "ux_min" in entry else ""
-        print(f"  [{lbl:22s}] cold_alpha={af:+.5f}{extra}")
+        extra = f" | rhs={entry['base_rhs_max']:.1e}, u_ds={entry['ux_wake_min_downstream']:.4f}, dp={entry['dp_over_pbar_pct']:+.3f}%" if "ux_wake_min_downstream" in entry else ""
+        print(f"  [{lbl:24s}] cold_alpha={af:+.5f}{extra}")
 
     wake_snap_80 = exp3_res["noslip_Re500_80x240"]
 
     # ------------------------------------------------------------------
-    # Experiment 4: Reacting Linear (A_0=1e-4) & Finite-Amplitude 6.9% Shock Shootout at M_bar=0.12
+    # Experiment 4: Clean t=150 Base Hybrid Audit (C2), 1T Trigger Bracket & 2T Branch (M5)
     # ------------------------------------------------------------------
-    print("\n--- Experiment 4: Reacting Linear & 6.9% Shock Shootout under Compressible NS (M_bar=0.12) ---")
+    print("\n--- Experiment 4: Clean t=150 Base Hybrid Margin (C2), 1T Bracket & 2T Branch (M5) ---")
     cf_untuned = [
         {"beta": 0.016, "wH": W1_COLD, "xiH": 0.12, "sigma_o": 0.045, "n_cav": 5, "phase_offset": 0.5, "nonlinear": True},
         {"beta": 0.004, "wH": W2_COLD, "xiH": 0.12, "sigma_o": 0.015, "n_cav": 5, "phase_offset": 0.5, "nonlinear": True},
@@ -837,101 +845,104 @@ def main() -> None:
         {"beta": 0.004, "wH": W2_COLD, "xiH": 0.12, "sigma_o": 0.015, "n_cav": 5, "phase_offset": 0.0, "nonlinear": True},
     ]
 
-    # Pre-relax steady no-slip wakes once for 40x120 (Re=500, 1000) and 60x160 (Re=500)
-    wake_pre = run_batch([
-        ("wk40_500", dict(nx=40, nth=120, t_end=65.0, M_bar=0.12, Re=500.0, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", init_type="steady", A_eq=0.0, record_stride=40)),
-        ("wk40_1000", dict(nx=40, nth=120, t_end=65.0, M_bar=0.12, Re=1000.0, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", init_type="steady", A_eq=0.0, record_stride=40)),
-        ("wk60_500", dict(nx=60, nth=160, t_end=65.0, M_bar=0.12, Re=500.0, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", init_type="steady", A_eq=0.0, record_stride=40)),
-    ])
-    U40_500 = wake_pre["wk40_500"]["U_final"]
-    U40_1000 = wake_pre["wk40_1000"]["U_final"]
-    U60_500 = wake_pre["wk60_500"]["U_final"]
+    # Reuse the ALREADY-RELAXED t=150 base wakes from Exp 3 (zero duplicate work!)
+    U40_500 = exp3_res["noslip_Re500_40x120"]["U_base_saved"]
+    U60_500 = exp3_res["noslip_Re500_60x160"]["U_base_saved"]
+    U80_500 = exp3_res["noslip_Re500_80x240"]["U_base_saved"]
+    U40_1000 = simulate_2d_ns(nx=40, nth=120, t_end=150.0, M_bar=0.12, Re=1000.0, n_baffles=5, L_baffle=0.45,
+                              baffle_bc="noslip", init_type="steady", A_eq=0.0, record_stride=80)["U_final"]
 
     exp4_specs = [
-        # Clean linear (A_0 = 1e-4) checks across Euler, slip NS, and noslip wake NS (40x120 & 60x160)
-        ("lin_bare_Re500",         dict(nx=40, nth=120, t_end=80.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, init_type="spin_1T", A_eq=1e-4)),
-        ("lin_baf_Euler",          dict(nx=40, nth=120, t_end=80.0, M_bar=0.12, Re=np.inf, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, init_type="spin_1T", A_eq=1e-4)),
-        ("lin_baf_slip500",        dict(nx=40, nth=120, t_end=80.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="slip", init_type="spin_1T", A_eq=1e-4)),
-        ("lin_baf_noslip500",      dict(nx=40, nth=120, t_end=80.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", U_base=U40_500, init_type="spin_1T", A_eq=1e-4)),
-        ("lin_baf_noslip500_60",   dict(nx=60, nth=160, t_end=80.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", U_base=U60_500, init_type="spin_1T", A_eq=1e-4)),
-        ("lin_hyb_untuned_ns500",  dict(nx=40, nth=120, t_end=85.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_untuned, U_base=U40_500, init_type="spin_1T", A_eq=1e-4)),
-        ("lin_hyb_retuned_ns500",  dict(nx=40, nth=120, t_end=85.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_retuned, U_base=U40_500, init_type="spin_1T", A_eq=1e-4)),
-        ("lin_hyb_root_ns500",     dict(nx=40, nth=120, t_end=85.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_blade_root, U_base=U40_500, init_type="spin_1T", A_eq=1e-4)),
-        ("lin_hyb_ret_ns500_60",   dict(nx=60, nth=160, t_end=85.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_retuned, U_base=U60_500, init_type="spin_1T", A_eq=1e-4)),
-        ("lin_hyb_ret_2T_ns500_60",dict(nx=60, nth=160, t_end=80.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_retuned, U_base=U60_500, init_type="spin_2T", A_eq=1e-4)),
-        # Finite-amplitude 6.9% rotating-shock shootout (A_0 = 0.055, t = 160) at M_bar = 0.12!
-        ("NL_bare_Euler",          dict(nx=40, nth=120, t_end=160.0, M_bar=0.12, Re=np.inf, n_p=0.22, n_v=0.04, init_type="spin_1T", A_eq=0.055, record_stride=16)),
-        ("NL_bare_Re500",          dict(nx=40, nth=120, t_end=160.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, init_type="spin_1T", A_eq=0.055, record_stride=16)),
-        ("NL_baf_noslip500",       dict(nx=40, nth=120, t_end=160.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", U_base=U40_500, init_type="spin_1T", A_eq=0.055, record_stride=16)),
-        ("NL_hyb_Euler",           dict(nx=40, nth=120, t_end=160.0, M_bar=0.12, Re=np.inf, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="slip", cav_spec=cf_retuned, init_type="spin_1T", A_eq=0.055, record_stride=16)),
-        ("NL_hyb_slip1000",        dict(nx=40, nth=120, t_end=160.0, M_bar=0.12, Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="slip", cav_spec=cf_retuned, init_type="spin_1T", A_eq=0.055, record_stride=16)),
-        ("NL_hyb_noslip1000",      dict(nx=40, nth=120, t_end=160.0, M_bar=0.12, Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_retuned, U_base=U40_1000, init_type="spin_1T", A_eq=0.055, record_stride=16)),
-        ("NL_hyb_slip500",         dict(nx=40, nth=120, t_end=160.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="slip", cav_spec=cf_retuned, init_type="spin_1T", A_eq=0.055, record_stride=16)),
-        ("NL_hyb_noslip500",       dict(nx=40, nth=120, t_end=160.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_retuned, U_base=U40_500, init_type="spin_1T", A_eq=0.055, record_stride=16)),
-        ("NL_hyb_noslip500_60",    dict(nx=60, nth=160, t_end=160.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_retuned, U_base=U60_500, init_type="spin_1T", A_eq=0.055, record_stride=18)),
+        # Clean linear (A_0 = 1e-4) with converged t=150 wakes (fit window t in [18, 60], C2!)
+        ("lin_bare_Euler",          dict(nx=40, nth=120, t_end=75.0, M_bar=0.12, Re=np.inf, n_p=0.22, n_v=0.04, init_type="spin_1T", A_eq=1e-4)),
+        ("lin_bare_Re500",          dict(nx=40, nth=120, t_end=75.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, init_type="spin_1T", A_eq=1e-4)),
+        ("lin_baf_Euler",           dict(nx=40, nth=120, t_end=75.0, M_bar=0.12, Re=np.inf, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, init_type="spin_1T", A_eq=1e-4)),
+        ("lin_baf_slip500",         dict(nx=40, nth=120, t_end=75.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="slip", init_type="spin_1T", A_eq=1e-4)),
+        ("lin_baf_noslip500_40",    dict(nx=40, nth=120, t_end=75.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", U_base=U40_500, init_type="spin_1T", A_eq=1e-4)),
+        ("lin_baf_noslip500_60",    dict(nx=60, nth=160, t_end=75.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", U_base=U60_500, init_type="spin_1T", A_eq=1e-4)),
+        ("lin_hyb_untuned_ns500",   dict(nx=40, nth=120, t_end=75.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_untuned, U_base=U40_500, init_type="spin_1T", A_eq=1e-4)),
+        ("lin_hyb_retuned_ns500_40",dict(nx=40, nth=120, t_end=75.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_retuned, U_base=U40_500, init_type="spin_1T", A_eq=1e-4)),
+        ("lin_hyb_retuned_ns500_60",dict(nx=60, nth=160, t_end=75.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_retuned, U_base=U60_500, init_type="spin_1T", A_eq=1e-4)),
+        ("lin_hyb_retuned_ns500_80",dict(nx=80, nth=240, t_end=75.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_retuned, U_base=U80_500, init_type="spin_1T", A_eq=1e-4)),
+        ("lin_hyb_floor_ns500_60",  dict(nx=60, nth=160, t_end=75.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_retuned, U_base=U60_500, init_type="steady", A_eq=0.0)),
+        ("lin_hyb_root_ns500_40",   dict(nx=40, nth=120, t_end=75.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_blade_root, U_base=U40_500, init_type="spin_1T", A_eq=1e-4)),
+        ("lin_hyb_2T_ns500_60",     dict(nx=60, nth=160, t_end=75.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_retuned, U_base=U60_500, init_type="spin_2T", A_eq=1e-4)),
+        # Nonlinear shootout, 1T trigger bracket (0.010 vs 0.015) & 2T upper branch (M5!)
+        ("NL_bare_Euler",           dict(nx=40, nth=120, t_end=160.0, M_bar=0.12, Re=np.inf, n_p=0.22, n_v=0.04, init_type="spin_1T", A_eq=0.055, record_stride=16)),
+        ("NL_bare_Re500",           dict(nx=40, nth=120, t_end=160.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, init_type="spin_1T", A_eq=0.055, record_stride=16)),
+        ("NL_baf_noslip500",        dict(nx=40, nth=120, t_end=160.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", U_base=U40_500, init_type="spin_1T", A_eq=0.055, record_stride=16)),
+        ("NL_hyb_Euler",            dict(nx=40, nth=120, t_end=160.0, M_bar=0.12, Re=np.inf, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="slip", cav_spec=cf_retuned, init_type="spin_1T", A_eq=0.055, record_stride=16)),
+        ("NL_hyb_noslip1000",       dict(nx=40, nth=120, t_end=160.0, M_bar=0.12, Re=1000.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_retuned, U_base=U40_1000, init_type="spin_1T", A_eq=0.055, record_stride=16)),
+        ("NL_hyb_slip500",          dict(nx=40, nth=120, t_end=160.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="slip", cav_spec=cf_retuned, init_type="spin_1T", A_eq=0.055, record_stride=16)),
+        ("NL_hyb_noslip500_A010",   dict(nx=40, nth=120, t_end=160.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_retuned, U_base=U40_500, init_type="spin_1T", A_eq=0.010, record_stride=16)),
+        ("NL_hyb_noslip500_A015",   dict(nx=40, nth=120, t_end=160.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_retuned, U_base=U40_500, init_type="spin_1T", A_eq=0.015, record_stride=16)),
+        ("NL_hyb_noslip500_A055",   dict(nx=40, nth=120, t_end=160.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_retuned, U_base=U40_500, init_type="spin_1T", A_eq=0.055, record_stride=16)),
+        ("NL_hyb_noslip500_60",     dict(nx=60, nth=160, t_end=160.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_retuned, U_base=U60_500, init_type="spin_1T", A_eq=0.055, record_stride=18)),
+        ("NL_hyb_2T_ns500_60",      dict(nx=60, nth=160, t_end=160.0, M_bar=0.12, Re=500.0, n_p=0.22, n_v=0.04, n_baffles=5, L_baffle=0.45, baffle_bc="noslip", cav_spec=cf_retuned, U_base=U60_500, init_type="spin_2T", A_eq=0.055, record_stride=18)),
     ]
     exp4_runs = run_batch(exp4_specs)
     exp4_stats = {}
     for cid, _ in exp4_specs:
-        st = stats_ns(exp4_runs[cid])
+        st = stats_ns(exp4_runs[cid], win_lo=18.0, win_hi=60.0)
         exp4_stats[cid] = st
-        print(f"  [{cid:24s}] P={st['p_over_pbar_pct']:5.2f}% | E={st['e_wave_late']:.2e} (l/m={st['e_wave_late_over_mid']:.3f}) | a_lin={st['alpha_fit_linear_clean']:+.4f}")
+        print(f"  [{cid:25s}] P={st['p_over_pbar_pct']:5.2f}% | E={st['e_wave_late']:.2e} (l/m={st['e_wave_late_over_mid']:.3f}) | a18_60={st['alpha_fit_win_18_60']:+.4f}")
 
     # ------------------------------------------------------------------
-    # Figure 1: Viscous Strouhal Hopf Envelope & Finite-Re Baffle Grid Convergence
+    # Figure 1: Viscous Strouhal Hopf Envelope & 100x300 Baffle Grid Convergence
     # ------------------------------------------------------------------
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.4, 5.6), dpi=150)
 
     M_arr = [d["M_bar"] for d in hopf_envelopes["inf"]]
     for rtag, lbl, col, ls in [
         ("inf",  "Inviscid Euler ($\\mathrm{Re} = \\infty$, $2T$ trap at $0.16$)", "#d62728", "-"),
-        ("2000", "Compressible NS ($\\mathrm{Re} = 2000$)", "#ff7f0e", "--"),
-        ("1000", "Compressible NS ($\\mathrm{Re} = 1000$, $2T$ trap softened)", "#1f77b4", "-."),
-        ("500",  "Compressible NS ($\\mathrm{Re} = 500$, trough & trap filled!)", "#2ca02c", "-"),
+        ("2000", "Compressible NS ($\\mathrm{Re} = 2000$: linear stab., $2T$ subcrit. $4.4\\%$)", "#ff7f0e", "--"),
+        ("1000", "Compressible NS ($\\mathrm{Re} = 1000$: $2T$ trap nonlinearly quenched)", "#1f77b4", "-."),
+        ("500",  "Compressible NS ($\\mathrm{Re} = 500$, trough & trap filled)", "#2ca02c", "-"),
     ]:
-        ax1.plot(M_arr, [d["n_pH_global"] for d in hopf_envelopes[rtag]], ls, color=col, lw=2.3, label=lbl)
+        ax1.plot(M_arr, [d["n_pH_global"] for d in hopf_envelopes[rtag]], ls, color=col, lw=2.2, label=lbl)
     ax1.axhline(0.22, color="#333333", ls=":", lw=1.3, label="Test flame $n_p = 0.22$")
     ax1.axvline(0.12, color="gray", ls=":", lw=1.0, alpha=0.6)
     ax1.axvline(0.16, color="gray", ls=":", lw=1.0, alpha=0.6)
     ax1.set_xlabel("Chamber axial Mach number $\\bar{M}$ ($L_a = 1.5$)")
     ax1.set_ylabel("Exact Chebyshev NS global all-mode Hopf $n_{pH,\\mathrm{global}}$")
     ax1.set_ylim(0.0, 0.62)
-    ax1.set_title("Vorticity-Wave Viscous Attenuation ($L_{\\mathrm{visc}}/L_a = \\mathrm{Re}\\,\\bar{M}^3/\\omega^2 L_a$)", fontweight="bold")
+    ax1.set_title("Vorticity-Wave Viscous Attenuation ($L_{\\mathrm{visc}}/L_a \\approx \\mathrm{Re}\\,\\bar{M}^3/\\omega^2 L_a$)", fontweight="bold")
     ax1.grid(True, alpha=0.28)
-    ax1.legend(loc="upper left", fontsize=7.6, framealpha=0.93)
+    ax1.legend(loc="upper left", fontsize=7.2, framealpha=0.93)
 
-    grids_x = [40, 60, 80]
-    ax2.plot(grids_x, [-exp3_stats[f"slip_Euler_{g}x{g*3 if g!=60 else 160}"]["cold_alpha_1T"] for g in grids_x],
-             "s--", color="#d62728", lw=2.2, ms=7.0, label="Inviscid Euler ($\\bar{M}=0.12$, drifting!)")
-    ax2.plot(grids_x, [-exp3_stats[f"slip_Re500_{g}x{g*3 if g!=60 else 160}"]["cold_alpha_1T"] for g in grids_x],
-             "o-", color="#2ca02c", lw=2.4, ms=7.5, label="Free-slip NS ($\\mathrm{Re}=500$: $0.12\\%$ converged!)")
-    ax2.plot(grids_x, [-exp3_stats[f"slip_Re1000_{g}x{g*3 if g!=60 else 160}"]["cold_alpha_1T"] for g in grids_x],
-             "^-.", color="#1f77b4", lw=2.0, ms=6.5, label="Free-slip NS ($\\mathrm{Re}=1000$)")
-    ax2.plot(grids_x, [-exp3_stats[f"noslip_Re500_{g}x{g*3 if g!=60 else 160}"]["cold_alpha_1T"] for g in grids_x],
-             "D-", color="#9467bd", lw=2.3, ms=7.0, label="No-slip wake NS ($\\mathrm{Re}=500$: $-16.5\\%$ wake penalty!)")
-    ax2.plot([40, 80], [-exp3_stats["M0_Euler_40x120"]["cold_alpha_1T"], -exp3_stats["M0_Euler_80x240"]["cold_alpha_1T"]],
-             "x:", color="#8b0000", lw=1.6, ms=7.0, label="$\\bar{M}=0$ Euler (numerical $\\to 0$)")
-    ax2.plot([40, 80], [-exp3_stats["M0_noslip500_40x120"]["cold_alpha_1T"], -exp3_stats["M0_noslip500_80x240"]["cold_alpha_1T"]],
-             "P-", color="#17becf", lw=1.8, ms=7.0, label="$\\bar{M}=0$ NS $\\mathrm{Re}=500$ (physical Stokes layer)")
-    ax2.set_xticks(grids_x, ["$40\\times 120$", "$60\\times 160$", "$80\\times 240$"])
+    g_eul = [40, 60, 80]
+    g_ns = [40, 60, 80, 100]
+    gmap = {40: "40x120", 60: "60x160", 80: "80x240", 100: "100x300"}
+    ax2.plot(g_eul, [-exp3_stats[f"slip_Euler_{gmap[g]}"]["cold_alpha_1T"] for g in g_eul],
+             "s--", color="#d62728", lw=2.2, ms=7.0, label="Inviscid Euler ($\\bar{M}=0.12$, drifting)")
+    ax2.plot(g_ns, [-exp3_stats[f"slip_Re500_{gmap[g]}"]["cold_alpha_1T"] for g in g_ns],
+             "o-", color="#2ca02c", lw=2.4, ms=7.2, label="Free-slip NS ($\\mathrm{Re}=500$: $0.1\\%$ converged)")
+    ax2.plot(g_ns, [-exp3_stats[f"noslip_Re500_{gmap[g]}"]["cold_alpha_1T"] for g in g_ns],
+             "D-", color="#9467bd", lw=2.3, ms=7.0, label="No-slip wake NS ($\\mathrm{Re}=500$: $\\approx -19\\%$ penalty)")
+    ax2.axhline(-exp3_stats["M0_noslip_Re500_80x240"]["cold_alpha_1T"], color="#17becf", ls="-.", lw=1.6,
+                label="$\\bar{M}=0$ NS ($-0.026$: face shear + tip diss.)")
+    ax2.axhline(-exp3_stats["M0_bare_Re500_80x240"]["cold_alpha_1T"], color="#17becf", ls=":", lw=1.4,
+                label="$\\bar{M}=0$ bare NS ($-0.0115$: face shear + SK)")
+    ax2.set_xticks(g_ns, ["$40\\times 120$", "$60\\times 160$", "$80\\times 240$", "$100\\times 300$"])
     ax2.set_xlabel("Grid resolution ($n_x \\times n_\\theta$)")
     ax2.set_ylabel("Cold $1T$ baffle damping $-\\alpha_{1T}$ ($N_b=5, L_b=0.45$)")
     ax2.set_ylim(0.0, 0.145)
-    ax2.set_title("Finite-$\\mathrm{Re}$ Grid Convergence vs. No-Slip Wake Penalty", fontweight="bold")
+    ax2.set_title("Converged Finite-$\\mathrm{Re}$ Baffle Damping & No-Slip Penalty", fontweight="bold")
     ax2.grid(True, alpha=0.28)
     ax2.legend(loc="center right", fontsize=7.2, framealpha=0.93)
 
-    fig.suptitle("Rocket Combustion Entry 011 (Part 1): Compressible Navier-Stokes Vorticity Attenuation & Baffle Convergence", fontsize=11.3, fontweight="bold")
+    fig.suptitle("Rocket Combustion Entry 011 (Part 1, Hardened): Viscous Vorticity Attenuation & 100x300 Convergence", fontsize=11.2, fontweight="bold")
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     fig.savefig(RESULTS_DIR / "exp011_viscous_strouhal_and_convergence.png")
     plt.close(fig)
 
     # ------------------------------------------------------------------
-    # Figure 2: Steady No-Slip Viscous Wake Field (80x240) & 6.9% Shock Quench Shootout
+    # Figure 2: Steady No-Slip Wake Field (80x240, t=150) & Zoomed Rotating-Shock Capping + Bracket
     # ------------------------------------------------------------------
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.4, 5.6), dpi=150)
 
     ux_wk = wake_snap_80["ux_base"]
+    u_ds_80 = exp3_stats["noslip_Re500_80x240"]["ux_wake_min_downstream"]
     im = ax1.pcolormesh(wake_snap_80["theta"], wake_snap_80["x"], ux_wk, shading="auto", cmap="viridis", vmin=0.02, vmax=0.145)
     for k in range(5):
         th_b = k * 2.0 * np.pi / 5.0
@@ -940,30 +951,31 @@ def main() -> None:
     ax1.axhline(0.45, color="#ffffff", ls=":", lw=1.1, label="Baffle tips $L_b = 0.45$")
     ax1.set_xlabel("Azimuth $\\theta$ (rad)")
     ax1.set_ylabel("Axial coordinate $x$")
-    ax1.set_title("Steady No-Slip Viscous Baffle Wakes $u_x(x, \\theta)$ ($\\mathrm{Re}=500, 80\\times 240$)", fontweight="bold")
+    ax1.set_title("Steady No-Slip Viscous Wakes $u_x(x, \\theta)$ ($\\mathrm{Re}=500, 80\\times 240, t=150$)", fontweight="bold")
     ax1.legend(loc="upper right", fontsize=7.8, framealpha=0.9)
     cb = fig.colorbar(im, ax=ax1, pad=0.02)
-    cb.set_label("Axial velocity $u_x$ ($\\bar{M}=0.12$; tip wake $u_{\\min}=0.021$)")
+    cb.set_label(f"Axial velocity $u_x$ ($\\bar{{M}}=0.12$; downstream wake $u_{{\\min}}={u_ds_80:.3f}$)")
 
     for cid, lbl, col, ls in [
-        ("NL_bare_Euler",       "Bare Euler ($\\mathrm{Re}=\\infty$: $8.9\\%$ shock)", "#d62728", "-"),
-        ("NL_bare_Re500",       "Bare NS ($\\mathrm{Re}=500$)", "#ff7f0e", "--"),
-        ("NL_baf_noslip500",    "No-slip baffles alone ($\\mathrm{Re}=500$)", "#9467bd", "-."),
-        ("NL_hyb_Euler",        "Retuned $2\\%$ hybrid — Euler (triggers $5.6\\%$)", "#7f7f7f", ":"),
-        ("NL_hyb_noslip1000",   "Retuned $2\\%$ hybrid — No-slip NS ($\\mathrm{Re}=1000$)", "#1f77b4", "-."),
-        ("NL_hyb_noslip500",    "Retuned $2\\%$ hybrid — No-slip NS ($\\mathrm{Re}=500$)", "#2ca02c", "-"),
-        ("NL_hyb_noslip500_60", "Retuned $2\\%$ hybrid — No-slip NS ($60\\times 160$ check)", "#0b5e20", "--"),
+        ("NL_bare_Euler",          "Bare Euler ($\\mathrm{Re}=\\infty$: $8.9\\%$ shock)", "#d62728", "-"),
+        ("NL_bare_Re500",          "Bare NS ($\\mathrm{Re}=500$: $5.7\\%$ shock)", "#ff7f0e", "--"),
+        ("NL_baf_noslip500",       "No-slip baffles alone ($\\mathrm{Re}=500$: $6.5\\%$)", "#9467bd", "-."),
+        ("NL_hyb_Euler",           "Retuned $2\\%$ hybrid — Euler ($5.6\\%$)", "#7f7f7f", ":"),
+        ("NL_hyb_noslip500_A055",  "Retuned hybrid — No-slip NS ($4.3\\%, A_0=0.055$)", "#2ca02c", "-"),
+        ("NL_hyb_noslip500_A015",  "Retuned hybrid — No-slip NS ($A_0=0.015$: triggers!)", "#0b5e20", "--"),
+        ("NL_hyb_noslip500_A010",  "Retuned hybrid — No-slip NS ($A_0=0.010$: decays!)", "#17becf", "-."),
+        ("NL_hyb_2T_ns500_60",     "Retuned hybrid — $2T$ upper branch ($60\\times 160$: $4.1\\%$)", "#1f77b4", ":"),
     ]:
         rr = exp4_runs[cid]
         ax2.semilogy(rr["t"], np.maximum(rr["e_wave"], 1e-16), ls, color=col, lw=2.0, label=lbl)
     ax2.set_xlabel("Time $t$")
     ax2.set_ylabel("2D Perturbation Energy $E_{\\mathrm{wave}}(t)$ (log scale)")
-    ax2.set_ylim(1e-12, 6e-3)
-    ax2.set_title("6.9% Rotating-Shock Shootout under Compressible NS ($\\bar{M}=0.12$)", fontweight="bold")
+    ax2.set_ylim(1e-7, 6e-3)
+    ax2.set_title("Viscous Rotating-Shock Capping, $1T$ Trigger Bracket & $2T$ Branch", fontweight="bold")
     ax2.grid(True, which="both", alpha=0.25)
-    ax2.legend(loc="lower left", fontsize=7.2, framealpha=0.93)
+    ax2.legend(loc="lower left", fontsize=7.0, framealpha=0.93)
 
-    fig.suptitle("Rocket Combustion Entry 011 (Part 2): No-Slip Baffle Wakes & Viscous Rotating-Shock Quenching", fontsize=11.3, fontweight="bold")
+    fig.suptitle("Rocket Combustion Entry 011 (Part 2, Hardened): Converged No-Slip Wakes & Subcritical Branches", fontsize=11.2, fontweight="bold")
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     fig.savefig(RESULTS_DIR / "exp011_noslip_wake_and_shock_quench.png")
     plt.close(fig)
@@ -975,11 +987,14 @@ def main() -> None:
             "periodic_cons_ns_noslip5": ce_baf,
             "stokes_kirchhoff_k2_Re200": {"exact": a_sk_ex, "pde": a_sk_pde, "rel_err_pct": abs(a_sk_pde - a_sk_ex) / abs(a_sk_ex) * 100.0},
             "shear_diffusion_k2_Re200": {"exact": a_sh_ex, "pde": a_sh_pde, "rel_err_pct": abs(a_sh_pde - a_sh_ex) / abs(a_sh_ex) * 100.0},
-            "chebyshev_ns_vs_pde_60x160": cheb_vs_pde,
+            "chebyshev_ns_vs_pde_60x160_t20_40": cheb_vs_pde,
         },
         "exp2_vorticity_viscous_law": {
             "hopf_envelopes": hopf_envelopes,
+            "re_cross_M016_chiral_2T": re_cross_2t,
+            "cold_M012_Re5000": cold_M012_Re5000,
             "m016_chiral_vs_Re": m016_chiral_vs_Re,
+            "m016_nonlinear_2T_64x200": nl2t_stats,
         },
         "exp3_baffle_convergence_and_wake": exp3_stats,
         "exp4_reacting_and_shock_shootout": exp4_stats,
