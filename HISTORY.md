@@ -2,6 +2,10 @@
 
 Chronological record of research entries, adversarial cross-model peer reviews, hardening passes, and public blog updates across all tracks in `marcelolx/math`.
 
+## 2026-11-26
+
+- **Rocket Combustion Entry `012` (Pending Peer Review #9):** Replaced the compact 0D Marble–Candel outlet with an explicitly resolved $C^2$ 2D transonic converging–diverging nozzle (`M_e = 1.83`, zero outlet BCs, quiescent `4.4e-16`, periodic bell mass/angular-momentum/energy conservation `2.3e-16`/`2.0e-17`/`1.4e-16`, Chebyshev convergence `< 5e-6` verified on `96×200`); discovered the Bell-Nozzle Evanescent-Cutoff Collapse (`7.5–46×` cold $1T$ damping loss at $L_n = 0.70\text{--}0.80$, `-63%` global Hopf at $\bar{M}_c = 0.18$, double-mode `12.5%` $1T$ / `6.4%` $2T$ failure, and $2T$ cascade regrowth even with a $2\%$ hybrid) vs. Constant-Radius Annular Slot Strouhal Tuning (`2.56×` cold $1T$ gain above MC, `3.79×` global Hopf above bell, and `523×` monotonic shock quench with $2\%$ hybrid), plus `-15.8%` first-pass finite-nozzle entropy-noise filtering.
+
 ## 2026-11-25
 
 - **Rocket Combustion Entry `011` & Peer Review #8 (`8ad15b9`, hardened):** Upgraded to full 2D conservative compressible Navier–Stokes (`Pr = 0.72`, periodic energy conservation `2.35e-16` with 5 no-slip adiabatic baffles, exact Chebyshev NS eigen-solver); completed independent Claude read-only audit ([`reviews/peer-review-08-rocket-011.md`](reviews/peer-review-08-rocket-011.md)) and hardened with `64×200` nonlinear $2T$ trap audit (`Re <= 1000` quench vs `Re = 2000–5000` subcritical `4.37–5.95%`, `Re_cross = 5964`), `t = 150` relaxed wakes (`rhs ~ 1.2e-9`, `100×300` `18–19%` no-slip wake penalty), clean `t∈[18,60]` hybrid margins (`-0.057 to -0.059`, `1T` bracket `(0.010, 0.015]`, `4.13%` $2T$ upper branch), and $\bar{M} = 0$ shear/tip split.
