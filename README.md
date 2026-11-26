@@ -39,7 +39,7 @@ An open, general-purpose research notebook for tackling narrow, verifiable probl
 | [`009`](rocket-combustion/entries/009-2d-euler-throughflow.md) | 2D $(x, \theta)$ Compressible Euler Annular Combustor with Axial Throughflow | ✅ | [Review #6](reviews/peer-review-06-rocket-009.md) (`2a294f4`) |
 | [`010`](rocket-combustion/entries/010-2d-throughflow-baffles-cavities.md) | 2D Euler Throughflow with Protruding Baffles & Wide-Mouth Faceplate Cavities | ✅ | [Review #7](reviews/peer-review-07-rocket-010.md) (`47ceabc`) |
 | [`011`](rocket-combustion/entries/011-2d-viscous-ns-baffle-tips.md) | 2D Compressible Navier–Stokes: Vorticity Attenuation & No-Slip Baffle Wakes | ✅ | [Review #8](reviews/peer-review-08-rocket-011.md) (`8804d53`) |
-| [`012`](rocket-combustion/entries/012-2d-transonic-cd-nozzle.md) | 2D Thin-Shell Transonic CD Nozzle: Bell Evanescent Collapse & `120×300` $2T$ Cascade | ✅ | [Review #9](reviews/peer-review-09-rocket-012.md) |
+| [`012`](rocket-combustion/entries/012-2d-transonic-cd-nozzle.md) | 2D Thin-Shell Transonic CD Nozzle: Bell Evanescent Collapse & `120×300` $2T$ Cascade | ✅ | [Review #9](reviews/peer-review-09-rocket-012.md) (`d5c03b3`) |
 
 ### 2. Plasma Nozzles & MHD Propulsion ([`plasma-nozzles/`](./plasma-nozzles/) · [`SYNTHESIS.md`](./plasma-nozzles/SYNTHESIS.md))
 

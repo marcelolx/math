@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Open-Notebook Science Log — marcelolx/math</title>
-  <meta name="description" content="Progress log from marcelolx/math: 16 verified numerical physics & engineering entries, 7 independent cross-model peer reviews, and 3 synthesis monographs." />
+  <meta name="description" content="Progress log from marcelolx/math: 18 verified numerical physics & engineering entries, 9 independent cross-model peer reviews, and 3 synthesis monographs." />
   <style>
     :root {
       --bg: #faf9f6;
@@ -221,6 +221,7 @@
     <div class="nav">
       <a class="brand" href="./">marcelolx / math</a>
       <div class="nav-links">
+        <a href="#milestone-5">Milestone 5</a>
         <a href="#milestone-4">Milestone 4</a>
         <a href="#milestone-3">Milestone 3</a>
         <a href="#milestone-2">Milestone 2</a>
@@ -234,17 +235,49 @@
 
   <main>
     <article>
-      <div class="meta">Progress Log &middot; Updated 2026-11-25 &middot; Open-Notebook Science</div>
-      <h1>16 Verified Entries, 7 Adversarial Peer Reviews, and What Broke Along the Way</h1>
+      <div class="meta">Progress Log &middot; Updated 2026-11-26 &middot; Open-Notebook Science</div>
+      <h1>18 Verified Entries, 9 Adversarial Peer Reviews, and What Broke Along the Way</h1>
       <p class="subtitle">
         An open, reproducible computational-physics notebook across rocket combustion, plasma nozzles, and renewable power grids—where every formula is cross-checked against PDEs, archived with independent audit receipts, and gated by automated repo checks.
       </p>
 
       <div class="stats">
         <div class="stat"><span class="stat-num">3</span><span class="stat-lbl">Research Tracks</span></div>
-        <div class="stat"><span class="stat-num">16</span><span class="stat-lbl">Verified Entries</span></div>
-        <div class="stat"><span class="stat-num">7</span><span class="stat-lbl">Peer Reviews</span></div>
+        <div class="stat"><span class="stat-num">18</span><span class="stat-lbl">Verified Entries</span></div>
+        <div class="stat"><span class="stat-num">9</span><span class="stat-lbl">Peer Reviews</span></div>
         <div class="stat"><span class="stat-num">3</span><span class="stat-lbl">Syntheses</span></div>
+      </div>
+
+      <h2 id="milestone-5">Milestone 5 Update: 2D Compressible Navier&ndash;Stokes Wakes &amp; Transonic Bell Nozzles (<code>011</code>&ndash;<code>012</code>)</h2>
+      <p>
+        We pushed the rocket-combustion track past inviscid compact-nozzle Euler in two major physics upgrades&mdash;and independent cross-model <strong>Peer Reviews #8 and #9</strong> caught deep nonlinear subcritical traps on both.
+      </p>
+      <p>
+        In <a href="https://github.com/marcelolx/math/blob/main/rocket-combustion/entries/011-2d-viscous-ns-baffle-tips.md">Entry <code>011</code></a> (full 2D conservative compressible Navier&ndash;Stokes, Pr = 0.72, periodic energy conservation 2.35&times;10<sup>&minus;16</sup> with 5 no-slip adiabatic baffles), short-wavelength inlet vorticity waves (<em>k</em><sub>vort</sub> &approx; &omega;/<em>M&#772;</em>) suffer 24&times; stronger attenuation than Stokes&ndash;Kirchhoff at Re = 500, boosting bare <em>M&#772;</em> = 0.12 cold damping 2.42&times; and curing Euler&rsquo;s sharp-edge baffle grid drift (0.12% spread across 40&times;120&rarr;100&times;300). Pre-relaxed (<em>t</em> = 150) <strong>no-slip blade wakes</strong> penalize cold baffle damping by <strong>18&ndash;19%</strong> (&minus;0.1005 on 100&times;300), and Peer Review #8 exposed that Entry <code>009</code>&rsquo;s <em>M&#772;</em> = 0.16 <em>2T</em> trap still triggers subcritically at Re = 2000&ndash;5000 (4.37&ndash;5.95%), quenching nonlinearly only for Re &le; 1000.
+      </p>
+      <figure>
+        <img src="assets/rocket-2d-ns-wakes.png" alt="Steady no-slip viscous baffle wakes and rotating-shock shootout under compressible Navier-Stokes" />
+        <figcaption>
+          <strong>Rocket Combustion Entry 011:</strong> Converged (<em>t</em> = 150, residual 1.2&times;10<sup>&minus;9</sup>) steady no-slip viscous baffle wakes (left, downstream <em>u</em><sub>min</sub> = 0.031) and viscous shock shootout (right): the retuned mid-sector 2% hybrid cuts 6.9% rotating-shock energy <strong>9.5&times;</strong> below bare Euler (4.31%), triggers on <em>1T</em> in <em>A</em><sub>0</sub> &isin; (0.010, 0.015], and retains a 4.13% pure-<em>2T</em> upper branch.
+        </figcaption>
+      </figure>
+      <p>
+        In <a href="https://github.com/marcelolx/math/blob/main/rocket-combustion/entries/012-2d-transonic-cd-nozzle.md">Entry <code>012</code></a>, we replaced compact Marble&ndash;Candel with an explicitly resolved <em>C</em><sup>2</sup> 2D thin-shell transonic converging&ndash;diverging nozzle (<em>M</em><sub>e</sub> &approx; 1.83, <strong>zero outlet BCs</strong>, periodic bell mass/angular-momentum/energy conservation ~10<sup>&minus;16</sup>, 2-domain Chebyshev smoothly recovering compact MC at <em>L</em><sub>n</sub> = 0.02). Shrinking radius in a bell nozzle (<em>R</em> = &radic;<em>A</em>) creates a finite-width tangential tunneling barrier (&omega;<sub>cut</sub> &le; 1.632) that robustly collapses cold <em>1T</em> damping for <em>L</em><sub>n</sub> &gtrsim; 0.45 across three smooth contour families, slashes <em>M&#772;</em><sub>c</sub> = 0.18 global Hopf by <strong>&minus;63%</strong>, drops <em>M&#772;</em><sub>c</sub> = 0.12 global Hopf to 0.060 (3.79&times; below constant-radius annular 0.228), and triggers bare double-mode failure (12.52% <em>1T</em>, 6.42% <em>2T</em>).
+      </p>
+      <figure>
+        <img src="assets/rocket-2d-transonic-bell-cutoff.png" alt="2D thin-shell bell evanescent-cutoff collapse versus constant-radius annular tuning and global Hopf maps" />
+        <figcaption>
+          <strong>Rocket Combustion Entry 012 (Part 1):</strong> Multi-domain Chebyshev vs. 96&times;200 PDE cold <em>1T</em> damping across converging length <em>L</em><sub>n</sub> (left) and <em>m</em> &le; 5 global Hopf envelopes (right): longer bell cones collapse tangential damping across all tested smooth contours while finite nozzle length low-pass filters indirect entropy echoes (&minus;13.8% 1st-pass / &minus;44.7% 2nd-pass vs. like-for-like compact MC).
+        </figcaption>
+      </figure>
+      <figure>
+        <img src="assets/rocket-2d-transonic-cascade.png" alt="Like-for-like finite-nozzle entropy filtering and resolved 120x300 transonic 1T-to-2T cascade audit" />
+        <figcaption>
+          <strong>Rocket Combustion Entry 012 (Part 2 &mdash; Peer Review #9 Catch):</strong> Like-for-like finite-nozzle entropy filtering on 2&times; grids (left) and resolved 120&times;300 (<em>t</em> = 300) nonlinear audit (right): coarse 80&times;200 numerical <em>2T</em> damping falsely quenched the annular + 2% hybrid (dashed green, 0.08%), whereas resolved 120&times;300 exposes <strong><em>1T</em>&rarr;<em>2T</em> cascade lock-in</strong> on <em>both</em> annular + hybrid (solid green, 5.07%) and bell + hybrid (purple, 5.54%; resolved energy ratio 1.19&times;)&mdash;motivating Entry <code>013</code> on breaking the universal subcritical <em>2T</em> upper branch.
+        </figcaption>
+      </figure>
+      <div class="callout">
+        <strong>Archived Audit Receipts:</strong> Full verbatim cross-model audit reports for <a href="https://github.com/marcelolx/math/blob/main/reviews/peer-review-08-rocket-011.md">Peer Review #8 (<code>011</code>)</a> and <a href="https://github.com/marcelolx/math/blob/main/reviews/peer-review-09-rocket-012.md">Peer Review #9 (<code>012</code>)</a> are tracked under <a href="https://github.com/marcelolx/math/blob/main/reviews/README.md"><code>reviews/</code></a> and synthesized in <a href="https://github.com/marcelolx/math/blob/main/rocket-combustion/SYNTHESIS.md">Laws #1&ndash;#15 &amp; Dead Ends #1&ndash;#14</a>.
       </div>
 
       <h2 id="milestone-4">Milestone 4 Update: 2D Throughflow Baffles, Retuned Faceplate Cavities &amp; <code>64&times;200</code> Orifice-Drag Cliff (<code>010</code>)</h2>
