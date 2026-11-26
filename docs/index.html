@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Open-Notebook Science Log — marcelolx/math</title>
-  <meta name="description" content="Progress log from marcelolx/math: 18 verified numerical physics & engineering entries, 9 independent cross-model peer reviews, and 3 synthesis monographs." />
+  <meta name="description" content="Progress log from marcelolx/math: 19 verified numerical physics & engineering entries, 10 independent cross-model peer reviews, and 3 synthesis monographs." />
   <style>
     :root {
       --bg: #faf9f6;
@@ -221,6 +221,7 @@
     <div class="nav">
       <a class="brand" href="./">marcelolx / math</a>
       <div class="nav-links">
+        <a href="#milestone-6">Milestone 6</a>
         <a href="#milestone-5">Milestone 5</a>
         <a href="#milestone-4">Milestone 4</a>
         <a href="#milestone-3">Milestone 3</a>
@@ -236,17 +237,46 @@
   <main>
     <article>
       <div class="meta">Progress Log &middot; Updated 2026-11-26 &middot; Open-Notebook Science</div>
-      <h1>18 Verified Entries, 9 Adversarial Peer Reviews, and What Broke Along the Way</h1>
+      <h1>19 Verified Entries, 10 Adversarial Peer Reviews, and What Broke Along the Way</h1>
       <p class="subtitle">
         An open, reproducible computational-physics notebook across rocket combustion, plasma nozzles, and renewable power grids—where every formula is cross-checked against PDEs, archived with independent audit receipts, and gated by automated repo checks.
       </p>
 
       <div class="stats">
         <div class="stat"><span class="stat-num">3</span><span class="stat-lbl">Research Tracks</span></div>
-        <div class="stat"><span class="stat-num">18</span><span class="stat-lbl">Verified Entries</span></div>
-        <div class="stat"><span class="stat-num">9</span><span class="stat-lbl">Peer Reviews</span></div>
+        <div class="stat"><span class="stat-num">19</span><span class="stat-lbl">Verified Entries</span></div>
+        <div class="stat"><span class="stat-num">10</span><span class="stat-lbl">Peer Reviews</span></div>
         <div class="stat"><span class="stat-num">3</span><span class="stat-lbl">Syntheses</span></div>
       </div>
+
+      <h2 id="milestone-6">Milestone 6 Update: Breaking the <code>120&times;300</code> <em>1T&rarr;2T</em> Cascade &amp; Coupled Viscous&ndash;Transonic Bell Quench (<code>013</code>)</h2>
+      <p>
+        <a href="https://github.com/marcelolx/math/blob/main/rocket-combustion/entries/013-dual-retuning-viscous-bell.md">Entry <code>013</code></a> couples our 2D conservative compressible Navier&ndash;Stokes solver directly into the explicitly resolved <em>C</em><sup>2</sup> transonic converging&ndash;diverging bell nozzle (paired with an exact viscous-base conservative Chebyshev eigen-solver verified to 1.8&times;10<sup>&minus;12</sup> and matching 96&times;200 PDE to 0.44&ndash;3.53%) to crack the central open puzzle from Peer Reviews #8&ndash;#9: why the 2.0% 80/20 hybrid kept losing 6.9% bombs to a ~5% pure-<em>2T</em> upper branch.
+      </p>
+      <p>
+        The root cause is the <strong>Higher-Harmonic Baffle&ndash;Cavity Downshift Law</strong>: protruding <em>N<sub>b</sub></em> = 5, <em>L<sub>b</sub></em> = 0.45 radial baffles downshift <em>2T</em> <strong>1.43&times; more strongly than <em>1T</em></strong> (&minus;17.6%, 1.977&rarr;1.630 vs. &minus;12.3%, 1.067&rarr;0.936). Leaving <em>&omega;<sub>H,2T</sub></em> = 2.01 detuned the <em>2T</em> sub-ring by +23%. Retuning <em>&omega;<sub>H,2T</sub></em>: 2.01&rarr;1.65 at <strong>zero extra cavity volume</strong> boosts linear <em>2T</em> damping <strong>2.61&times;</strong> (80&times;200) and <strong>2.95&times;</strong> (120&times;300 <em>e</em><sub>2T</sub>) and breaks the inviscid 120&times;300 <em>1T&rarr;2T</em> cascade completely (<strong>5.54%&rarr;0.04%</strong>, <strong>21,158&times; energy collapse</strong>, confirmed decaying to 8.1&times;10<sup>&minus;13</sup> at <em>t</em> = 420 even with a tight 1.5% neck).
+      </p>
+      <figure>
+        <img src="assets/rocket-dual-retuning-viscous-bell.png" alt="Viscous rescue of bell-nozzle 2T cutoff collapse and higher-harmonic baffle-cavity retuning resonance curve" />
+        <figcaption>
+          <strong>Entry <code>013</code> (Left):</strong> Eddy viscosity (Re = 500&ndash;2000) boosts bell cold <em>2T</em> damping 5.2&ndash;7.6&times;, lifting pressure-coupled (<em>n<sub>v</sub></em> = 0, <em>N</em> = 96) global Hopf 4.4&ndash;5.0&times; and quenching inviscid <em>m</em> = 3, 4 whistles. <strong>(Right):</strong> Fixed-volume 2% 80/20 <em>&omega;<sub>H,2T</sub></em> sweep peaks dead-center on the baffled <em>2T</em> FFT frequency (1.63&ndash;1.65), boosting linear damping 2.61&times; (2.95&times; on 120&times;300).
+        </figcaption>
+      </figure>
+      <figure>
+        <img src="assets/rocket-120x300-cascade-break.png" alt="Resolved 120x300 breaking of the 1T to 2T cascade attractor and direct 2T viscous quench" />
+        <figcaption>
+          <strong>Entry <code>013</code> (Exp 4):</strong> On resolved 120&times;300 grids, dual-harmonic retuning breaks the inviscid 6.9% <em>1T</em> cascade (5.54%&rarr;0.04%, 21,158&times; drop) while eddy viscosity (Re = 500&ndash;1000) obliterates direct 6.9% <em>2T</em> bombs (0.0002&ndash;0.0004%, <em>E</em> ~ 10<sup>&minus;12</sup>)&mdash;yet at Re = 1000 the 2.0% hybrid subcritically re-ignites into a 4.00% pure-<em>1T</em> cycle.
+        </figcaption>
+      </figure>
+      <p>
+        Independent read-only <a href="https://github.com/marcelolx/math/blob/main/reviews/peer-review-10-rocket-013.md"><strong>Peer Review #10</strong></a> (Claude, 31 PDE runs + complex-step Jacobian) caught a crucial beating-window artifact on the 2.0% hybrid linear rate: on beat-free [50, 95] windows with wall-aware one-sided baffle stencils, viscosity actually <em>increases</em> the 2.0% hybrid&rsquo;s linear <em>1T</em> margin (&minus;0.0280&rarr;&minus;0.0403 on 120&times;300), proving the 4.00% Re = 1000 pure-<em>1T</em> re-ignition is strictly <strong>nonlinear/subcritical</strong> (while standalone baffled bell <em>1T</em> genuinely flips unstable &minus;0.00722&rarr;+0.00198, opposite to a compact nozzle). Rebalancing to <strong>3.0% 85/15 dual-retuned</strong> achieves complete resolved <strong>120&times;300 all-mode quench of both 6.9% <em>1T</em> (0.002%) and <em>2T</em> (0.0003%)</strong> at Re = 1000&mdash;robust to standing bombs, 10% (<em>A</em><sub>0</sub> = 0.08) shocks, and <em>M&#772;<sub>c</sub></em> = 0.16&mdash;whereas converged Re = 500 no-slip baffle wakes still sustain a 4.50% pure-<em>1T</em> cycle.
+      </p>
+      <figure>
+        <img src="assets/rocket-viscous-bell-3pct-quench.png" alt="Long-window viscous bell linear audit and resolved 120x300 3.0% 85/15 all-mode quench ladder" />
+        <figcaption>
+          <strong>Entry <code>013</code> (Exp 5, hardened per Peer Review #10):</strong> Long-window [50, 95] one-sided-stencil rates separate the standalone baffled-bell sign flip from the 2.0% hybrid&rsquo;s 1.44&times; linear margin increase (left), while rebalancing to 3.0% 85/15 achieves complete resolved 120&times;300 quench of both <em>1T</em> and <em>2T</em> bombs at Re = 1000 (right).
+        </figcaption>
+      </figure>
 
       <h2 id="milestone-5">Milestone 5 Update: 2D Compressible Navier&ndash;Stokes Wakes &amp; Transonic Bell Nozzles (<code>011</code>&ndash;<code>012</code>)</h2>
       <p>

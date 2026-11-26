@@ -40,7 +40,7 @@ An open, general-purpose research notebook for tackling narrow, verifiable probl
 | [`010`](rocket-combustion/entries/010-2d-throughflow-baffles-cavities.md) | 2D Euler Throughflow with Protruding Baffles & Wide-Mouth Faceplate Cavities | ✅ | [Review #7](reviews/peer-review-07-rocket-010.md) (`47ceabc`) |
 | [`011`](rocket-combustion/entries/011-2d-viscous-ns-baffle-tips.md) | 2D Compressible Navier–Stokes: Vorticity Attenuation & No-Slip Baffle Wakes | ✅ | [Review #8](reviews/peer-review-08-rocket-011.md) (`8804d53`) |
 | [`012`](rocket-combustion/entries/012-2d-transonic-cd-nozzle.md) | 2D Thin-Shell Transonic CD Nozzle: Bell Evanescent Collapse & `120×300` $2T$ Cascade | ✅ | [Review #9](reviews/peer-review-09-rocket-012.md) (`d5c03b3`) |
-| [`013`](rocket-combustion/entries/013-dual-retuning-viscous-bell.md) | Dual-Harmonic Baffle–Cavity Retuning & Coupled 2D NS Transonic Bell Nozzle | ✅ | [Review #10](reviews/peer-review-10-rocket-013.md) |
+| [`013`](rocket-combustion/entries/013-dual-retuning-viscous-bell.md) | Dual-Harmonic Baffle–Cavity Retuning & Coupled 2D NS Transonic Bell Nozzle | ✅ | [Review #10](reviews/peer-review-10-rocket-013.md) (`e8e5796`) |
 
 ### 2. Plasma Nozzles & MHD Propulsion ([`plasma-nozzles/`](./plasma-nozzles/) · [`SYNTHESIS.md`](./plasma-nozzles/SYNTHESIS.md))
 
