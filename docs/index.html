@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Open-Notebook Science Log — marcelolx/math</title>
-  <meta name="description" content="Progress log from marcelolx/math: 20 verified numerical physics & engineering entries, 11 independent cross-model peer reviews, and 3 synthesis monographs." />
+  <meta name="description" content="Progress log from marcelolx/math: 21 verified numerical physics & engineering entries, 12 independent cross-model peer reviews, and 3 synthesis monographs." />
   <style>
     :root {
       --bg: #faf9f6;
@@ -221,6 +221,7 @@
     <div class="nav">
       <a class="brand" href="./">marcelolx / math</a>
       <div class="nav-links">
+        <a href="#milestone-8">Milestone 8</a>
         <a href="#milestone-7">Milestone 7</a>
         <a href="#milestone-6">Milestone 6</a>
         <a href="#milestone-5">Milestone 5</a>
@@ -238,16 +239,51 @@
   <main>
     <article>
       <div class="meta">Progress Log &middot; Updated 2026-11-27 &middot; Open-Notebook Science</div>
-      <h1>20 Verified Entries, 11 Adversarial Peer Reviews, and What Broke Along the Way</h1>
+      <h1>21 Verified Entries, 12 Adversarial Peer Reviews, and What Broke Along the Way</h1>
       <p class="subtitle">
         An open, reproducible computational-physics notebook across rocket combustion, plasma nozzles, and renewable power grids—where every formula is cross-checked against PDEs, archived with independent audit receipts, and gated by automated repo checks.
       </p>
 
       <div class="stats">
         <div class="stat"><span class="stat-num">3</span><span class="stat-lbl">Research Tracks</span></div>
-        <div class="stat"><span class="stat-num">20</span><span class="stat-lbl">Verified Entries</span></div>
-        <div class="stat"><span class="stat-num">11</span><span class="stat-lbl">Peer Reviews</span></div>
+        <div class="stat"><span class="stat-num">21</span><span class="stat-lbl">Verified Entries</span></div>
+        <div class="stat"><span class="stat-num">12</span><span class="stat-lbl">Peer Reviews</span></div>
         <div class="stat"><span class="stat-num">3</span><span class="stat-lbl">Syntheses</span></div>
+      </div>
+
+      <h2 id="milestone-8">Milestone 8 Update: Full 3D Cylindrical Navier&ndash;Stokes, Partial-Span Baffles &amp; the Transverse&rarr;Chugging&rarr;<em>1L</em> Cascade (<code>015</code>)</h2>
+      <p>
+        <a href="https://github.com/marcelolx/math/blob/main/rocket-combustion/entries/015-3d-ns-partial-baffles-chugging.md">Entry <code>015</code></a> upgrades our 3D conical-frustum solver to <strong>full 3D metric-corrected conservative compressible Navier&ndash;Stokes</strong> (Pr = 0.72, exact mapped-grid &part;<sub><em>x</em></sub>|<sub><em>r</em></sub> = &part;<sub><em>x</em></sub>|<sub>&eta;</sub> &minus; &eta;<em>R</em>&prime;&part;<sub><em>r</em></sub> + slanted &minus;<em>n<sub>x</sub>q<sub>x</sub></em>; quiescent 1.37&times;10<sup>&minus;18</sup>, bare &amp; 5-baffle slip/no-slip curved-bell conservation 1.1&ndash;2.3&times;10<sup>&minus;16</sup> / 1.4&ndash;2.9&times;10<sup>&minus;16</sup>, closed chamber+cavity mass conservation 1.88&times;10<sup>&minus;16</sup>). We derived and verified the <strong>curved-cylinder stress-free Stokes&ndash;Kirchhoff shift</strong> (+2<em>m</em><sup>2</sup>/[Re(<em>s<sub>mn</sub></em><sup>2</sup>&minus;<em>m</em><sup>2</sup>)]), which converges across <em>n<sub>r</sub></em> = 14&rarr;28 to <strong>0.25% (<em>1T</em>) and 0.45% (<em>1R</em>)</strong> of exact 3&times;3 adiabatic disk dispersion roots at Re = 300.
+      </p>
+      <p>
+        Independent read-only <a href="https://github.com/marcelolx/math/blob/main/reviews/peer-review-12-rocket-015.md"><strong>Peer Review #12</strong></a> (Claude Opus 5.5, 40 extra 3D NS PDE runs) delivered three critical hardenings: first, matched Re = &infin; vs. Re = 500 straight-cylinder runs (&minus;0.10105 vs. &minus;0.09907 at 48&times;12&times;48) proved our initial no-slip Chebyshev match was coincidental because 87% of Chebyshev&rsquo;s viscous damping sits in an unresolved faceplate Stokes layer (&delta; &approx; 0.047). Second, on partial-span shroud-ring baffles (<em>N<sub>b</sub></em> = 5, <em>L<sub>b</sub></em> = 0.45, <em>r</em> &isin; [<em>r<sub>b</sub></em>, 1]), bimodal <em>c</em><sub>2,re</sub> beating (3.376/2.591, ratio 0.73) and <em>m</em> = &minus;3 Bragg scattering made raw <em>e</em><sub>2T</sub> fits swing wildly with window&mdash;whereas <strong>total chamber wave energy <em>E</em><sub>ch</sub></strong> isolates a window-, grid-, and Re-robust <strong>1.50&ndash;1.77&times; boost at <em>r<sub>b</sub></em> = 0.42 (42% less metal) and 1.86&ndash;2.51&times; boost at <em>r<sub>b</sub></em> = 0.58 (58% less metal)</strong> across Re = 500, Re = &infin;, and refined 36&times;18&times;50 grids, proving the mechanism is inviscid 3D diffraction/scattering + inner-edge shedding while leaving the hub wide open for the 0.35% micro-hub <em>1R</em> cavity.
+      </p>
+      <figure>
+        <img src="assets/rocket-3d-partial-baffles.png" alt="3D partial-span radial baffle total-energy E_ch boost across Re=500, Re=inf, 36x18x50 and m=-3 Bragg transfer" />
+        <figcaption>
+          <strong>Entry <code>015</code> (Exp 2, hardened per Peer Review #12):</strong> Window-, grid-, and Re-robust total-energy <em>E</em><sub>ch</sub> damping boost of partial-span shroud-ring baffles over full-span blades across 24&times;12&times;50 (Re = 500 &amp; Re = &infin;) and 36&times;18&times;50 (left), alongside the bimodal <em>c</em><sub>2,re</sub> FFT peak ratio and <em>m</em> = &minus;3 Bragg scattering that caused raw <em>e</em><sub>2T</sub> fits to beat (right).
+        </figcaption>
+      </figure>
+      <p>
+        Third, extending Experiment 3 to <em>t</em> = 180 proved that <strong>exact mass-conserving <em>m&#775;</em> cavity coupling alone does NOT stop <em>k</em> = 0 chugging at &omega;<sub>hp</sub> = 0.15</strong>: both legacy and mass-conserving runs grow to |<em>p&#772;</em>&prime;| = 8.15&ndash;8.19% and |&Delta;<em>M</em>/<em>M</em><sub>0</sub>| = 3.52% with nonlinear period <em>T</em><sub>PDE</sub> &approx; 39 (unexplained by the stable 1D linear mode <em>T</em><sub>1D</sub> &approx; 56). Raising the phenomenological flame-response high-pass cutoff to &omega;<sub>hp</sub> = 0.50 suppresses <em>E</em><sub>mean</sub> by 1.2&times;10<sup>5</sup>&ndash;1.4&times;10<sup>6</sup>&times; through <em>t</em> = 180.
+      </p>
+      <figure>
+        <img src="assets/rocket-3d-chugging-audit.png" alt="Honest t=180 k=0 chugging audit showing mass-conserving m_dot still chugs at omega_hp=0.15 while omega_hp=0.50 suppresses it" />
+        <figcaption>
+          <strong>Entry <code>015</code> (Exp 3, <em>t</em> = 180 audit):</strong> Chamber-mean bulk energy <em>E</em><sub>mean</sub>(<em>t</em>) (left) and signed chamber mass excursion &Delta;<em>M</em>/<em>M</em><sub>0</sub> (right). At &omega;<sub>hp</sub> = 0.15, mass-conserving <em>m&#775;</em> coupling (blue dashed) grows into the same &plusmn;3.5% chugging cycle as legacy <em>u</em><sub>port</sub> (red), whereas flame cutoff &omega;<sub>hp</sub> = 0.50 keeps both spin and standing <em>1T</em> chugging-free out to <em>t</em> = 180.
+        </figcaption>
+      </figure>
+      <p>
+        In full 3D NS nonlinear audits (Re = 500, <em>n<sub>p</sub></em> = 0.34, &omega;<sub>hp</sub> = 0.50), pairing <em>r<sub>b</sub></em> = 0.42 shroud-ring baffles with the retuned 3.0% Dual-Zone faceplate cuts <code>spin_1T</code> wave energy stationarily <strong>5.08&times;</strong> in straight cylinders (4.70&times; on 20&times;16&times;50) and <strong>8.43&times; in the metric-fixed true-3D smooth curved bell (20.16%&rarr;7.03%, stationary to <em>t</em> = 120, <em>E</em><sub>1L</sub> = 2.55&times;10<sup>&minus;9</sup>)</strong>&mdash;yet suppressing <code>stand_1T</code> (32&times;), <code>spin_2T</code> (88&times;), and <em>1R</em> (1.01&times;10<sup>&minus;10</sup>) unmasks longitudinal <strong><em>1L</em> rumble</strong> (6.65% attractor, growing linearly at +0.0059 even from <em>1R</em> through <em>t</em> = 180), exposing the full <strong>3D Transverse&rarr;Chugging&rarr;<em>1L</em> Mode-Migration Cascade</strong>.
+      </p>
+      <figure>
+        <img src="assets/rocket-3d-ns-bell-audit.png" alt="Full 3D NS all-mode bomb audit to t=180 and metric-corrected true-3D smooth bell shootout to t=120" />
+        <figcaption>
+          <strong>Entry <code>015</code> (Exp 4, hardened per Peer Review #12):</strong> Straight 3D NS all-mode audit showing stationary <code>spin_1T</code> reduction vs. honest longitudinal <em>1L</em> migration across <code>stand_1T</code>, <code>spin_2T</code>, and <em>t</em> = 180 <em>1R</em> (left), and the metric-fixed true-3D smooth curved bell NS shootout (8.43&times; cut, stationary to <em>t</em> = 120), 20&times;16&times;50 radial check, and &omega;<sub>hp</sub> = 0.15 chugging contrast (right).
+        </figcaption>
+      </figure>
+      <div class="callout">
+        <strong>Archived Audit Receipt:</strong> Full verbatim independent audit report archived at <a href="https://github.com/marcelolx/math/blob/main/reviews/peer-review-12-rocket-015.md">Peer Review #12 (<code>015</code>, commit <code>1d0fae2</code>)</a> and synthesized in <a href="https://github.com/marcelolx/math/blob/main/rocket-combustion/SYNTHESIS.md">Law #18 &amp; Dead End #17</a>.
       </div>
 
       <h2 id="milestone-7">Milestone 7 Update: Full 3D Cylindrical Chamber &amp; Bell Nozzle&mdash;Bessel Cutoff, Chiral <em>1T&rarr;1R</em> &amp; Shroud-vs.-Hub Cavities (<code>014</code>)</h2>
@@ -525,7 +561,7 @@ uv run python plasma-nozzles/sim/exp001_mhd_kelvin_helmholtz.py
 uv run python grid-stability/sim/exp001_gfm_placement_and_saturation.py</code></pre>
 
       <p>
-        Next up: full 3D cylindrical (<em>r</em>, &theta;, <em>x</em>) radial/tangential modes (<code>rocket-combustion/011</code>), 2D axisymmetric magnetic nozzles with exterior field back-reaction (<code>plasma-nozzles/003</code>), and full inverter current-limiting + reactive <em>Q&ndash;V</em> coupling (<code>grid-stability/002</code>).
+        Next up: replacing the phenomenological &omega;<sub>hp</sub> cutoff with a physical coupled injector&ndash;manifold compliance ODE and testing a Tri-Band 3D Faceplate (shroud <em>1T</em>/<em>2T</em> + micro-hub <em>1R</em> + dedicated <em>1L</em> damper / axial lag spread) inside the 3D viscous bell (<code>rocket-combustion/016</code>), 2D axisymmetric magnetic nozzles with exterior field back-reaction (<code>plasma-nozzles/003</code>), and full inverter current-limiting + reactive <em>Q&ndash;V</em> coupling (<code>grid-stability/002</code>).
       </p>
 
       <footer>

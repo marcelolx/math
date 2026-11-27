@@ -42,7 +42,7 @@ An open, general-purpose research notebook for tackling narrow, verifiable probl
 | [`012`](rocket-combustion/entries/012-2d-transonic-cd-nozzle.md) | 2D Thin-Shell Transonic CD Nozzle: Bell Evanescent Collapse & `120×300` $2T$ Cascade | ✅ | [Review #9](reviews/peer-review-09-rocket-012.md) (`d5c03b3`) |
 | [`013`](rocket-combustion/entries/013-dual-retuning-viscous-bell.md) | Dual-Harmonic Baffle–Cavity Retuning & Coupled 2D NS Transonic Bell Nozzle | ✅ | [Review #10](reviews/peer-review-10-rocket-013.md) (`e8e5796`) |
 | [`014`](rocket-combustion/entries/014-3d-cylindrical-bell-bessel.md) | Full 3D Cylindrical $(x, r, \theta)$ Chamber & Bell Nozzle: Bessel Cutoff, Chiral $1T\to 1R$ & Shroud/Hub Cavities | ✅ | [Review #11](reviews/peer-review-11-rocket-014.md) (`b95cb0d`) |
-| [`015`](rocket-combustion/entries/015-3d-ns-partial-baffles-chugging.md) | Full 3D Cylindrical Compressible NS: Partial-Span Baffles, Mass-Conserving Cavities & Mode-Migration Cascade | ✅ | [Review #12](reviews/peer-review-12-rocket-015.md) |
+| [`015`](rocket-combustion/entries/015-3d-ns-partial-baffles-chugging.md) | Full 3D Cylindrical Compressible NS: Partial-Span Baffles, Mass-Conserving Cavities & Mode-Migration Cascade | ✅ | [Review #12](reviews/peer-review-12-rocket-015.md) (`1d0fae2`) |
 
 ### 2. Plasma Nozzles & MHD Propulsion ([`plasma-nozzles/`](./plasma-nozzles/) · [`SYNTHESIS.md`](./plasma-nozzles/SYNTHESIS.md))
 
