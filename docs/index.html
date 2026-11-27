@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Open-Notebook Science Log — marcelolx/math</title>
-  <meta name="description" content="Progress log from marcelolx/math: 19 verified numerical physics & engineering entries, 10 independent cross-model peer reviews, and 3 synthesis monographs." />
+  <meta name="description" content="Progress log from marcelolx/math: 20 verified numerical physics & engineering entries, 11 independent cross-model peer reviews, and 3 synthesis monographs." />
   <style>
     :root {
       --bg: #faf9f6;
@@ -221,6 +221,7 @@
     <div class="nav">
       <a class="brand" href="./">marcelolx / math</a>
       <div class="nav-links">
+        <a href="#milestone-7">Milestone 7</a>
         <a href="#milestone-6">Milestone 6</a>
         <a href="#milestone-5">Milestone 5</a>
         <a href="#milestone-4">Milestone 4</a>
@@ -236,18 +237,50 @@
 
   <main>
     <article>
-      <div class="meta">Progress Log &middot; Updated 2026-11-26 &middot; Open-Notebook Science</div>
-      <h1>19 Verified Entries, 10 Adversarial Peer Reviews, and What Broke Along the Way</h1>
+      <div class="meta">Progress Log &middot; Updated 2026-11-27 &middot; Open-Notebook Science</div>
+      <h1>20 Verified Entries, 11 Adversarial Peer Reviews, and What Broke Along the Way</h1>
       <p class="subtitle">
         An open, reproducible computational-physics notebook across rocket combustion, plasma nozzles, and renewable power grids—where every formula is cross-checked against PDEs, archived with independent audit receipts, and gated by automated repo checks.
       </p>
 
       <div class="stats">
         <div class="stat"><span class="stat-num">3</span><span class="stat-lbl">Research Tracks</span></div>
-        <div class="stat"><span class="stat-num">19</span><span class="stat-lbl">Verified Entries</span></div>
-        <div class="stat"><span class="stat-num">10</span><span class="stat-lbl">Peer Reviews</span></div>
+        <div class="stat"><span class="stat-num">20</span><span class="stat-lbl">Verified Entries</span></div>
+        <div class="stat"><span class="stat-num">11</span><span class="stat-lbl">Peer Reviews</span></div>
         <div class="stat"><span class="stat-num">3</span><span class="stat-lbl">Syntheses</span></div>
       </div>
+
+      <h2 id="milestone-7">Milestone 7 Update: Full 3D Cylindrical Chamber &amp; Bell Nozzle&mdash;Bessel Cutoff, Chiral <em>1T&rarr;1R</em> &amp; Shroud-vs.-Hub Cavities (<code>014</code>)</h2>
+      <p>
+        <a href="https://github.com/marcelolx/math/blob/main/rocket-combustion/entries/014-3d-cylindrical-bell-bessel.md">Entry <code>014</code></a> upgrades the rocket-combustion track from 2D thin-shell annuli (<code>004</code>&ndash;<code>013</code>) to a <strong>true 3D cylindrical (<em>x</em>, <em>r</em>, &theta;) conservative conical-frustum compressible Euler chamber &amp; transonic bell nozzle</strong> (discrete GCL 2.6&times;10<sup>&minus;18</sup>, quiescent 4.7&times;10<sup>&minus;18</sup>, curved-bell mass/angular-momentum/energy conservation ~10<sup>&minus;16</sup>, closed Bessel FFTs 0.23&ndash;0.89%).
+      </p>
+      <p>
+        Replacing integer thin-shell wavenumbers (<em>m</em> = 1, 2) with exact 3D cylindrical Bessel zeros (<em>s</em><sub>11</sub> = 1.841, <em>s</em><sub>21</sub> = 3.054, <em>s</em><sub>02</sub> = 3.832) collapses inviscid quasi-3D WKB bell <em>1T</em> damping <strong>4.77&times; harder</strong> than 2D thin-shell at <em>L<sub>n</sub></em> = 0.50 (&minus;0.0245&rarr;&minus;0.0051, <em>N</em> = 160; bare Hopf at fixed &tau;&#772; = 0.16 drops 3.93&times; at <em>M&#772;<sub>c</sub></em> = 0.14, 3.37&times; at &tau;&#772; = 0.40). Yet independent read-only <a href="https://github.com/marcelolx/math/blob/main/reviews/peer-review-11-rocket-014.md"><strong>Peer Review #11</strong></a> drove a crucial discovery: while straight-cylinder axial refinement (<em>n<sub>x</sub></em> = 24&rarr;96) moves <em>1T</em> monotonically toward inviscid Chebyshev (&minus;0.0933&rarr;&minus;0.0542, late &minus;0.0467 vs. &minus;0.0424), <strong>true-3D smooth conical-frustum bells</strong> exhibit Sauer/Hall curved sonic-line throat bowing (<em>M</em><sub>throat</sub> = 0.802&rarr;1.403) and retain <strong>~17&ndash;20&times; stronger cold <em>1T</em> damping (&minus;0.0405 to &minus;0.0465)</strong> than quasi-3D WKB (&minus;0.0023) across both axial (<em>n<sub>x</sub></em> = 40&rarr;80) and radial (<em>n<sub>r</sub></em> = 12&rarr;20) refinement.
+      </p>
+      <figure>
+        <img src="assets/rocket-3d-bessel-bell-cutoff.png" alt="3D Bessel bell-nozzle cutoff collapse versus 2D thin-shell and bare Hopf envelopes" />
+        <figcaption>
+          <strong>Entry <code>014</code> (Exp 2, <em>N</em> = 160 converged):</strong> Inviscid quasi-3D Bessel bell cutoff collapse vs. 2D thin-shell on single-branch fundamental modes (left) and multi-mode bare bell Hopf envelope at fixed &tau;&#772; = 0.16 (right). True-3D smooth bells (<em>L<sub>n</sub></em> = 0.60, 0.80) stay cleanly supersonic (<em>M<sub>e</sub></em> = 1.66&ndash;1.83) while steep Entry <code>012</code> <em>L<sub>n</sub></em> = 0.50 separates along the wall (<em>M</em><sub>wall</sub> = 0.233).
+        </figcaption>
+      </figure>
+      <p>
+        In 3D cylinders, <em>2T</em> is strongly detuned from 2&omega;<sub>1T</sub> (<em>s</em><sub>21</sub>/<em>s</em><sub>11</sub> = 1.659), whereas the axisymmetric radial mode <strong><em>1R</em> sits within 3.9% of 2&omega;<sub>1T</sub> (<em>s</em><sub>02</sub>/<em>s</em><sub>11</sub> = 2.081)</strong>. Consequently, <strong>standing <em>1T</em></strong> pumps oscillating AC <em>1R</em> <strong>~600&times; stronger</strong> than <em>SO</em>(2)-protected spinning <em>1T</em> in 2D disks (678&ndash;820&times; on [10, 16]; <strong>427&times;</strong> in reacting 3D throughflow) with exact small-amplitude quartic scaling (<em>A</em><sub>0</sub><sup>3.99</sup> standing, <em>A</em><sub>0</sub><sup>3.98</sup> physical second-order spinning), beating detuned <em>2T</em> (&le; 1.12%) by 4.4&ndash;6.1&times;.
+      </p>
+      <figure>
+        <img src="assets/rocket-3d-chiral-1R-shroud-hub.png" alt="3D chiral 1T to 1R cascade selection rule and analytical shroud versus hub modal weights" />
+        <figcaption>
+          <strong>Entry <code>014</code> (Exp 3 &amp; 4A):</strong> Standing <em>1T</em>&rarr;AC <em>1R</em> quartic resonance vs. ~600&times; weaker spinning <em>1T</em> across two decades of amplitude (left), and exact normalized Bessel modal energy densities <em>W<sub>mn</sub></em>(<em>r</em>) separating outer-shroud <em>1T</em>/<em>2T</em> cavities from a 6.16&times; stronger centerline micro-hub <em>1R</em> cavity (right).
+        </figcaption>
+      </figure>
+      <p>
+        Because uniform axisymmetric ports have identically zero <em>1R</em> coupling (&int;<sub>0</sub><sup>1</sup> <em>J</em><sub>0</sub>(<em>s</em><sub>02</sub><em>r</em>)<em>r dr</em> &equiv; 0) and hub ports have identically zero tangential coupling (<em>J<sub>m</sub></em>(0) = 0), matched-window 3D PDE tests locate the 3D shroud EP peak at &xi;<sub><em>H</em></sub> &approx; 0.24, confirm 0.5% shroud/uniform gain 1.46&times;, and prove on refined <code>24&times;20&times;64</code> grids that a <strong>0.35% micro-hub beats a 5.7&times; larger 2.0% shroud on <em>1R</em> by 2.27&times;</strong> ([7, 22]; 1.33&times; on [14, 24]). In refined reacting <code>20&times;20&times;64</code> <em>1R</em> shootouts, <strong>Shroud-Only fails (7.42% growing)</strong> while the <strong>Dual-Zone 0.35% micro-hub quenches <em>1R</em> (0.11%, 6,814&times; energy drop vs. bare)</strong>&mdash;and <em>t</em> = 120 audits identify slow <em>k</em> = 0 bulk pressure drift (<em>E</em><sub>mean</sub>) in cavity-equipped <em>1T</em> runs, motivating full 3D Navier&ndash;Stokes + radial baffles next.
+      </p>
+      <figure>
+        <img src="assets/rocket-3d-shroud-hub-shootout.png" alt="Matched-window 3D cavity placement gains and refined 20x20x64 reacting 1R quench plus t=120 audit" />
+        <figcaption>
+          <strong>Entry <code>014</code> (Exp 4B&ndash;4C, hardened per Peer Review #11):</strong> Matched-window cavity gains &minus;&Delta;&alpha; including refined 24&times;20&times;64 <em>1R</em> (left), and true-norm. reacting 3D shootout (right) contrasting Shroud-Only <em>1R</em> failure (7.42%) against 0.35% micro-hub quench (0.11%) alongside the honest <em>t</em> = 120 <em>k</em> = 0 bulk-drift audit.
+        </figcaption>
+      </figure>
 
       <h2 id="milestone-6">Milestone 6 Update: Breaking the <code>120&times;300</code> <em>1T&rarr;2T</em> Cascade &amp; Coupled Viscous&ndash;Transonic Bell Quench (<code>013</code>)</h2>
       <p>
