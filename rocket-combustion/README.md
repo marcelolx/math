@@ -2,7 +2,7 @@
 
 Investigating thermoacoustic combustion instability in rocket chambers—modeling the feedback loop between acoustic pressure waves and unsteady heat release (Rayleigh criterion) to explore stabilization mechanisms, geometric damping, nonlinear triggering, and 1D/2D compressible Euler shock dynamics.
 
-> **Consolidated Monograph:** See [`SYNTHESIS.md`](./SYNTHESIS.md) for the unified quantitative design laws, documented dead ends, and verified scope across Entries `000`–`014`. Audit receipts are archived in [`../reviews/README.md`](../reviews/README.md).
+> **Consolidated Monograph:** See [`SYNTHESIS.md`](./SYNTHESIS.md) for the unified quantitative design laws, documented dead ends, and verified scope across Entries `000`–`015`. Audit receipts are archived in [`../reviews/README.md`](../reviews/README.md).
 
 ## Entries
 
@@ -23,3 +23,4 @@ Investigating thermoacoustic combustion instability in rocket chambers—modelin
 | [012-2d-transonic-cd-nozzle.md](./entries/012-2d-transonic-cd-nozzle.md) | 2D Thin-Shell Transonic CD Nozzle: Bell Evanescent Collapse, Entropy Filtering & `120×300` $2T$ Cascade | ✅ | [Review #9](../reviews/peer-review-09-rocket-012.md) (`d5c03b3`) |
 | [013-dual-retuning-viscous-bell.md](./entries/013-dual-retuning-viscous-bell.md) | Dual-Harmonic Baffle–Cavity Retuning & Coupled 2D NS Transonic Bell Nozzle: Breaking the $1T \to 2T$ Cascade | ✅ | [Review #10](../reviews/peer-review-10-rocket-013.md) (`e8e5796`) |
 | [014-3d-cylindrical-bell-bessel.md](./entries/014-3d-cylindrical-bell-bessel.md) | Full 3D Cylindrical $(x, r, \theta)$ Chamber & Transonic Bell Nozzle: Bessel Cutoff Collapse, Meridional Bell Damping, Chiral $1T \to 1R$ & Shroud/Hub Cavities | ✅ | [Review #11](../reviews/peer-review-11-rocket-014.md) (`b95cb0d`) |
+| [015-3d-ns-partial-baffles-chugging.md](./entries/015-3d-ns-partial-baffles-chugging.md) | Full 3D Cylindrical Compressible Navier–Stokes: Partial-Span Shroud-Ring Baffles, Mass-Conserving Cavities & Transverse$\to$Chugging$\to$$1L$ Cascade | 🟡 | Pending Review #12 |

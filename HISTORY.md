@@ -4,7 +4,8 @@ Chronological record of research entries, adversarial cross-model peer reviews, 
 
 ## 2026-11-27
 
-- **Milestone 7 Blog Update:** Published hardened Entry `014` and Peer Review #11 (`b95cb0d`) with three hardened 3D figures to [`docs/index.html`](docs/index.html).
+- **Rocket Combustion Entry `015` (Initial Verified Package, `🟡 Pending Review #12`):** Upgraded the 3D cylindrical conical-frustum solver to full 3D conservative compressible Navier–Stokes (`quiescent = 1.37e-18`, bare & 5-baffle slip/no-slip curved-bell conservation `1.1–2.3e-16`/`1.42e-16`, closed chamber+cavity mass `1.88e-16`, curved-wall stress-free SK within `5.0–5.5%`); closed Entry `014` C1/C2 at fixed $\mathrm{Re} = 500$ (`4.1–5.5%` vs. 1D Bessel-NS Chebyshev; `~85%` meridional + `~15–20%` viscous bell split); discovered the 3D Partial-Span Shroud-Ring Baffle Law (`r_b = 0.42–0.58` cuts metal `42–58%` while boosting $2T$ damping `2.57–2.90×` via inner-tip vortex shedding and leaving the hub open); eliminated Entry `014`'s $t = 120$ $k = 0$ chugging drift `44,500–45,200×` via mass-conserving $\dot{m}$ + stiff $\omega_{\text{hp}} = 0.50$; and cut true-3D smooth bell $1T$ energy `8.45×` (`20.21% → 7.04%`) and $1R$ `9,524×` (`0.093%`) while exposing the 3D Transverse $\to$ Chugging $\to$ $1L$ Mode-Migration Cascade.
+- **Milestone 7 Blog Update (`74e98e3`):** Published hardened Entry `014` and Peer Review #11 (`b95cb0d`) with three hardened 3D figures to [`docs/index.html`](docs/index.html).
 
 ## 2026-11-26
 
