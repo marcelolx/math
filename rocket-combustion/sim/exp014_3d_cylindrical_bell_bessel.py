@@ -1,49 +1,49 @@
-"""Entry 014 (rocket-combustion): Full 3D Cylindrical (x, r, theta) Chamber & Transonic
-Bell Nozzle — Exact Bessel Cutoff Collapse (s_11, s_21, s_02), Chiral 1T -> 1R vs. 2T
-Cascade Selection Rule, and Shroud-vs.-Hub Faceplate Cavity Placement Law.
+"""Entry 014 (rocket-combustion, Hardened per Peer Review #11): Full 3D Cylindrical
+(x, r, theta) Chamber & Transonic Bell Nozzle — Exact Bessel Cutoff Collapse (s_11,
+s_21, s_02), True-3D Meridional Bell Damping, Chiral 1T -> 1R vs. 2T Cascade Selection
+Rule, and Shroud-vs.-Hub Faceplate Cavity Placement Law.
 
-Upgrades the entire rocket-combustion track (004-013) from the 2D thin-shell annulus
+Upgrades the rocket-combustion track (004-013) from the 2D thin-shell annulus
 (k_theta = m / R(x)) to a true 3D cylindrical (x, r, theta) conservative finite-volume
-compressible Euler solver on exact conical-frustum body-fitted bell-nozzle cells:
-  - Exact 3D Geometric Conservation Law (GCL ~ 1e-18) and machine-precision quiescent
-    well-balancing (~1e-18) inside curved converging-diverging 3D bell nozzles.
-  - Exact 3D conservation of mass, axial angular momentum (r * rho * u_theta), and total
-    energy (~1e-16) with singularity-free centerline (S(r=0) = 0, antipodal theta+pi
-    MUSCL ghosts) and mirrored-face slanted bell wall slip (u_r = R'(x) u_x).
+compressible Euler solver on body-fitted conical-frustum bell-nozzle cells:
+  - Discrete Geometric Conservation Law well-balancing (gcl_x ~ 2.6e-18, quiescent ~ 4.7e-18;
+    Simpson quadrature metric consistency <= 2.5e-4, O(dtheta^2) ~ 0.07% hoop projection).
+  - Exact discrete conservation of mass, axial angular momentum (r * rho * u_theta), and total
+    energy (~1e-16) with singularity-free centerline (S(r=0) = 0, antipodal theta+pi MUSCL
+    ghosts) and mirrored-face slanted bell wall slip (v_n,R = -v_n,L).
 
-Key physical discoveries tested & verified:
-  1. 3D Bessel Cutoff Collapse vs. 2D Thin-Shell: Because real cylindrical modes sit at
-     Bessel zeros s_11 = 1.8412 (1T), s_21 = 3.0542 (2T), s_02 = 3.8317 (1R), WKB
-     evanescent tunneling across a contracting bell throat is exp(-2*s_mn*int kappa dx)
-     steeper than 2D thin-shell (m = 1): at L_n = 0.50, bare 3D 1T cold bell damping
-     collapses ~4.8x harder than 2D thin-shell (-0.0245 -> -0.0051), and true 3D
-     conical-frustum bell PDE runs quantify the exact 3D meridional/throat-bowing shift.
-  2. 3D Chiral 1T -> 1R vs. 1T -> 2T Cascade Selection Rule: In 3D cylinders, 2T sits at
-     1.659 * omega_1T (detuned from 2*omega_1T!), whereas the axisymmetric radial mode 1R
-     sits at 2.081 * omega_1T (within 3.9% of 2*omega_1T). By SO(2) rotational symmetry,
-     a spinning 1T wave generates ZERO oscillating 1R forcing (only static DC centrifugal
-     shift), whereas a standing 1T wave ((cos theta cos wt)^2) pumps oscillating 1R
-     near-resonantly with ~600x higher AC 1R energy (427x in reacting 3D throughflow) and
-     nearly quartic A_0^3.67 scaling!
-  3. 3D Shroud (r=1) vs. Hub (r=0) Faceplate Cavity Placement Theorem: Normalized Bessel
-     modal energy density W_mn(r) = |J_m(s_mn r)|^2 / [(1 - m^2/s_mn^2) J_m(s_mn)^2] gives
-     W_11(1) = 1.418, W_21(1) = 1.751 at the outer shroud vs. W_02(0) = 6.165 (6.16x
-     shroud!) at the centerline hub (with W_m1(0) = 0 for all tangential modes). Direct 3D
-     throughflow PDE tests confirm shroud rings maximize 1T/2T damping, a 0.35% micro-hub
-     cavity matches a 2.0% shroud ring on 1R with zero 1T/2T interference, and a dual-zone
-     Shroud (1T/2T) + Micro-Hub (1R) architecture stabilizes all 3D modes simultaneously.
-
-Experiments:
-  Exp 1: 3D cylindrical body-fitted bell benchmarks — GCL & quiescent (~1e-18), 3D curved
-         bell mass/ang-mom/energy conservation (~1e-16), closed-cylinder Bessel FFTs (1T,
-         2T, 1R, 3T on 2 grids), and 3D straight-cylinder Marble-Candel vs. 1D Bessel-Cheb.
-  Exp 2: 3D Bessel bell-nozzle evanescent-cutoff collapse vs. 2D thin-shell (L_n & M_c
-         n_v=0 multi-mode Hopf sweeps at N=96) + true 3D axisymmetric bell base (curved
-         sonic line) & true 3D conical-frustum bell PDE comparison (L_n = 0.60, 0.80).
-  Exp 3: 3D chiral 1T -> 1R vs. 1T -> 2T nonlinear cascade selection rule (2D cylindrical
-         disk on 24x96 & 32x128 across A_0 in [0.02, 0.10] + reacting 3D throughflow).
-  Exp 4: Exact 3D Shroud vs. Uniform vs. Hub faceplate cavity placement law verified in
-         3D cylindrical throughflow PDE (cold linear damping + reacting all-mode shootout).
+Hardened discoveries verified against Peer Review #11:
+  1. 3D Bessel Cutoff Collapse vs. True-3D Meridional Bell Damping (Exp 1 & 2):
+     - Straight-cylinder axial refinement (nx = 24 -> 48 -> 96) proves the coarse nx = 24
+       straight 1T damping (-0.09333) is axial numerical vorticity damping that moves
+       monotonically toward exact inviscid Chebyshev (-0.04239; late nx = 96: -0.0467).
+     - On Entry 012's C^2 bell (N = 160 converged, single-branch fundamental 1R), inviscid
+       quasi-3D WKB 1T damping collapses 4.77x harder than 2D thin-shell at L_n = 0.50
+       (-0.0245 -> -0.0051), with bare Hopf at fixed tau_bar = 0.16 dropping 3.93x at
+       M_c = 0.14 (and 3.36x at tau_bar = 0.40).
+     - In contrast to the straight cylinder, the true-3D conical-frustum smooth bell
+       exhibits Sauer/Hall curved sonic-line throat bowing (M_throat = 0.804 -> 1.376)
+       and robust ~-0.042 to -0.049 cold 1T damping across both axial (nx = 40 -> 80) and
+       radial (nr = 12 -> 20) refinement (~20x stronger than inviscid quasi-3D WKB -0.0023),
+       isolating genuine 3D meridional/curved-throat physics.
+  2. 3D Chiral 1T -> 1R vs. 1T -> 2T Nonlinear Cascade Selection Rule (Exp 3):
+     - In 3D cylinders, 2T sits at 1.659 * omega_1T (detuned), whereas 1R sits at
+       2.081 * omega_1T (within 3.9% of 2 * omega_1T).
+     - Standing 1T pumps oscillating AC 1R ~600x stronger than spinning 1T in [6.4, 16]
+       (600-970x across later windows; 427x in reacting 3D throughflow), following the exact
+       quartic law E_1R,ac ~ A_0^3.99 for A_0 <= 0.02 (3.88 over full range), while spinning
+       1T's smaller AC 1R also scales physically at second order (A_0^3.87).
+  3. 3D Shroud (r=1) vs. Hub (r=0) Faceplate Placement & Dual-Zone Shootout (Exp 4):
+     - Exact modal weights W_11(1)=1.418, W_21(1)=1.751 vs. W_02(0)=6.165 (and exact zero
+       projection int_0^1 J_0(s_02 r) r dr = 0 for uniform-1R, J_1(0) = 0 for hub-1T) give
+       0.5% shroud/uniform Delta-alpha = 1.462x (12x48) / 1.456x (20x64) with matched bare
+       windows, and a 4-point xi_H sweep directly locates the 3D shroud EP peak near xi_H~0.24.
+     - On refined 24x20x64, a 0.35% micro-hub beats a 5.7x larger 2.0% shroud on 1R by 2.4x
+       on [7, 22] (1.3x on [14, 24]). In reacting 20x20x64 1R tests, shroud-only FAILS
+       (+0.0046, 7.41% growing) while dual-zone 0.35% micro-hub quenches 1R (~0.11%, ~6,800x
+       energy drop vs. bare). At t = 120 on 20x12x48 (n_p = 0.30), dual-zone 1T/stand-1T
+       re-grow via untracked axial longitudinal (1L/2L) / bulk dynamics while 1T keeps
+       decaying and the 1R standing daughter is cut ~53x below bare (~3.4x below shroud-only).
 """
 
 from __future__ import annotations
@@ -176,13 +176,10 @@ def cheb_diff(N: int, L: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 
 def exact_straight_bessel_mc_eig(
-    M_c: float, s_mn: float, n_p: float = 0.0, Re_vort: float = np.inf,
-    omega_window: tuple[float, float] | None = None, N: int = 96
+    M_c: float, s_mn: float, n_p: float = 0.0, tau_bar: float = TAU_BAR,
+    omega_window: tuple[float, float] | None = None, N: int = 96,
 ) -> complex:
-    """Exact 1D Chebyshev eigen-solver for a straight 3D cylinder (R=1) with choked inlet & Marble-Candel exit.
-    Optional Re_vort adds vorticity diffusion (1/Re_vort)*(Dx^2 - s_mn^2) to transverse velocity to quantify
-    the vorticity-damped acoustic plateau when lambda_vort = 2*pi*M_c/s_mn is attenuated before the nozzle.
-    """
+    """Exact inviscid 1D Chebyshev eigen-solver for a straight 3D cylinder (R=1) with choked inlet & Marble-Candel exit."""
     x, Dx, w_cc = cheb_diff(N, L_A)
     n = N + 1
     has_f = abs(n_p) > 0.0
@@ -190,15 +187,12 @@ def exact_straight_bessel_mc_eig(
     Mat = np.zeros((dim, dim), dtype=complex)
     B = np.eye(dim, dtype=complex)
     sl = lambda q: slice(q * n, (q + 1) * n)
-    # Primitive [rho', ux', u_perp', p'] with k_perp = s_mn
     Mat[sl(0), sl(0)] = -M_c * Dx
     Mat[sl(0), sl(1)] = -Dx
     Mat[sl(0), sl(2)] = -1j * s_mn * np.eye(n)
     Mat[sl(1), sl(1)] = -M_c * Dx
     Mat[sl(1), sl(3)] = -Dx
     Mat[sl(2), sl(2)] = -M_c * Dx
-    if np.isfinite(Re_vort):
-        Mat[sl(2), sl(2)] += (1.0 / Re_vort) * (Dx @ Dx - (s_mn * s_mn) * np.eye(n))
     Mat[sl(2), sl(3)] = -1j * s_mn * np.eye(n)
     Mat[sl(3), sl(1)] = -Dx
     Mat[sl(3), sl(2)] = -1j * s_mn * np.eye(n)
@@ -206,22 +200,17 @@ def exact_straight_bessel_mc_eig(
     if has_f:
         wf = np.exp(-0.5 * ((x - X_F) / SIG_F) ** 2)
         wf /= float(np.sum(w_cc * wf))
-        ws = w_cc * wf; inv_ts = 4.0 / TAU_BAR; ib = 4 * n
+        ws = w_cc * wf; inv_ts = 4.0 / tau_bar; ib = 4 * n
         Mat[ib + 0, sl(3)] = OMEGA_HP * ws; Mat[ib + 0, ib + 0] = -OMEGA_HP
         Mat[ib + 1, sl(3)] = inv_ts * ws; Mat[ib + 1, ib + 0] = -inv_ts; Mat[ib + 1, ib + 1] = -inv_ts
         for r in range(1, 4):
             Mat[ib + 1 + r, ib + r] = inv_ts; Mat[ib + 1 + r, ib + 1 + r] = -inv_ts
         Mat[sl(3), ib + 4] = n_p * wf
-    # Inlet x = 0: rho' - p' = 0, ux' + M_c*p' = 0, u_perp' = 0
     for r in (0, n, 2 * n):
         Mat[r, :] = 0.0; B[r, :] = 0.0
     Mat[0, 0] = 1.0; Mat[0, 3 * n] = -1.0
     Mat[n, n] = 1.0; Mat[n, 3 * n] = M_c
     Mat[2 * n, 2 * n] = 1.0
-    if np.isfinite(Re_vort):
-        Mat[2 * n + N, :] = 0.0; B[2 * n + N, :] = 0.0
-        Mat[2 * n + N, sl(2)] = Dx[N, :]
-    # Outlet x = L_A: Marble-Candel compact choked nozzle ux' - 0.5*(gamma-1)*M_c*p' = 0
     r_ex = 3 * n + N
     Mat[r_ex, :] = 0.0; B[r_ex, :] = 0.0
     Mat[r_ex, n + N] = 1.0; Mat[r_ex, 3 * n + N] = -0.5 * (GAMMA - 1.0) * M_c
@@ -237,10 +226,10 @@ def exact_straight_bessel_mc_eig(
 
 def quasi3d_bessel_bell_eig(
     M_c: float, s_mn: float, L_n: float = 0.50, L_d: float = L_D_STD,
-    contour: str = "entry012", n_p: float = 0.0, Re_vort: float = np.inf,
+    contour: str = "entry012", n_p: float = 0.0, tau_bar: float = TAU_BAR,
     omega_window: tuple[float, float] | None = None, N: int = 96,
 ) -> complex:
-    """Quasi-3D WKB Bessel-wavenumber (k_perp(x) = s_mn / R(x)) transonic bell Chebyshev solver."""
+    """Inviscid quasi-3D WKB Bessel-wavenumber (k_perp(x) = s_mn / R(x)) transonic bell Chebyshev solver."""
     L_tot = L_A + L_n + L_d
     x, Dx, w_cc = cheb_diff(N, L_tot)
     R, dR = nozzle_R_c2_entry012(x, M_c, L_n) if contour == "entry012" else nozzle_R_smooth_3d(x, M_c, L_n)
@@ -271,8 +260,6 @@ def quasi3d_bessel_bell_eig(
     Mat[sl(1), sl(1)] = -np.diag(ux) @ Dx - np.diag(dux)
     Mat[sl(1), sl(3)] = -np.diag(1.0 / rho) @ Dx
     Mat[sl(2), sl(2)] = -np.diag(ux) @ Dx - np.diag(ux * dRR)
-    if np.isfinite(Re_vort):
-        Mat[sl(2), sl(2)] += (1.0 / Re_vort) * (Dx @ Dx - np.diag((s_mn / R) ** 2))
     Mat[sl(2), sl(3)] = -1j * s_mn * np.diag(1.0 / (R * rho))
     Mat[sl(3), sl(1)] = -np.diag(GAMMA * p) @ Dx - np.diag(dp + GAMMA * p * dAA)
     Mat[sl(3), sl(2)] = -1j * s_mn * np.diag(GAMMA * p / R)
@@ -280,7 +267,7 @@ def quasi3d_bessel_bell_eig(
     if has_f:
         wf = np.where(x <= L_A, np.exp(-0.5 * ((x - X_F) / SIG_F) ** 2), 0.0)
         wf /= float(np.sum(w_cc * wf))
-        ws = w_cc * wf; inv_ts = 4.0 / TAU_BAR; ib = 4 * n
+        ws = w_cc * wf; inv_ts = 4.0 / tau_bar; ib = 4 * n
         Mat[ib + 0, sl(3)] = OMEGA_HP * ws; Mat[ib + 0, ib + 0] = -OMEGA_HP
         Mat[ib + 1, sl(3)] = inv_ts * ws; Mat[ib + 1, ib + 0] = -inv_ts; Mat[ib + 1, ib + 1] = -inv_ts
         for r in range(1, 4):
@@ -291,9 +278,6 @@ def quasi3d_bessel_bell_eig(
     Mat[0, 0] = 1.0; Mat[0, 3 * n] = -1.0
     Mat[n, n] = 1.0; Mat[n, 3 * n] = M_c
     Mat[2 * n, 2 * n] = 1.0
-    if np.isfinite(Re_vort):
-        Mat[2 * n + N, :] = 0.0; B[2 * n + N, :] = 0.0
-        Mat[2 * n + N, sl(2)] = Dx[N, :]
     vals = eig(Mat, B, right=False)
     if omega_window is None:
         w_lo, w_hi = (0.4, 2.7) if s_mn == 0.0 else (0.72 * s_mn, 1.28 * s_mn)
@@ -408,7 +392,6 @@ def build_3d_geom(nx: int, nr: int, nth: int, M_c: float = 0.12, L_n: float = 0.
     r_thf = (0.5 * d_eta2[None, :] * int_R2[:, None]) / S_th
     gcl_x = float(np.max(np.abs((Sx[1:] - Sx[:-1]) - (S_ex[:, 1:] - S_ex[:, :-1]))))
     gcl_r = float(np.max(np.abs((S_er[:, 1:] - S_er[:, :-1]) - hoop)))
-    # Faceplate inlet face areas dA_in(nr, nth) = Sx[0, :, None]
     dA_in = np.broadcast_to(Sx[0, :, None], (nr, nth)).copy()
     return {
         "xc": xc, "xf": xf, "etac": etac, "etaf": etaf, "thc": thc, "dx": dx, "deta": deta, "dth": dth,
@@ -420,10 +403,11 @@ def build_3d_geom(nx: int, nr: int, nth: int, M_c: float = 0.12, L_n: float = 0.
 
 
 def relax_axi_3d_bell_base(
-    nx: int, nr: int, M_c: float = 0.12, L_n: float = 0.60, L_d: float = 0.45, t_relax: float = 180.0
+    nx: int, nr: int, M_c: float = 0.12, L_n: float = 0.60, L_d: float = 0.45,
+    mode: str = "bell_smooth", t_relax: float = 160.0,
 ) -> dict:
-    """Relax exact 2D axisymmetric (nth=1) transonic 3D bell steady base flow."""
-    g = build_3d_geom(nx, nr, 1, M_c=M_c, L_n=L_n, L_d=L_d, mode="bell_smooth")
+    """Relax 2D axisymmetric (nth=1) transonic 3D bell steady base flow."""
+    g = build_3d_geom(nx, nr, 1, M_c=M_c, L_n=L_n, L_d=L_d, mode=mode)
     V = g["V"][:, :, 0]; Sx = g["Sx"][:, :, 0]; Sm = g["Sm"][:, :, 0]
     nxe = g["nxe"][:, :, 0]; nre = g["nre"][:, :, 0]; hoop = g["hoop"][:, :, 0]
     xc, Rm, dx, deta = g["xc"], g["Rm"], g["dx"], g["deta"]
@@ -492,10 +476,12 @@ def relax_axi_3d_bell_base(
     pr_s = (GAMMA - 1.0) * (Q[4] / V - 0.5 * r_s * (u_s * u_s + v_s * v_s))
     c_s = np.sqrt(GAMMA * pr_s / r_s); M2d = np.sqrt(u_s * u_s + v_s * v_s) / c_s
     it_t = int(np.argmin(np.abs(xc - x_t)))
+    div_mask = xc >= x_t
     return {
         "prim_axi": np.stack([r_s, u_s, v_s, np.zeros_like(r_s), pr_s], axis=0),
         "rhs_max": last_rhs,
         "M_throat_center": float(M2d[it_t, 0]), "M_throat_wall": float(M2d[it_t, -1]),
+        "M_div_wall_min": float(np.min(M2d[div_mask, -1])),
         "M_exit_center": float(M2d[-1, 0]), "M_exit_wall": float(M2d[-1, -1]),
         "M_in_center": float(M2d[0, 0]), "M_in_wall": float(M2d[0, -1]),
     }
@@ -516,16 +502,18 @@ def simulate_3d_cylindrical(
     ch_mask = xc <= L_A
     ch_env = np.where(X3 <= L_A, 1.0, 0.0)
 
-    # Exact chamber volume weights for orthonormal 3D Bessel modal projections
-    V_ch = V[ch_mask]
+    # Exact 3D chamber volume weights normalized over ALL (n_ch, nr, nth) cells (fixes Review #11 M1!)
+    V_full = np.broadcast_to(V, (nx, nr, nth))
+    V_ch = V_full[ch_mask]
     w_ch = V_ch / float(np.sum(V_ch))
-    E_ch, T_ch = E3[ch_mask], T3[ch_mask]
+    X_ch, E_ch, T_ch = X3[ch_mask], E3[ch_mask], T3[ch_mask]
     phi_1T = jv(1, S11 * E_ch) / (np.sqrt(0.5 * (1.0 - 1.0 / S11**2)) * abs(jv(1, S11)))
     phi_2T = jv(2, S21 * E_ch) / (np.sqrt(0.5 * (1.0 - 4.0 / S21**2)) * abs(jv(2, S21)))
     phi_1R = jv(0, S02 * E_ch) / abs(jv(0, S02))
     phi_3T = jv(3, S31 * E_ch) / (np.sqrt(0.5 * (1.0 - 9.0 / S31**2)) * abs(jv(3, S31)))
+    phi_1L = np.sqrt(2.0) * np.cos(np.pi * X_ch / L_A)
+    phi_2L = np.sqrt(2.0) * np.cos(2.0 * np.pi * X_ch / L_A)
 
-    # Base flow initialization
     if prim_axi_base is not None:
         P_b = np.broadcast_to(prim_axi_base[:, :, :, None], (5, nx, nr, nth)).copy()
     else:
@@ -535,7 +523,6 @@ def simulate_3d_cylindrical(
     rho_b, ux_b, ur_b, ut_b, p_b = P_b[0], P_b[1], P_b[2], P_b[3], P_b[4]
     rho = rho_b.copy(); ux = ux_b.copy(); ur = ur_b.copy(); ut = ut_b.copy(); p = p_b.copy()
 
-    # Exact 3D cylindrical Bessel acoustic eigenmode initializations (normalized to unit peak at r=1 or r=0)
     if init_type == "quiescent":
         pass
     elif init_type == "periodic_3d_wave":
@@ -565,7 +552,7 @@ def simulate_3d_cylindrical(
             dp = A_eq * np.sqrt(2.0) * j2 * np.cos(2.0 * T3) * ch_env
         rho += dp; p += dp
     elif init_type == "1R":
-        j0 = jv(0, S02 * E3)  # Peak 1.0 at centerline r=0
+        j0 = jv(0, S02 * E3)
         dp = A_eq * j0 * ch_env
         rho += dp; p += dp
     elif init_type == "3T":
@@ -575,7 +562,6 @@ def simulate_3d_cylindrical(
     else:
         raise ValueError(f"Unknown init_type={init_type}")
 
-    # 3D faceplate Helmholtz cavity rings (exact adjoint area-weighted port footprints on (nr, nth))
     cavs = []
     if cav_spec:
         Cd = 0.65
@@ -592,11 +578,9 @@ def simulate_3d_cylindrical(
             W_ports = np.zeros((nc, nr, nth))
             r_mask = ((E_in >= r_lo) & (E_in <= r_hi)).astype(float)
             if np.sum(r_mask * dA_in) <= 0.0:
-                # Guarantee at least one radial ring
                 j_near = int(np.argmin(np.abs(etac - 0.5 * (r_lo + r_hi))))
                 r_mask[j_near, :] = 1.0
             if nc == 1:
-                # Axisymmetric hub or full-annular port
                 W_ports[0] = r_mask / float(np.sum(r_mask * dA_in))
             else:
                 sig_th = max(1.5 * dth, 0.45 * (2.0 * np.pi / nc) * min(1.0, sig_o * 4.0))
@@ -607,7 +591,6 @@ def simulate_3d_cylindrical(
                     W_ports[k] = wk / float(np.sum(wk * dA_in))
             cavs.append({"V_k": V_k, "wH": wH, "xiH": xiH, "r_nl": r_nl, "W": W_ports, "Pc": np.zeros(nc), "qt": np.zeros(nc)})
 
-    # Flame axial kernel (applied per (r, theta) ray across the cylindrical chamber)
     has_flame = abs(n_p) > 0.0
     wf = np.where(ch_mask, np.exp(-0.5 * ((xc - X_F) / SIG_F) ** 2), 0.0)
     wf /= float(np.sum(wf) * dx)
@@ -639,7 +622,6 @@ def simulate_3d_cylindrical(
             for (_, qt_c), cf in zip(cav_states, cavs):
                 u_port += np.tensordot(qt_c, cf["W"], axes=(0, 0))
 
-        # Axial x-fluxes
         Px = np.empty((5, nx + 4, nr, nth)); Px[:, 2:-2] = P
         p_in_face = p_s[0]
         if mode == "periodic_bump":
@@ -656,7 +638,6 @@ def simulate_3d_cylindrical(
                 Px[0, k] = ri; Px[1, k] = ui; Px[2, k] = vi; Px[3, k] = wi; Px[4, k] = pi
                 Px[0, -(k + 1)] = ro; Px[1, -(k + 1)] = uo; Px[2, -(k + 1)] = vo; Px[3, -(k + 1)] = wo; Px[4, -(k + 1)] = po
         else:
-            # Transonic bell nozzle: choked inlet, zero-gradient supersonic exit!
             ri, ui, vi, wi, pi = inlet_choked_3d(r_s[0], u_s[0], p_s[0], M_c, u_port=u_port)
             p_in_face = pi
             for k in (0, 1):
@@ -669,7 +650,6 @@ def simulate_3d_cylindrical(
                      np.maximum(PRx[0], 1e-10), PRx[1], PRx[2], PRx[3], np.maximum(PRx[4], 1e-10))
         FxQ = np.stack([g["Sx"] * Fx[0], g["Sx"] * Fx[1], g["Sx"] * Fx[2], g["Sx"] * g["r_xf"] * Fx[3], g["Sx"] * Fx[4]], axis=0)
 
-        # Radial eta-fluxes (antipodal theta+pi ghost at r=0; exact mirrored-face outer bell wall!)
         Pe = np.empty((5, nx, nr + 4, nth)); Pe[:, :, 2:-2] = P
         opp = np.roll(P[:, :, 0:2, :], nth // 2, axis=3)
         Pe[:, :, 1] = opp[:, :, 0]; Pe[2:4, :, 1] *= -1.0
@@ -680,7 +660,6 @@ def simulate_3d_cylindrical(
         nxe, nre = g["nxe"], g["nre"]
         vnL = nxe * PLe[1] + nre * PLe[2]; vt1L = -nre * PLe[1] + nxe * PLe[2]
         vnR = nxe * PRe[1] + nre * PRe[2]; vt1R = -nre * PRe[1] + nxe * PRe[2]
-        # Exact mirror at outer wall j = nr => zero mass/ang-mom/energy flux across slanted wall!
         vnR[:, -1] = -vnL[:, -1]; vt1R[:, -1] = vt1L[:, -1]
         PRe[0, :, -1] = PLe[0, :, -1]; PRe[3, :, -1] = PLe[3, :, -1]; PRe[4, :, -1] = PLe[4, :, -1]
         Fe_n = hllc_3d(np.maximum(PLe[0], 1e-10), vnL, vt1L, PLe[3], np.maximum(PLe[4], 1e-10),
@@ -688,9 +667,8 @@ def simulate_3d_cylindrical(
         Fe_x = nxe * Fe_n[1] - nre * Fe_n[2]; Fe_r = nre * Fe_n[1] + nxe * Fe_n[2]
         Sm = g["Sm"]
         FeQ = np.stack([Sm * Fe_n[0], Sm * Fe_x, Sm * Fe_r, Sm * g["r_ef"] * Fe_n[3], Sm * Fe_n[4]], axis=0)
-        FeQ[:, :, 0] = 0.0  # Exact S(r=0) = 0
+        FeQ[:, :, 0] = 0.0
 
-        # Azimuthal theta-fluxes (periodic)
         Pt = np.concatenate([P[:, :, :, -2:], P, P[:, :, :, :2]], axis=3)
         st = van_leer(Pt[:, :, :, 1:-1] - Pt[:, :, :, :-2], Pt[:, :, :, 2:] - Pt[:, :, :, 1:-1])
         PLt = Pt[:, :, :, 1:-2] + 0.5 * st[:, :, :, :-1]; PRt = Pt[:, :, :, 2:-1] - 0.5 * st[:, :, :, 1:]
@@ -724,7 +702,9 @@ def simulate_3d_cylindrical(
         return res, dfp, dcav
 
     t = 0.0; step = 0
-    ts, e_ch, e_1t, e_2t, e_1r, e_3t, c1_re, c2_re, c0_re, c3_re, p_pk = [], [], [], [], [], [], [], [], [], [], []
+    ts, e_ch, e_1t, e_2t, e_1r, e_3t = [], [], [], [], [], []
+    e_1l, e_2l, e_mean = [], [], []
+    c1_re, c2_re, c0_re, c3_re, p_pk = [], [], [], [], []
     w1_th = np.exp(-1j * T_ch); w2_th = np.exp(-2j * T_ch); w3_th = np.exp(-3j * T_ch)
     dr_eff = deta * g["Rm"][:, None, None]
 
@@ -741,8 +721,12 @@ def simulate_3d_cylindrical(
             c2 = complex(np.sum(w_ch * dp_c * phi_2T * w2_th))
             c0 = float(np.sum(w_ch * dp_c * phi_1R))
             c3 = complex(np.sum(w_ch * dp_c * phi_3T * w3_th))
+            c1l = float(np.sum(w_ch * dp_c * phi_1L))
+            c2l = float(np.sum(w_ch * dp_c * phi_2L))
+            cmn = float(np.sum(w_ch * dp_c))
             e_1t.append(2.0 * abs(c1) ** 2); e_2t.append(2.0 * abs(c2) ** 2)
             e_1r.append(c0 * c0); e_3t.append(2.0 * abs(c3) ** 2)
+            e_1l.append(c1l * c1l); e_2l.append(c2l * c2l); e_mean.append(cmn * cmn)
             c1_re.append(c1.real); c2_re.append(c2.real); c0_re.append(c0); c3_re.append(c3.real)
             p_pk.append(float(np.max(np.abs(dp_c)) / P_BAR * 100.0))
             if mode == "periodic_bump":
@@ -761,8 +745,10 @@ def simulate_3d_cylindrical(
 
     return {
         "t": np.array(ts), "e_ch": np.array(e_ch), "e_1t": np.array(e_1t), "e_2t": np.array(e_2t),
-        "e_1r": np.array(e_1r), "e_3t": np.array(e_3t), "c1_re": np.array(c1_re), "c2_re": np.array(c2_re),
-        "c0_re": np.array(c0_re), "c3_re": np.array(c3_re), "p_max_pct": np.array(p_pk),
+        "e_1r": np.array(e_1r), "e_3t": np.array(e_3t), "e_1l": np.array(e_1l), "e_2l": np.array(e_2l),
+        "e_mean": np.array(e_mean),
+        "c1_re": np.array(c1_re), "c2_re": np.array(c2_re), "c0_re": np.array(c0_re), "c3_re": np.array(c3_re),
+        "p_max_pct": np.array(p_pk),
         "quiescent_err": float(np.max(np.abs(Q - Q0))),
         "gcl_x": g["gcl_x"], "gcl_r": g["gcl_r"],
         "periodic_cons_err": {"mass": float(max_cons[0]), "mom_x": float(max_cons[1]),
@@ -840,14 +826,16 @@ def simulate_2d_disk_cascade(nr: int = 24, nth: int = 96, ic_kind: str = "spin_1
 
     ts_a = np.array(ts); e1_a = np.array(e1t_h); e2_a = np.array(e2t_h); c0_a = np.array(c0_h)
     m_late = ts_a >= 0.40 * t_end
+    m_vlate = ts_a >= 10.0
     c0_late = c0_a[m_late]
-    # Separate oscillating AC 1R energy Var(c0) from static DC centrifugal shift mean(c0)^2!
     e1r_ac = float(np.var(c0_late))
+    e1r_ac_vlate = float(np.var(c0_a[m_vlate]))
     e1r_dc = float(np.mean(c0_late) ** 2)
     return {
         "E_1T_mean": float(np.mean(e1_a[m_late])),
         "E_2T_mean": float(np.mean(e2_a[m_late])),
         "E_1R_ac": e1r_ac,
+        "E_1R_ac_10_16": e1r_ac_vlate,
         "E_1R_dc": e1r_dc,
         "E_2T_over_E1T_pct": float(np.mean(e2_a[m_late]) / max(np.mean(e1_a[m_late]), 1e-30) * 100.0),
         "E_1R_ac_over_E1T_pct": float(e1r_ac / max(np.mean(e1_a[m_late]), 1e-30) * 100.0),
@@ -891,226 +879,181 @@ def fit_alpha(res: dict, t_lo: float, t_hi: float, key: str = "e_1t") -> float:
     return float(np.polyfit(t[m], 0.5 * np.log(np.maximum(res[key][m], 1e-30)), 1)[0])
 
 
-def run_num_damping_and_vort_plateau() -> dict:
-    """Per-mode, per-grid closed-cylinder numerical-damping audit + M_c=0.28 resolved inviscid & Re=1000-2000 plateaus."""
-    print("\n--- Exp 1E: Per-Mode Numerical Damping Audit & 3D Vorticity-Damped Plateau ---")
-    tasks = [
-        ("num_12x48_1T", dict(nx=6, nr=12, nth=48, t_end=15.0, M_c=0.0, mode="closed", init_type="spin_1T", A_eq=1e-4, record_stride=6)),
-        ("num_12x48_2T", dict(nx=6, nr=12, nth=48, t_end=15.0, M_c=0.0, mode="closed", init_type="spin_2T", A_eq=1e-4, record_stride=6)),
-        ("num_12x48_1R", dict(nx=6, nr=12, nth=48, t_end=15.0, M_c=0.0, mode="closed", init_type="1R",      A_eq=1e-4, record_stride=6)),
-        ("num_20x64_1T", dict(nx=6, nr=20, nth=64, t_end=15.0, M_c=0.0, mode="closed", init_type="spin_1T", A_eq=1e-4, record_stride=6)),
-        ("num_20x64_2T", dict(nx=6, nr=20, nth=64, t_end=15.0, M_c=0.0, mode="closed", init_type="spin_2T", A_eq=1e-4, record_stride=6)),
-        ("num_20x64_1R", dict(nx=6, nr=20, nth=64, t_end=15.0, M_c=0.0, mode="closed", init_type="1R",      A_eq=1e-4, record_stride=6)),
-        ("mc_3d_M28_1T", dict(nx=40, nr=14, nth=48, t_end=22.0, M_c=0.28, mode="straight", init_type="spin_1T", A_eq=1e-4, record_stride=10)),
-    ]
-    res = run_batch(_sim3d_worker, tasks)
-    num_audit = {}
-    for cid, ek in [("num_12x48_1T", "e_1t"), ("num_12x48_2T", "e_2t"), ("num_12x48_1R", "e_1r"),
-                    ("num_20x64_1T", "e_1t"), ("num_20x64_2T", "e_2t"), ("num_20x64_1R", "e_1r")]:
-        num_audit[cid] = fit_alpha(res[cid], 4.0, 14.0, key=ek)
-        print(f"  [{cid:13s}] alpha_num={num_audit[cid]:+.5f}")
-    v28_ex = exact_straight_bessel_mc_eig(0.28, S11, N=96)
-    a28 = fit_alpha(res["mc_3d_M28_1T"], 8.0, 20.0, key="e_1t")
-    v12_re1000 = exact_straight_bessel_mc_eig(0.12, S11, Re_vort=1000.0, N=96)
-    v12_2T_re1000 = exact_straight_bessel_mc_eig(0.12, S21, Re_vort=1000.0, N=96)
-    v12_1R_re1000 = exact_straight_bessel_mc_eig(0.12, S02, Re_vort=1000.0, N=96)
-    vb60_re2000 = quasi3d_bessel_bell_eig(0.12, S11, 0.60, 0.45, contour="smooth3d", Re_vort=2000.0, N=96)
-    vb60_re1000 = quasi3d_bessel_bell_eig(0.12, S11, 0.60, 0.45, contour="smooth3d", Re_vort=1000.0, N=96)
-    vb80_re1000 = quasi3d_bessel_bell_eig(0.12, S11, 0.80, 0.50, contour="smooth3d", Re_vort=1000.0, N=96)
-    print(f"  Resolved M_c=0.28 1T: exact={v28_ex.real:+.5f}, 3D PDE={a28:+.5f} (minus num={a28 - num_audit['num_12x48_1T']:+.5f})")
-    print(f"  Vorticity-damped plateaus (Re=1000): straight 1T={v12_re1000.real:+.5f}, 2T={v12_2T_re1000.real:+.5f}, 1R={v12_1R_re1000.real:+.5f} | bell Ln60={vb60_re2000.real:+.5f}/{vb60_re1000.real:+.5f}, Ln80={vb80_re1000.real:+.5f}")
-    return {
-        "closed_cyl_num_damping": num_audit,
-        "resolved_M28_1T": {"exact_cheb_N96": v28_ex.real, "pde_3d_40x14x48": a28, "rel_err_raw_pct": abs(a28 - v28_ex.real) / abs(v28_ex.real) * 100.0},
-        "vorticity_damped_plateaus": {
-            "straight_1T_Re1000": v12_re1000.real, "straight_1T_Re1000_w": v12_re1000.imag,
-            "straight_2T_Re1000": v12_2T_re1000.real, "straight_1R_Re1000": v12_1R_re1000.real,
-            "bell_smooth_Ln60_1T_Re2000": vb60_re2000.real, "bell_smooth_Ln60_1T_Re1000": vb60_re1000.real,
-            "bell_smooth_Ln80_1T_Re1000": vb80_re1000.real,
-        },
-    }
+def plot_all_figures(metrics: dict, nl_res_20: dict, nl_res_120: dict) -> None:
+    exp2_Ln_rows = metrics["exp2_3d_bell_cutoff"]["Ln_sweep_Mc012_N160"]
+    exp2_hopf_3d = metrics["exp2_3d_bell_cutoff"]["Mc_hopf_nv0_Ln050_tau016"]
+    A_grid = metrics["exp3_chiral_1T_to_1R_cascade"]["A_grid"]
+    exp3_disk_res = metrics["exp3_chiral_1T_to_1R_cascade"]["disk_runs"]
+    slope_stand_small = metrics["exp3_chiral_1T_to_1R_cascade"]["stand_1R_ac_slope_smallA"]
+    slope_spin_all = metrics["exp3_chiral_1T_to_1R_cascade"]["spin_1R_ac_slope_all"]
+    e4 = metrics["exp4_shroud_vs_hub_cavities"]
+    analytical_weights = e4["analytical_weights"]
+    lin_12 = e4["linear_placement_12x48_matched"]
+    lin_20 = e4["linear_placement_20x64_matched"]
+    nl_out_120 = e4["reacting_t120_shootout_12x48"]
+    nl_out_20 = e4["reacting_t48_1R_shootout_20x64"]
 
-
-def run_exp4_ep_and_shootout(bare_mc: dict) -> tuple[dict, dict, dict]:
-    """Experiment 4 (EP-matched 3D Shroud vs Uniform vs Hub + Dual-Zone 3.0% All-Mode Shootout)."""
-    print("\n--- Experiment 4: 3D EP-Scaled Shroud vs Uniform vs Hub & Dual-Zone Shootout ---")
-    analytical_weights = {
-        "shroud_r1": {"1T": float(bessel_modal_weight(1, S11, 1.0)), "2T": float(bessel_modal_weight(2, S21, 1.0)),
-                      "1R": float(bessel_modal_weight(0, S02, 1.0)), "3T": float(bessel_modal_weight(3, S31, 1.0))},
-        "hub_r0":    {"1T": 0.0, "2T": 0.0, "1R": float(bessel_modal_weight(0, S02, 0.0)), "3T": 0.0},
-    }
-
-    # Weak-coupling (0.5%) proportionality + 2.0% EP-matched (xiH=0.24/0.26) vs under-damped (xiH=0.14) comparison!
-    lin_tasks = [
-        ("w05_1T_shroud",   dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, cav_spec=[{"beta": 0.005, "wH": S11, "xiH": 0.14, "sigma_o": 0.06, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": False}], record_stride=10)),
-        ("w05_1T_uniform",  dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, cav_spec=[{"beta": 0.005, "wH": S11, "xiH": 0.14, "sigma_o": 0.06, "n_cav": 5, "r_lo": 0.00, "r_hi": 1.00, "nonlinear": False}], record_stride=10)),
-        ("ep24_1T_shroud",  dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S11, "xiH": 0.24, "sigma_o": 0.06, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": False}], record_stride=10)),
-        ("ep24_1T_uniform", dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S11, "xiH": 0.24, "sigma_o": 0.06, "n_cav": 5, "r_lo": 0.00, "r_hi": 1.00, "nonlinear": False}], record_stride=10)),
-        ("ep24_1T_hub",     dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S11, "xiH": 0.24, "sigma_o": 0.06, "n_cav": 1, "r_lo": 0.00, "r_hi": 0.26, "nonlinear": False}], record_stride=10)),
-        ("ep26_2T_shroud",  dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_2T", A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S21, "xiH": 0.26, "sigma_o": 0.06, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": False}], record_stride=10)),
-        ("ep26_2T_uniform", dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_2T", A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S21, "xiH": 0.26, "sigma_o": 0.06, "n_cav": 5, "r_lo": 0.00, "r_hi": 1.00, "nonlinear": False}], record_stride=10)),
-        ("ep14_1R_shroud",  dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="1R",      A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S02, "xiH": 0.14, "sigma_o": 0.06, "n_cav": 1, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": False}], record_stride=10)),
-        ("ep14_1R_uniform", dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="1R",      A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S02, "xiH": 0.14, "sigma_o": 0.06, "n_cav": 1, "r_lo": 0.00, "r_hi": 1.00, "nonlinear": False}], record_stride=10)),
-        ("ep14_1R_hub035",  dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="1R",      A_eq=1e-4, cav_spec=[{"beta": 0.0035,"wH": S02, "xiH": 0.14, "sigma_o": 0.03, "n_cav": 1, "r_lo": 0.00, "r_hi": 0.26, "nonlinear": False}], record_stride=10)),
-        ("ep38_1R_hub20",   dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="1R",      A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S02, "xiH": 0.38, "sigma_o": 0.14, "n_cav": 1, "r_lo": 0.00, "r_hi": 0.26, "nonlinear": False}], record_stride=10)),
-        ("under14_1T_shrd", dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S11, "xiH": 0.14, "sigma_o": 0.06, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": False}], record_stride=10)),
-    ]
-    lin_res = run_batch(_sim3d_worker, lin_tasks)
-    lin_out = {}
-    for cid, _ in lin_tasks:
-        ek = "e_1r" if "_1R_" in cid else ("e_2t" if "_2T_" in cid else "e_1t")
-        lin_out[cid] = fit_alpha(lin_res[cid], 7.0, 22.0, key=ek)
-        print(f"  4B [{cid:16s}] alpha={lin_out[cid]:+.5f}")
-
-    # 4C: Reacting 3D all-mode bomb shootout (n_p = 0.30, t_end = 48.0):
-    # Bare vs 3.0% Shroud-Only vs 3.0% Dual-Zone (1.85% Shroud 1T + 0.80% Shroud 2T + 0.35% Micro-Hub 1R, EP-matched!)
-    cav_shroud_only = [
-        {"beta": 0.0210, "wH": S11, "xiH": 0.22, "sigma_o": 0.10, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
-        {"beta": 0.0090, "wH": S21, "xiH": 0.24, "sigma_o": 0.08, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
-    ]
-    cav_dualzone = [
-        {"beta": 0.0185, "wH": S11, "xiH": 0.22, "sigma_o": 0.10, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
-        {"beta": 0.0080, "wH": S21, "xiH": 0.24, "sigma_o": 0.08, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
-        {"beta": 0.0035, "wH": S02, "xiH": 0.14, "sigma_o": 0.04, "n_cav": 1, "r_lo": 0.00, "r_hi": 0.26, "nonlinear": True},
-    ]
-    nl_tasks = [
-        ("nl_bare_1T",    dict(nx=20, nr=12, nth=48, t_end=48.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=0.04, n_p=0.30, record_stride=16)),
-        ("nl_bare_2T",    dict(nx=20, nr=12, nth=48, t_end=48.0, M_c=0.12, mode="straight", init_type="spin_2T", A_eq=0.04, n_p=0.30, record_stride=16)),
-        ("nl_bare_1R",    dict(nx=20, nr=12, nth=48, t_end=48.0, M_c=0.12, mode="straight", init_type="1R",      A_eq=0.04, n_p=0.30, record_stride=16)),
-        ("nl_shroud_1T",  dict(nx=20, nr=12, nth=48, t_end=48.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=0.04, n_p=0.30, cav_spec=cav_shroud_only, record_stride=16)),
-        ("nl_shroud_1R",  dict(nx=20, nr=12, nth=48, t_end=48.0, M_c=0.12, mode="straight", init_type="1R",      A_eq=0.04, n_p=0.30, cav_spec=cav_shroud_only, record_stride=16)),
-        ("nl_dualz_1T",   dict(nx=20, nr=12, nth=48, t_end=48.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=0.04, n_p=0.30, cav_spec=cav_dualzone, record_stride=16)),
-        ("nl_dualz_st1T", dict(nx=20, nr=12, nth=48, t_end=48.0, M_c=0.12, mode="straight", init_type="stand_1T",A_eq=0.04, n_p=0.30, cav_spec=cav_dualzone, record_stride=16)),
-        ("nl_dualz_2T",   dict(nx=20, nr=12, nth=48, t_end=48.0, M_c=0.12, mode="straight", init_type="spin_2T", A_eq=0.04, n_p=0.30, cav_spec=cav_dualzone, record_stride=16)),
-        ("nl_dualz_1R",   dict(nx=20, nr=12, nth=48, t_end=48.0, M_c=0.12, mode="straight", init_type="1R",      A_eq=0.04, n_p=0.30, cav_spec=cav_dualzone, record_stride=16)),
-    ]
-    nl_res = run_batch(_sim3d_worker, nl_tasks)
-    nl_out = {}
-    for cid, _ in nl_tasks:
-        rr = nl_res[cid]; t = rr["t"]; ml = t >= 0.80 * t[-1]
-        a_tail = fit_alpha(rr, 0.60 * t[-1], t[-1], key="e_ch")
-        nl_out[cid] = {
-            "p_peak_pct": float(np.mean(rr["p_max_pct"][ml])),
-            "e_wave_late": float(np.mean(rr["e_ch"][ml])),
-            "alpha_tail": a_tail,
-        }
-        print(f"  4C [{cid:15s}] P={nl_out[cid]['p_peak_pct']:5.2f}% | E={nl_out[cid]['e_wave_late']:.2e} | tail={a_tail:+.4f}")
-
-    exp4_dict = {
-        "analytical_weights": analytical_weights,
-        "bare_cold_3d_alpha": bare_mc,
-        "linear_placement_alpha": lin_out,
-        "reacting_allmode_shootout": nl_out,
-    }
-    return exp4_dict, nl_res, nl_out
-
-
-def plot_fig1_and_fig3(metrics: dict, exp4_nl_res: dict) -> None:
-    exp2_Ln_rows = metrics["exp2_3d_bell_cutoff"]["Ln_sweep_Mc012"]
-    exp2_hopf_3d = metrics["exp2_3d_bell_cutoff"]["Mc_hopf_nv0_Ln050"]
+    # Fig 1: Converged N=160 Bessel Bell Cutoff Collapse & Fixed-tau=0.16 Hopf Envelope
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.4, 5.5), dpi=150)
     Lns = [r["L_n"] for r in exp2_Ln_rows]
     ax1.plot(Lns, [-r["thin2d_1T"] for r in exp2_Ln_rows], "o--", color="#777777", lw=2.2, label="2D Thin-Shell $1T$ ($m=1$, Entry 012)")
     ax1.plot(Lns, [-r["cyl3d_1T"] for r in exp2_Ln_rows], "s-", color="#d62728", lw=2.5, label="3D Cylindrical $1T$ ($s_{11}=1.841$)")
     ax1.plot(Lns, [-r["cyl3d_2T"] for r in exp2_Ln_rows], "^-.", color="#1f77b4", lw=2.1, label="3D Cylindrical $2T$ ($s_{21}=3.054$)")
-    ax1.plot(Lns, [-r["cyl3d_1R"] for r in exp2_Ln_rows], "d:", color="#2ca02c", lw=2.1, label="3D Cylindrical $1R$ ($s_{02}=3.832$)")
+    ax1.plot(Lns, [-r["cyl3d_1R"] for r in exp2_Ln_rows], "d:", color="#2ca02c", lw=2.1, label="3D Fundamental $1R$ ($s_{02}=3.832$)")
     ax1.set_xlabel("Bell Nozzle Contraction Length $L_n$", fontsize=11)
-    ax1.set_ylabel("Cold Bell Acoustic Damping Rate $-\\alpha$", fontsize=11)
-    ax1.set_title("3D Bessel Cutoff Collapse vs. 2D Thin-Shell ($\\bar{M}_c=0.12, N=96$)", fontsize=11.5, fontweight="bold")
+    ax1.set_ylabel("Inviscid Quasi-3D Cold Bell Damping $-\\alpha$", fontsize=11)
+    ax1.set_title("3D Bessel Cutoff Collapse vs. 2D Thin-Shell ($\\bar{M}_c=0.12, N=160$)", fontsize=11.3, fontweight="bold")
     ax1.grid(True, alpha=0.28)
     ax1.legend(fontsize=8.6, loc="upper right", framealpha=0.94)
 
     Ma = [r["M_c"] for r in exp2_hopf_3d]
-    ax2.plot(Ma, [r["n_pH_2D_min12"] for r in exp2_hopf_3d], "o--", color="#777777", lw=2.2, label="2D Thin-Shell min($1T, 2T$) ($n_v=0$)")
+    ax2.plot(Ma, [r["n_pH_2D_min12"] for r in exp2_hopf_3d], "o--", color="#777777", lw=2.2, label="2D Thin-Shell min($1T, 2T$) ($\\bar{\\tau}=0.16$)")
     ax2.plot(Ma, [r["n_pH_3D_global"] for r in exp2_hopf_3d], "s-", color="#d62728", lw=2.5, label="3D Cylindrical Global ($1L, 1T, 2T, 1R, 3T$)")
     ax2.plot(Ma, [r["n_pH_1T"] for r in exp2_hopf_3d], "^-.", color="#1f77b4", lw=1.9, label="3D Cylindrical $1T$ ($s_{11}$)")
-    ax2.plot(Ma, [min(r["n_pH_1R"], 0.41) for r in exp2_hopf_3d], "d:", color="#2ca02c", lw=1.9, label="3D Cylindrical $1R$ ($s_{02}$, $>0.90$ at $0.16$)")
+    ma_1r = [r["M_c"] for r in exp2_hopf_3d if r["n_pH_1R"] is not None]
+    y_1r = [r["n_pH_1R"] for r in exp2_hopf_3d if r["n_pH_1R"] is not None]
+    ax2.plot(ma_1r, y_1r, "d:", color="#2ca02c", lw=1.9, label="3D Cylindrical $1R$ ($s_{02}$)")
     ax2.set_xlabel("Chamber Mean Mach Number $\\bar{M}_c$", fontsize=11)
-    ax2.set_ylabel("Pressure-Coupled Hopf Gain $n_{pH}$ ($n_v=0, L_n=0.50$)", fontsize=11)
-    ax2.set_title("3D Cylindrical vs. 2D Thin-Shell Bare Bell Stability Envelope", fontsize=11.5, fontweight="bold")
+    ax2.set_ylabel("Pressure-Coupled Hopf Gain $n_{pH}$ ($n_v=0, \\bar{\\tau}=0.16$)", fontsize=11)
+    ax2.set_title("3D vs. 2D Thin-Shell Bare Bell Hopf Envelope ($L_n=0.50$)", fontsize=11.3, fontweight="bold")
     ax2.set_ylim(-0.01, 0.42)
     ax2.grid(True, alpha=0.28)
-    ax2.legend(fontsize=8.3, loc="upper left", framealpha=0.94)
+    ax2.legend(fontsize=8.2, loc="upper left", framealpha=0.94)
     fig.tight_layout()
     fig.savefig(RESULTS_DIR / "exp014_3d_bessel_bell_cutoff_collapse.png", dpi=150)
     plt.close(fig)
 
-    # Figure 3: EP-Matched 3D Shroud vs Uniform vs Hub + Dual-Zone Shootout
-    e4 = metrics["exp4_shroud_vs_hub_cavities"]
-    bare_mc = e4["bare_cold_3d_alpha"]; lin_out = e4["linear_placement_alpha"]; nl_out = e4["reacting_allmode_shootout"]
+    # Fig 2: Chiral 1T -> 1R vs 2T Selection Rule (A0 = 0.005..0.10) + Analytical Shroud vs Hub Weights
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.4, 5.5), dpi=150)
-    cats = ["$1T$ ($s_{11}$)", "$2T$ ($s_{21}$)", "$1R$ ($s_{02}$)"]
-    x_p = np.arange(len(cats)); bw = 0.20
-    bare_v = [-bare_mc["mc_3d_1T"], -bare_mc["mc_3d_2T"], -bare_mc["mc_3d_1R"]]
-    unif_v = [-lin_out["ep24_1T_uniform"], -lin_out["ep26_2T_uniform"], -lin_out["ep14_1R_uniform"]]
-    shrd_v = [-lin_out["ep24_1T_shroud"],  -lin_out["ep26_2T_shroud"],  -lin_out["ep14_1R_shroud"]]
-    hub_v  = [-lin_out["ep24_1T_hub"],     -bare_mc["mc_3d_2T"],        -lin_out["ep14_1R_hub035"]]
-    ax1.bar(x_p - 1.5 * bw, bare_v, bw, color="#777777", label="Bare 3D Cylinder")
-    ax1.bar(x_p - 0.5 * bw, unif_v, bw, color="#ff7f0e", label="Uniform Faceplate ($2.0\\%$, EP-matched)")
-    ax1.bar(x_p + 0.5 * bw, shrd_v, bw, color="#1f77b4", label="Outer Shroud ($2.0\\%$, EP-matched)")
-    ax1.bar(x_p + 1.5 * bw, hub_v,  bw, color="#d62728", label="Hub ($2.0\\%$ on $1T$; $0.35\\%$ micro-hub on $1R$!)")
-    ax1.set_xticks(x_p); ax1.set_xticklabels(cats, fontsize=10.5)
-    ax1.set_ylabel("3D Cold Linear Damping $-\\alpha$ ($24\\times 12\\times 48$ PDE)", fontsize=10.5)
-    ax1.set_ylim(0.0, 0.225)
-    ax1.set_title("3D EP-Matched Placement: Shroud Wins $1T/2T$, $0.35\\%$ Hub Wins $1R$", fontsize=11.0, fontweight="bold")
-    ax1.grid(True, axis="y", alpha=0.28)
-    ax1.legend(fontsize=8.0, loc="upper left", framealpha=0.94)
+    Aa = np.array(A_grid)
+    ax1.loglog(Aa, [exp3_disk_res[f"disk24_stand_A{a:g}"]["E_1R_ac"] for a in A_grid], "s-", color="#d62728", lw=2.5,
+               label=f"Standing $1T \\to$ AC $1R$ (small-$A$: $A_0^{{{slope_stand_small:.2f}}}$)")
+    ax1.loglog(Aa, [exp3_disk_res[f"disk24_stand_A{a:g}"]["E_2T_mean"] for a in A_grid], "^--", color="#ff7f0e", lw=2.0,
+               label="Standing $1T \\to 2T$ (detuned $1.659\\times$)")
+    ax1.loglog(Aa, [exp3_disk_res[f"disk24_spin_A{a:g}"]["E_2T_mean"] for a in A_grid], "o-.", color="#1f77b4", lw=2.0,
+               label="Spinning $1T \\to 2T$ (detuned $1.659\\times$)")
+    ax1.loglog(Aa, [exp3_disk_res[f"disk24_spin_A{a:g}"]["E_1R_ac"] for a in A_grid], "d:", color="#2ca02c", lw=2.2,
+               label=f"Spinning $1T \\to$ AC $1R$ ($\\sim 600\\times$ lower, $A_0^{{{slope_spin_all:.2f}}}$)")
+    ax1.set_xlabel("Initial $1T$ Amplitude $A_0$", fontsize=11)
+    ax1.set_ylabel("Daughter Modal Energy ($24\\times 96$ Disk Euler)", fontsize=11)
+    ax1.set_title("3D Chiral $1T \\to 1R$ Selection Rule ($s_{02}/s_{11}=2.081$)", fontsize=11.3, fontweight="bold")
+    ax1.grid(True, which="both", alpha=0.26)
+    ax1.legend(fontsize=8.2, loc="upper left", framealpha=0.94)
 
-    for cid, lbl, col, ls in [
-        ("nl_bare_1T",    "Bare 3D: 1T bomb", "#d62728", "-"),
-        ("nl_bare_2T",    "Bare 3D: 2T bomb", "#8c564b", ":"),
-        ("nl_bare_1R",    "Bare 3D: 1R bomb", "#d62728", "--"),
-        ("nl_shroud_1R",  "Shroud-Only (3.0%): 1R bomb (exposed!)", "#ff7f0e", "-."),
-        ("nl_shroud_1T",  "Shroud-Only (3.0%): 1T bomb", "#1f77b4", "--"),
-        ("nl_dualz_1T",   "Dual-Zone Shroud+Hub (3.0%): spin 1T", "#1f77b4", "-"),
-        ("nl_dualz_st1T", "Dual-Zone Shroud+Hub (3.0%): stand 1T", "#9467bd", ":"),
-        ("nl_dualz_2T",   "Dual-Zone Shroud+Hub (3.0%): spin 2T", "#17becf", "-."),
-        ("nl_dualz_1R",   "Dual-Zone Shroud+Hub (3.0%): 1R bomb", "#2ca02c", "-"),
+    rr_g = np.linspace(0.0, 1.0, 300)
+    ax2.plot(rr_g, bessel_modal_weight(1, S11, rr_g), "-", color="#1f77b4", lw=2.4, label=f"$1T$ ($s_{{11}}$): Shroud $W(1)={analytical_weights['shroud_r1']['1T']:.2f}$, Hub $0$")
+    ax2.plot(rr_g, bessel_modal_weight(2, S21, rr_g), "--", color="#ff7f0e", lw=2.2, label=f"$2T$ ($s_{{21}}$): Shroud $W(1)={analytical_weights['shroud_r1']['2T']:.2f}$, Hub $0$")
+    ax2.plot(rr_g, bessel_modal_weight(0, S02, rr_g), "-", color="#d62728", lw=2.6, label=f"$1R$ ($s_{{02}}$): Hub $W(0)={analytical_weights['hub_r0']['1R']:.2f}$ ($6.16\\times$ Shroud!)")
+    ax2.axvspan(0.0, 0.26, color="#d62728", alpha=0.10, label="Micro-Hub Zone ($r \\leq 0.26$, $0.35\\%$ vol)")
+    ax2.axvspan(0.78, 1.00, color="#1f77b4", alpha=0.10, label="Outer Shroud Zone ($r \\geq 0.78$, $2.65\\%$ vol)")
+    ax2.set_xlabel("Normalized Faceplate Radius $r/R$", fontsize=11)
+    ax2.set_ylabel("Normalized Modal Energy Density $W_{mn}(r)$", fontsize=11)
+    ax2.set_title("3D Faceplate Cavity Placement Law: Shroud ($1T/2T$) vs. Hub ($1R$)", fontsize=11.3, fontweight="bold")
+    ax2.set_ylim(-0.1, 6.6)
+    ax2.grid(True, alpha=0.28)
+    ax2.legend(fontsize=8.2, loc="upper right", framealpha=0.94)
+    fig.tight_layout()
+    fig.savefig(RESULTS_DIR / "exp014_3d_chiral_1R_cascade_and_shroud_hub.png", dpi=150)
+    plt.close(fig)
+
+    # Fig 3: Left = Matched-Window Cavity Gain Delta-alpha (incl. 24x20x64 1R);
+    # Right = Refined 20x20x64 Reacting 1R Shootout (Shroud Fails vs Micro-Hub Quenches) + t=120 1T/2T
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.4, 5.5), dpi=150)
+    labels = ["$1T$ ($0.5\\%$)\n20x64", "$1T$ ($2.0\\%$)\n12x48", "$2T$ ($2.0\\%$)\n12x48", "$1R$ ($2.0\\%$/$0.35\\%$)\n20x64"]
+    x_p = np.arange(len(labels)); bw = 0.24
+    unif_d = [
+        -(lin_20["f20_w05_1T_unif"]["alpha_7_22"] - lin_20["bare20_1T"]["alpha_7_22"]),
+        -(lin_12["ep24_1T_uniform"] - lin_12["bare12_1T"]),
+        -(lin_12["ep26_2T_uniform"] - lin_12["bare12_2T"]),
+        -(lin_20["f20_1R_uniform"]["alpha_7_22"] - lin_20["bare20_1R"]["alpha_7_22"]),
+    ]
+    shrd_d = [
+        -(lin_20["f20_w05_1T_shrd"]["alpha_7_22"] - lin_20["bare20_1T"]["alpha_7_22"]),
+        -(lin_12["ep24_1T_shroud"] - lin_12["bare12_1T"]),
+        -(lin_12["ep26_2T_shroud"] - lin_12["bare12_2T"]),
+        -(lin_20["f20_1R_shroud"]["alpha_7_22"] - lin_20["bare20_1R"]["alpha_7_22"]),
+    ]
+    hub_d = [
+        0.0,
+        -(lin_12["ep24_1T_hub"] - lin_12["bare12_1T"]),
+        0.0,
+        -(lin_20["f20_1R_hub035"]["alpha_7_22"] - lin_20["bare20_1R"]["alpha_7_22"]),
+    ]
+    ax1.bar(x_p - bw, unif_d, bw, color="#ff7f0e", label="Uniform Faceplate ($\\Delta\\alpha_{1R}\\equiv 0$ exact!)")
+    ax1.bar(x_p,      shrd_d, bw, color="#1f77b4", label="Outer Shroud ($r\\in[0.78,1]$)")
+    ax1.bar(x_p + bw, hub_d,  bw, color="#d62728", label="Hub ($0.35\\%$ micro-hub on $1R$, $2.27\\times$ shroud!)")
+    ax1.set_xticks(x_p); ax1.set_xticklabels(labels, fontsize=9.5)
+    ax1.set_ylabel("Matched-Window Cavity Damping Gain $-\\Delta\\alpha$ ($[7,22]$)", fontsize=10.5)
+    ax1.set_ylim(0.0, 0.075)
+    ax1.set_title("Matched-Window 3D Placement Gain (incl. Refined $24\\times 20\\times 64$ $1R$)", fontsize=10.5, fontweight="bold")
+    ax1.grid(True, axis="y", alpha=0.28)
+    ax1.legend(fontsize=8.0, loc="upper right", framealpha=0.94)
+
+    for cid, rr, st, lbl, col, ls in [
+        ("nl20_bare_1R",   nl_res_20["nl20_bare_1R"],   nl_out_20["nl20_bare_1R"],   "Bare 3D 1R (20x20x64)", "#d62728", "-"),
+        ("nl20_shroud_1R", nl_res_20["nl20_shroud_1R"], nl_out_20["nl20_shroud_1R"], "Shroud-Only 3.0% 1R (20x20x64, FAILS!)", "#ff7f0e", "-."),
+        ("nl20_dualz_1R",  nl_res_20["nl20_dualz_1R"],  nl_out_20["nl20_dualz_1R"],  "Dual-Zone 0.35% Hub 1R (20x20x64, QUENCH!)", "#2ca02c", "-"),
+        ("nl_bare_1T",     nl_res_120["nl_bare_1T"],    nl_out_120["nl_bare_1T"],    "Bare 3D spin 1T (t=120)", "#8c564b", "--"),
+        ("nl_dualz_1T",    nl_res_120["nl_dualz_1T"],   nl_out_120["nl_dualz_1T"],   "Dual-Zone spin 1T (t=120, k=0 bulk drift)", "#1f77b4", "-"),
+        ("nl_dualz_st1T",  nl_res_120["nl_dualz_st1T"], nl_out_120["nl_dualz_st1T"], "Dual-Zone stand 1T (t=120, k=0 bulk drift)", "#9467bd", ":"),
+        ("nl_dualz_2T",    nl_res_120["nl_dualz_2T"],   nl_out_120["nl_dualz_2T"],   "Dual-Zone spin 2T (t=120)", "#17becf", "-."),
     ]:
-        rr = exp4_nl_res[cid]; st = nl_out[cid]
-        ax2.semilogy(rr["t"], np.maximum(rr["e_ch"], 1e-12), color=col, ls=ls, lw=2.0,
-                     label=f"{lbl} (P={st['p_peak_pct']:.2f}%)")
+        p_end = st["p_peak_48"] if "20_" in cid else st["p_peak_120"]
+        ax2.semilogy(rr["t"], np.maximum(rr["e_ch"], 1e-11), color=col, ls=ls, lw=2.0,
+                     label=f"{lbl} (P={p_end:.2f}%)")
     ax2.set_xlabel("Time $t$", fontsize=11)
-    ax2.set_ylabel("3D Chamber Wave Energy $E_{\\mathrm{wave}}(t)$", fontsize=11)
-    ax2.set_title("Reacting 3D Cylinder ($n_p=0.30$): Dual-Zone 1R Quench & 1T/2T Attenuation", fontsize=10.5, fontweight="bold")
-    ax2.set_ylim(1e-9, 1e-1)
+    ax2.set_ylabel("True-Norm. 3D Wave Energy $E_{\\mathrm{wave}}(t)$", fontsize=11)
+    ax2.set_title("Reacting 3D ($n_p=0.30$): Refined 20x20x64 1R Quench & $t=120$ Audit", fontsize=10.4, fontweight="bold")
+    ax2.set_ylim(1e-8, 5e-3)
     ax2.grid(True, which="both", alpha=0.25)
-    ax2.legend(fontsize=7.3, loc="lower left", framealpha=0.94)
+    ax2.legend(fontsize=7.2, loc="lower right", framealpha=0.94)
     fig.tight_layout()
     fig.savefig(RESULTS_DIR / "exp014_3d_shroud_hub_pde_shootout.png", dpi=150)
     plt.close(fig)
+    print("Saved all 3 hardened figures.")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--upgrade-exp1-exp4", action="store_true", help="Run Exp 1E (num damping & vorticity plateaus) and EP-matched Exp 4, merge into exp014_metrics.json, refresh Fig 1 & Fig 3.")
+    parser.add_argument("--replot-only", action="store_true", help="Regenerate all 3 figures from existing exp014_metrics.json (rerunning only the 7 Fig 3 right-panel curves).")
     args = parser.parse_args()
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     out_path = RESULTS_DIR / "exp014_metrics.json"
-    if args.upgrade_exp1_exp4:
+    if args.replot_only:
         metrics = json.loads(out_path.read_text(encoding="utf-8"))
-        exp1e = run_num_damping_and_vort_plateau()
-        metrics["exp1_3d_benchmarks"]["num_damping_and_vort_plateaus"] = exp1e
-        bare_mc = {k: metrics["exp1_3d_benchmarks"]["straight_mc_cheb_vs_3d"][k]["pde_3d_24x12x48"] for k in ("mc_3d_1T", "mc_3d_2T", "mc_3d_1R")}
-        exp4_dict, exp4_nl_res, _ = run_exp4_ep_and_shootout(bare_mc)
-        metrics["exp4_shroud_vs_hub_cavities"] = exp4_dict
-        out_path.write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
-        plot_fig1_and_fig3(metrics, exp4_nl_res)
-        print(f"Updated {out_path} and refreshed Fig 1 & Fig 3.")
+        cav_shroud_only = [
+            {"beta": 0.0210, "wH": S11, "xiH": 0.22, "sigma_o": 0.10, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
+            {"beta": 0.0090, "wH": S21, "xiH": 0.24, "sigma_o": 0.08, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
+        ]
+        cav_dualzone = [
+            {"beta": 0.0185, "wH": S11, "xiH": 0.22, "sigma_o": 0.10, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
+            {"beta": 0.0080, "wH": S21, "xiH": 0.24, "sigma_o": 0.08, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
+            {"beta": 0.0035, "wH": S02, "xiH": 0.14, "sigma_o": 0.04, "n_cav": 1, "r_lo": 0.00, "r_hi": 0.26, "nonlinear": True},
+        ]
+        t_plot = [
+            ("nl20_bare_1R",   dict(nx=20, nr=20, nth=64, t_end=48.0,  M_c=0.12, mode="straight", init_type="1R",       A_eq=0.04, n_p=0.30, record_stride=24)),
+            ("nl20_shroud_1R", dict(nx=20, nr=20, nth=64, t_end=48.0,  M_c=0.12, mode="straight", init_type="1R",       A_eq=0.04, n_p=0.30, cav_spec=cav_shroud_only, record_stride=24)),
+            ("nl20_dualz_1R",  dict(nx=20, nr=20, nth=64, t_end=48.0,  M_c=0.12, mode="straight", init_type="1R",       A_eq=0.04, n_p=0.30, cav_spec=cav_dualzone, record_stride=24)),
+            ("nl_bare_1T",     dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", init_type="spin_1T",  A_eq=0.04, n_p=0.30, record_stride=24)),
+            ("nl_dualz_1T",    dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", init_type="spin_1T",  A_eq=0.04, n_p=0.30, cav_spec=cav_dualzone, record_stride=24)),
+            ("nl_dualz_st1T",  dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", init_type="stand_1T", A_eq=0.04, n_p=0.30, cav_spec=cav_dualzone, record_stride=24)),
+            ("nl_dualz_2T",    dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", init_type="spin_2T",  A_eq=0.04, n_p=0.30, cav_spec=cav_dualzone, record_stride=24)),
+        ]
+        res_p = run_batch(_sim3d_worker, t_plot)
+        plot_all_figures(metrics, res_p, res_p)
         return
 
-    print("=" * 94)
-    print("Entry 014: Full 3D Cylindrical (x, r, theta) Chamber & Transonic Bell Nozzle")
-    print("=" * 94)
+    print("=" * 96)
+    print("Entry 014 (Hardened per Peer Review #11): Full 3D Cylindrical Chamber & Transonic Bell")
+    print("=" * 96)
 
     # ------------------------------------------------------------------
-    # Experiment 1: Exact 3D Cylindrical Body-Fitted Bell Benchmarks
+    # Experiment 1: 3D GCL, Conservation, Bessel FFTs, Num Damping & Axial Refinement
     # ------------------------------------------------------------------
-    print("\n--- Experiment 1: 3D GCL, Conservation, Bessel FFTs & Marble-Candel Cross-Check ---")
+    print("\n--- Experiment 1: 3D Benchmarks, Per-Mode Numerical Damping & Axial Refinement ---")
     exp1_tasks = [
         ("quiescent_3d_bell",  dict(nx=24, nr=12, nth=32, t_end=4.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", init_type="quiescent", A_eq=0.0, record_stride=20)),
         ("cons_3d_curved_bell",dict(nx=20, nr=10, nth=32, t_end=2.5, M_c=0.12, mode="periodic_bump", init_type="periodic_3d_wave", A_eq=0.06, record_stride=15)),
-        # Closed-cylinder Bessel eigenfrequencies (coarse 12x36 vs fine 16x48)
         ("fft_1T_c", dict(nx=6, nr=12, nth=36, t_end=14.0, M_c=0.0, mode="closed", init_type="stand_1T", A_eq=1e-4, record_stride=4)),
         ("fft_1T_f", dict(nx=6, nr=16, nth=48, t_end=14.0, M_c=0.0, mode="closed", init_type="stand_1T", A_eq=1e-4, record_stride=4)),
         ("fft_2T_c", dict(nx=6, nr=12, nth=36, t_end=14.0, M_c=0.0, mode="closed", init_type="stand_2T", A_eq=1e-4, record_stride=4)),
@@ -1118,15 +1061,27 @@ def main() -> None:
         ("fft_1R_c", dict(nx=6, nr=12, nth=36, t_end=14.0, M_c=0.0, mode="closed", init_type="1R", A_eq=1e-4, record_stride=4)),
         ("fft_1R_f", dict(nx=6, nr=16, nth=48, t_end=14.0, M_c=0.0, mode="closed", init_type="1R", A_eq=1e-4, record_stride=4)),
         ("fft_3T_f", dict(nx=6, nr=16, nth=48, t_end=14.0, M_c=0.0, mode="closed", init_type="3T", A_eq=1e-4, record_stride=4)),
-        # 3D straight-cylinder Marble-Candel throughflow vs exact 1D Bessel-Chebyshev (M_c = 0.12)
-        ("mc_3d_1T", dict(nx=24, nr=12, nth=48, t_end=32.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, record_stride=12)),
-        ("mc_3d_2T", dict(nx=24, nr=12, nth=48, t_end=32.0, M_c=0.12, mode="straight", init_type="spin_2T", A_eq=1e-4, record_stride=12)),
-        ("mc_3d_1R", dict(nx=24, nr=12, nth=48, t_end=32.0, M_c=0.12, mode="straight", init_type="1R", A_eq=1e-4, record_stride=12)),
+        # Per-mode closed-cylinder numerical damping (including matched 14x48 for M_c=0.28 per m3!)
+        ("num_12x48_1T", dict(nx=6, nr=12, nth=48, t_end=15.0, M_c=0.0, mode="closed", init_type="spin_1T", A_eq=1e-4, record_stride=6)),
+        ("num_12x48_2T", dict(nx=6, nr=12, nth=48, t_end=15.0, M_c=0.0, mode="closed", init_type="spin_2T", A_eq=1e-4, record_stride=6)),
+        ("num_12x48_1R", dict(nx=6, nr=12, nth=48, t_end=15.0, M_c=0.0, mode="closed", init_type="1R",      A_eq=1e-4, record_stride=6)),
+        ("num_14x48_1T", dict(nx=6, nr=14, nth=48, t_end=15.0, M_c=0.0, mode="closed", init_type="spin_1T", A_eq=1e-4, record_stride=6)),
+        ("num_20x64_1T", dict(nx=6, nr=20, nth=64, t_end=15.0, M_c=0.0, mode="closed", init_type="spin_1T", A_eq=1e-4, record_stride=6)),
+        ("num_20x64_2T", dict(nx=6, nr=20, nth=64, t_end=15.0, M_c=0.0, mode="closed", init_type="spin_2T", A_eq=1e-4, record_stride=6)),
+        ("num_20x64_1R", dict(nx=6, nr=20, nth=64, t_end=15.0, M_c=0.0, mode="closed", init_type="1R",      A_eq=1e-4, record_stride=6)),
+        # Straight-cylinder axial refinement (Review #11 C1: nx=24 -> 48 -> 96 moves toward inviscid -0.0424!)
+        ("mc_1T_nx24", dict(nx=24, nr=12, nth=48, t_end=32.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, record_stride=12)),
+        ("mc_1T_nx48", dict(nx=48, nr=12, nth=48, t_end=32.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, record_stride=16)),
+        ("mc_1T_nx96", dict(nx=96, nr=12, nth=48, t_end=32.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, record_stride=24)),
+        ("mc_2T_nx24", dict(nx=24, nr=12, nth=48, t_end=32.0, M_c=0.12, mode="straight", init_type="spin_2T", A_eq=1e-4, record_stride=12)),
+        ("mc_2T_nx96", dict(nx=96, nr=12, nth=48, t_end=32.0, M_c=0.12, mode="straight", init_type="spin_2T", A_eq=1e-4, record_stride=24)),
+        ("mc_1R_nx24", dict(nx=24, nr=12, nth=48, t_end=32.0, M_c=0.12, mode="straight", init_type="1R",      A_eq=1e-4, record_stride=12)),
+        ("mc_3d_M28_1T", dict(nx=40, nr=14, nth=48, t_end=22.0, M_c=0.28, mode="straight", init_type="spin_1T", A_eq=1e-4, record_stride=10)),
     ]
     exp1_res = run_batch(_sim3d_worker, exp1_tasks)
     rq = exp1_res["quiescent_3d_bell"]; rc = exp1_res["cons_3d_curved_bell"]
-    print(f"  1A 3D Quiescent Bell: gcl_x={rq['gcl_x']:.2e}, gcl_r={rq['gcl_r']:.2e}, drift={rq['quiescent_err']:.2e}")
-    print(f"  1B 3D Curved Bell Cons: mass={rc['periodic_cons_err']['mass']:.2e}, ang_mom={rc['periodic_cons_err']['ang_mom']:.2e}, energy={rc['periodic_cons_err']['energy']:.2e}")
+    print(f"  1A Quiescent Bell: gcl_x={rq['gcl_x']:.2e}, gcl_r={rq['gcl_r']:.2e}, drift={rq['quiescent_err']:.2e}")
+    print(f"  1B Curved Bell Cons: mass={rc['periodic_cons_err']['mass']:.2e}, ang_mom={rc['periodic_cons_err']['ang_mom']:.2e}, energy={rc['periodic_cons_err']['energy']:.2e}")
 
     bessel_fft = {}
     for lbl, sig_k, exact_s in [
@@ -1140,25 +1095,53 @@ def main() -> None:
         bessel_fft[lbl] = {"measured_omega": wm, "exact_s_mn": exact_s, "rel_err_pct": err}
         print(f"  1C [{lbl:9s}] meas={wm:.4f} vs exact={exact_s:.4f} (err={err:.2f}%)")
 
-    mc_cheb_vs_3d = {}
-    for lbl, s_mn, ek in [("mc_3d_1T", S11, "e_1t"), ("mc_3d_2T", S21, "e_2t"), ("mc_3d_1R", S02, "e_1r")]:
-        v_ex = exact_straight_bessel_mc_eig(0.12, s_mn, N=96)
-        a_3d = fit_alpha(exp1_res[lbl], 12.0, 30.0, key=ek)
-        rel = abs(a_3d - v_ex.real) / abs(v_ex.real) * 100.0
-        mc_cheb_vs_3d[lbl] = {"exact_cheb_N96": v_ex.real, "omega_exact": v_ex.imag, "pde_3d_24x12x48": a_3d, "rel_err_pct": rel}
-        print(f"  1D [{lbl:9s}] exact_cheb={v_ex.real:+.5f} (w={v_ex.imag:.3f}) | 3D PDE={a_3d:+.5f} (rel={rel:.2f}%)")
+    num_audit = {}
+    for cid, ek in [("num_12x48_1T", "e_1t"), ("num_12x48_2T", "e_2t"), ("num_12x48_1R", "e_1r"),
+                    ("num_14x48_1T", "e_1t"),
+                    ("num_20x64_1T", "e_1t"), ("num_20x64_2T", "e_2t"), ("num_20x64_1R", "e_1r")]:
+        num_audit[cid] = fit_alpha(exp1_res[cid], 4.0, 14.0, key=ek)
+        print(f"  1E [{cid:13s}] alpha_num={num_audit[cid]:+.5f}")
+
+    ex_1T = exact_straight_bessel_mc_eig(0.12, S11, N=96)
+    ex_2T = exact_straight_bessel_mc_eig(0.12, S21, N=96)
+    ex_1R = exact_straight_bessel_mc_eig(0.12, S02, N=96)
+    v28_ex = exact_straight_bessel_mc_eig(0.28, S11, N=96)
+    a28 = fit_alpha(exp1_res["mc_3d_M28_1T"], 8.0, 20.0, key="e_1t")
+    a28_net = a28 - num_audit["num_14x48_1T"]
+    axial_refinement = {
+        "exact_inviscid_Mc012": {
+            "1T_alpha": ex_1T.real, "1T_omega": ex_1T.imag,
+            "2T_alpha": ex_2T.real, "2T_omega": ex_2T.imag,
+            "1R_alpha": ex_1R.real, "1R_omega": ex_1R.imag,
+        },
+        "1T_nx24": {"fit_12_30": fit_alpha(exp1_res["mc_1T_nx24"], 12.0, 30.0, "e_1t"), "fit_16_30": fit_alpha(exp1_res["mc_1T_nx24"], 16.0, 30.0, "e_1t")},
+        "1T_nx48": {"fit_12_30": fit_alpha(exp1_res["mc_1T_nx48"], 12.0, 30.0, "e_1t"), "fit_16_30": fit_alpha(exp1_res["mc_1T_nx48"], 16.0, 30.0, "e_1t")},
+        "1T_nx96": {"fit_12_30": fit_alpha(exp1_res["mc_1T_nx96"], 12.0, 30.0, "e_1t"), "fit_16_30": fit_alpha(exp1_res["mc_1T_nx96"], 16.0, 30.0, "e_1t")},
+        "2T_nx24": {"fit_12_30": fit_alpha(exp1_res["mc_2T_nx24"], 12.0, 30.0, "e_2t"), "fit_16_30": fit_alpha(exp1_res["mc_2T_nx24"], 16.0, 30.0, "e_2t")},
+        "2T_nx96": {"fit_12_30": fit_alpha(exp1_res["mc_2T_nx96"], 12.0, 30.0, "e_2t"), "fit_16_30": fit_alpha(exp1_res["mc_2T_nx96"], 16.0, 30.0, "e_2t")},
+        "1R_nx24": {"fit_12_30": fit_alpha(exp1_res["mc_1R_nx24"], 12.0, 30.0, "e_1r"), "fit_16_30": fit_alpha(exp1_res["mc_1R_nx24"], 16.0, 30.0, "e_1r")},
+        "resolved_M28_1T": {
+            "exact_cheb_N96": v28_ex.real, "pde_3d_40x14x48": a28,
+            "matched_num_14x48": num_audit["num_14x48_1T"], "pde_net_of_num": a28_net,
+            "rel_err_raw_pct": abs(a28 - v28_ex.real) / abs(v28_ex.real) * 100.0,
+            "rel_err_net_pct": abs(a28_net - v28_ex.real) / abs(v28_ex.real) * 100.0,
+        },
+    }
+    print(f"  1D Straight 1T axial refinement (exact={ex_1T.real:+.5f}): nx24={axial_refinement['1T_nx24']['fit_12_30']:+.5f}, nx48={axial_refinement['1T_nx48']['fit_12_30']:+.5f}, nx96={axial_refinement['1T_nx96']['fit_12_30']:+.5f} (late [16,30]={axial_refinement['1T_nx96']['fit_16_30']:+.5f})")
+    print(f"  1E Resolved M_c=0.28 1T: exact={v28_ex.real:+.5f}, PDE={a28:+.5f}, net(14x48)={a28_net:+.5f} ({axial_refinement['resolved_M28_1T']['rel_err_net_pct']:.2f}%)")
 
     # ------------------------------------------------------------------
-    # Experiment 2: 3D Bessel Bell Cutoff Collapse vs 2D Thin-Shell & True 3D Bell PDE
+    # Experiment 2: 3D Bessel Bell Cutoff Collapse (N=160, single-branch 1R) & True-3D Bell Refinement
     # ------------------------------------------------------------------
-    print("\n--- Experiment 2: 3D Bessel Bell Cutoff Collapse & True 3D Meridional Audit ---")
+    print("\n--- Experiment 2: 3D Bessel Bell Cutoff (N=160) & True-3D Meridional Bell Refinement ---")
     Ln_grid = [0.05, 0.15, 0.30, 0.40, 0.50, 0.60, 0.70]
     exp2_Ln_rows = []
     for Ln in Ln_grid:
-        v2d = quasi3d_bessel_bell_eig(0.12, 1.0, L_n=Ln, contour="entry012", omega_window=(0.65, 1.50), N=96)
-        v1T = quasi3d_bessel_bell_eig(0.12, S11, L_n=Ln, contour="entry012", omega_window=(1.40, 2.35), N=96)
-        v2T = quasi3d_bessel_bell_eig(0.12, S21, L_n=Ln, contour="entry012", omega_window=(2.40, 3.65), N=96)
-        v1R = quasi3d_bessel_bell_eig(0.12, S02, L_n=Ln, contour="entry012", omega_window=(3.10, 4.45), N=96)
+        v2d = quasi3d_bessel_bell_eig(0.12, 1.0, L_n=Ln, contour="entry012", omega_window=(0.65, 1.50), N=160)
+        v1T = quasi3d_bessel_bell_eig(0.12, S11, L_n=Ln, contour="entry012", omega_window=(1.40, 2.35), N=160)
+        v2T = quasi3d_bessel_bell_eig(0.12, S21, L_n=Ln, contour="entry012", omega_window=(2.40, 3.65), N=160)
+        # Track fundamental 1R branch cleanly around s_02 = 3.83 (Review #11 M7: prevents overtone branch-hopping!)
+        v1R = quasi3d_bessel_bell_eig(0.12, S02, L_n=Ln, contour="entry012", omega_window=(3.35, 4.12), N=160)
         row = {
             "L_n": Ln,
             "thin2d_1T": v2d.real, "thin2d_1T_w": v2d.imag,
@@ -1167,9 +1150,21 @@ def main() -> None:
             "cyl3d_1R": v1R.real, "cyl3d_1R_w": v1R.imag,
         }
         exp2_Ln_rows.append(row)
-        print(f"  2A L_n={Ln:.2f}: 2D-1T={v2d.real:+.5f} | 3D-1T={v1T.real:+.5f}({v1T.imag:.2f}) | 3D-2T={v2T.real:+.5f}({v2T.imag:.2f}) | 3D-1R={v1R.real:+.5f}({v1R.imag:.2f})")
+        print(f"  2A (N=160) L_n={Ln:.2f}: 2D-1T={v2d.real:+.5f} | 3D-1T={v1T.real:+.5f}({v1T.imag:.2f}) | 3D-2T={v2T.real:+.5f}({v2T.imag:.2f}) | 3D-1R={v1R.real:+.5f}({v1R.imag:.2f})")
 
-    # Multi-mode n_v = 0 global Hopf envelope (M_c = 0.10..0.22) at L_n = 0.50: 3D Cylindrical vs 2D Thin-Shell
+    def find_first_hopf(fn) -> float | None:
+        pts = [0.0, 0.05, 0.15, 0.30, 0.50, 0.80, 1.20, 2.00]
+        v_prev = fn(0.0)
+        if v_prev >= 0.0:
+            return 0.0
+        for p_hi in pts[1:]:
+            v_hi = fn(p_hi)
+            if v_hi > 0.0:
+                p_lo = pts[pts.index(p_hi) - 1]
+                return float(brentq(fn, p_lo, p_hi))
+            v_prev = v_hi
+        return None
+
     M_grid = [0.10, 0.12, 0.14, 0.16, 0.18, 0.20, 0.22]
     exp2_hopf_3d = []
     modes_3d = [("1L", 0.0, (0.40, 2.70)), ("1T", S11, (1.40, 2.45)), ("2T", S21, (2.40, 3.70)),
@@ -1177,78 +1172,98 @@ def main() -> None:
     for Mb in M_grid:
         npH = {}
         for mname, smn, ww in modes_3d:
-            vc = quasi3d_bessel_bell_eig(Mb, smn, L_n=0.50, contour="entry012", omega_window=ww, N=96)
-            if vc.real >= 0.0:
-                npH[mname] = 0.0
-            else:
-                f = lambda nv, s=smn, w=ww: quasi3d_bessel_bell_eig(Mb, s, L_n=0.50, contour="entry012", n_p=nv, omega_window=w, N=96).real
-                npH[mname] = float(brentq(f, 0.0, 0.90)) if f(0.90) > 0.0 else 0.90
-        lim = min(npH, key=npH.get)
-        # 2D thin-shell reference (m=1, 2)
+            f = lambda nv, s=smn, w=ww: quasi3d_bessel_bell_eig(Mb, s, L_n=0.50, contour="entry012", n_p=nv, omega_window=w, N=96).real
+            npH[mname] = find_first_hopf(f)
+        finite_modes = {k: v for k, v in npH.items() if v is not None}
+        lim = min(finite_modes, key=finite_modes.get)
         npH_2d = {}
         for mn, mm, ww in [("1T", 1.0, (0.60, 1.50)), ("2T", 2.0, (1.40, 2.80))]:
-            vc = quasi3d_bessel_bell_eig(Mb, mm, L_n=0.50, contour="entry012", omega_window=ww, N=96)
-            if vc.real >= 0.0: npH_2d[mn] = 0.0
-            else:
-                f = lambda nv, s=mm, w=ww: quasi3d_bessel_bell_eig(Mb, s, L_n=0.50, contour="entry012", n_p=nv, omega_window=w, N=96).real
-                npH_2d[mn] = float(brentq(f, 0.0, 0.90)) if f(0.90) > 0.0 else 0.90
-        row = {"M_c": Mb, **{f"n_pH_{k}": v for k, v in npH.items()}, "n_pH_3D_global": npH[lim], "limiting_3D": lim,
-               "n_pH_2D_1T": npH_2d["1T"], "n_pH_2D_2T": npH_2d["2T"], "n_pH_2D_min12": min(npH_2d.values())}
+            f = lambda nv, s=mm, w=ww: quasi3d_bessel_bell_eig(Mb, s, L_n=0.50, contour="entry012", n_p=nv, omega_window=w, N=96).real
+            npH_2d[mn] = find_first_hopf(f)
+        fin_2d = [v for v in npH_2d.values() if v is not None]
+        row = {"M_c": Mb, **{f"n_pH_{k}": v for k, v in npH.items()}, "n_pH_3D_global": finite_modes[lim], "limiting_3D": lim,
+               "n_pH_2D_1T": npH_2d["1T"], "n_pH_2D_2T": npH_2d["2T"], "n_pH_2D_min12": min(fin_2d) if fin_2d else None}
         exp2_hopf_3d.append(row)
-        print(f"  2A Hopf M={Mb:.2f} (n_v=0): 3D={npH[lim]:.3f}({lim}) [1T:{npH['1T']:.3f}, 2T:{npH['2T']:.3f}, 1R:{npH['1R']:.3f}] | 2D_min={row['n_pH_2D_min12']:.3f}")
+        r1_str = "no_cross<=2" if npH["1R"] is None else f"{npH['1R']:.3f}"
+        print(f"  2A Hopf M={Mb:.2f} (tau=0.16, n_v=0): 3D={finite_modes[lim]:.3f}({lim}) [1T:{npH['1T']:.3f}, 2T:{npH['2T']:.3f}, 1R:{r1_str}] | 2D_min={row['n_pH_2D_min12']:.3f}")
 
-    # 2B: True 3D conical-frustum smooth rocket bell (L_n=0.60, L_d=0.45 & L_n=0.80, L_d=0.50) vs quasi-3D WKB
-    axi_60_c = relax_axi_3d_bell_base(40, 12, M_c=0.12, L_n=0.60, L_d=0.45, t_relax=160.0)
-    axi_60_f = relax_axi_3d_bell_base(56, 16, M_c=0.12, L_n=0.60, L_d=0.45, t_relax=160.0)
-    axi_80_c = relax_axi_3d_bell_base(44, 12, M_c=0.12, L_n=0.80, L_d=0.50, t_relax=160.0)
-    print(f"  2B Axi 3D Bell Base (Ln=0.60, 56x16): rhs={axi_60_f['rhs_max']:.2e} | Throat M_c={axi_60_f['M_throat_center']:.3f}, M_w={axi_60_f['M_throat_wall']:.3f} | Exit M_c={axi_60_f['M_exit_center']:.3f}, M_w={axi_60_f['M_exit_wall']:.3f}")
-    print(f"  2B Axi 3D Bell Base (Ln=0.80, 44x12): rhs={axi_80_c['rhs_max']:.2e} | Throat M_c={axi_80_c['M_throat_center']:.3f}, M_w={axi_80_c['M_throat_wall']:.3f} | Exit M_c={axi_80_c['M_exit_center']:.3f}, M_w={axi_80_c['M_exit_wall']:.3f}")
+    # M4 cross-check: TAU_BAR = 0.40 vs 0.16 at M_c = 0.12, 0.14
+    tau040_check = []
+    for Mb in (0.12, 0.14):
+        f3 = lambda nv: quasi3d_bessel_bell_eig(Mb, S11, L_n=0.50, contour="entry012", n_p=nv, tau_bar=0.40, omega_window=(1.40, 2.45), N=96).real
+        f2_1 = lambda nv: quasi3d_bessel_bell_eig(Mb, 1.0, L_n=0.50, contour="entry012", n_p=nv, tau_bar=0.40, omega_window=(0.60, 1.50), N=96).real
+        f2_2 = lambda nv: quasi3d_bessel_bell_eig(Mb, 2.0, L_n=0.50, contour="entry012", n_p=nv, tau_bar=0.40, omega_window=(1.40, 2.80), N=96).real
+        n3 = find_first_hopf(f3); n21 = find_first_hopf(f2_1); n22 = find_first_hopf(f2_2)
+        tau040_check.append({"M_c": Mb, "tau_bar": 0.40, "n_pH_3D_1T": n3, "n_pH_2D_1T": n21, "n_pH_2D_2T": n22,
+                             "ratio_2Dmin_over_3D1T": min(n21, n22) / n3})
+        print(f"  2A Tau=0.40 check M={Mb:.2f}: 3D-1T={n3:.4f}, 2D-1T={n21:.4f}, 2D-2T={n22:.4f}, 2Dmin/3D1T={min(n21,n22)/n3:.2f}x")
+
+    # 2B: True 3D axisymmetric bell bases (including steep bell_c2 L_n=0.50 per M6 & nr=20 smooth bell per C2!)
+    axi_c2_50 = relax_axi_3d_bell_base(40, 12, M_c=0.12, L_n=0.50, L_d=0.25, mode="bell_c2", t_relax=120.0)
+    axi_60_40x12 = relax_axi_3d_bell_base(40, 12, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", t_relax=160.0)
+    axi_60_56x16 = relax_axi_3d_bell_base(56, 16, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", t_relax=160.0)
+    axi_60_80x12 = relax_axi_3d_bell_base(80, 12, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", t_relax=160.0)
+    axi_60_56x20 = relax_axi_3d_bell_base(56, 20, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", t_relax=160.0)
+    axi_80_44x12 = relax_axi_3d_bell_base(44, 12, M_c=0.12, L_n=0.80, L_d=0.50, mode="bell_smooth", t_relax=160.0)
+    print(f"  2B Steep bell_c2 (Ln=0.50, 40x12): M_div_wall_min={axi_c2_50['M_div_wall_min']:.3f}, M_exit_wall={axi_c2_50['M_exit_wall']:.3f}")
+    print(f"  2B Smooth bell (Ln=0.60, 56x20): rhs={axi_60_56x20['rhs_max']:.2e} | Throat M_c={axi_60_56x20['M_throat_center']:.3f}, M_w={axi_60_56x20['M_throat_wall']:.3f} | Exit M={axi_60_56x20['M_exit_center']:.3f}-{axi_60_56x20['M_exit_wall']:.3f}")
 
     exp2b_tasks = [
-        ("bell3d_Ln60_1T_c", dict(nx=40, nr=12, nth=48, t_end=35.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", init_type="spin_1T", A_eq=1e-4, prim_axi_base=axi_60_c["prim_axi"], record_stride=12)),
-        ("bell3d_Ln60_1T_f", dict(nx=56, nr=16, nth=48, t_end=35.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", init_type="spin_1T", A_eq=1e-4, prim_axi_base=axi_60_f["prim_axi"], record_stride=16)),
-        ("bell3d_Ln60_1R_c", dict(nx=40, nr=12, nth=48, t_end=35.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", init_type="1R", A_eq=1e-4, prim_axi_base=axi_60_c["prim_axi"], record_stride=12)),
-        ("bell3d_Ln80_1T_c", dict(nx=44, nr=12, nth=48, t_end=35.0, M_c=0.12, L_n=0.80, L_d=0.50, mode="bell_smooth", init_type="spin_1T", A_eq=1e-4, prim_axi_base=axi_80_c["prim_axi"], record_stride=12)),
+        ("bell3d_Ln60_40x12_1T", dict(nx=40, nr=12, nth=48, t_end=35.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", init_type="spin_1T", A_eq=1e-4, prim_axi_base=axi_60_40x12["prim_axi"], record_stride=12)),
+        ("bell3d_Ln60_56x16_1T", dict(nx=56, nr=16, nth=48, t_end=35.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", init_type="spin_1T", A_eq=1e-4, prim_axi_base=axi_60_56x16["prim_axi"], record_stride=16)),
+        ("bell3d_Ln60_80x12_1T", dict(nx=80, nr=12, nth=48, t_end=35.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", init_type="spin_1T", A_eq=1e-4, prim_axi_base=axi_60_80x12["prim_axi"], record_stride=20)),
+        ("bell3d_Ln60_56x20_1T", dict(nx=56, nr=20, nth=48, t_end=35.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", init_type="spin_1T", A_eq=1e-4, prim_axi_base=axi_60_56x20["prim_axi"], record_stride=20)),
+        ("bell3d_Ln60_40x12_1R", dict(nx=40, nr=12, nth=48, t_end=35.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", init_type="1R",      A_eq=1e-4, prim_axi_base=axi_60_40x12["prim_axi"], record_stride=12)),
+        ("bell3d_Ln80_44x12_1T", dict(nx=44, nr=12, nth=48, t_end=35.0, M_c=0.12, L_n=0.80, L_d=0.50, mode="bell_smooth", init_type="spin_1T", A_eq=1e-4, prim_axi_base=axi_80_44x12["prim_axi"], record_stride=12)),
     ]
     exp2b_res = run_batch(_sim3d_worker, exp2b_tasks)
     exp2b_summary = {}
     for cid, Ln_v, Ld_v, s_mn, ek, ww in [
-        ("bell3d_Ln60_1T_c", 0.60, 0.45, S11, "e_1t", (1.40, 2.35)),
-        ("bell3d_Ln60_1T_f", 0.60, 0.45, S11, "e_1t", (1.40, 2.35)),
-        ("bell3d_Ln60_1R_c", 0.60, 0.45, S02, "e_1r", (3.10, 4.45)),
-        ("bell3d_Ln80_1T_c", 0.80, 0.50, S11, "e_1t", (1.40, 2.35)),
+        ("bell3d_Ln60_40x12_1T", 0.60, 0.45, S11, "e_1t", (1.40, 2.35)),
+        ("bell3d_Ln60_56x16_1T", 0.60, 0.45, S11, "e_1t", (1.40, 2.35)),
+        ("bell3d_Ln60_80x12_1T", 0.60, 0.45, S11, "e_1t", (1.40, 2.35)),
+        ("bell3d_Ln60_56x20_1T", 0.60, 0.45, S11, "e_1t", (1.40, 2.35)),
+        ("bell3d_Ln60_40x12_1R", 0.60, 0.45, S02, "e_1r", (3.35, 4.15)),
+        ("bell3d_Ln80_44x12_1T", 0.80, 0.50, S11, "e_1t", (1.40, 2.35)),
     ]:
         vq = quasi3d_bessel_bell_eig(0.12, s_mn, L_n=Ln_v, L_d=Ld_v, contour="smooth3d", omega_window=ww, N=96)
-        ap = fit_alpha(exp2b_res[cid], 14.0, 33.0, key=ek)
-        exp2b_summary[cid] = {"quasi3d_wkb_alpha": vq.real, "quasi3d_wkb_omega": vq.imag, "true_3d_bell_alpha": ap}
-        print(f"  2B [{cid:18s}] quasi3D-WKB={vq.real:+.5f}({vq.imag:.3f}) | true 3D Bell PDE={ap:+.5f}")
+        ap1 = fit_alpha(exp2b_res[cid], 14.0, 33.0, key=ek)
+        ap2 = fit_alpha(exp2b_res[cid], 20.0, 34.0, key=ek)
+        exp2b_summary[cid] = {"quasi3d_wkb_alpha": vq.real, "quasi3d_wkb_omega": vq.imag,
+                              "true_3d_bell_alpha_14_33": ap1, "true_3d_bell_alpha_20_34": ap2}
+        print(f"  2B [{cid:21s}] quasi3D-WKB={vq.real:+.5f} | true-3D [14,33]={ap1:+.5f}, [20,34]={ap2:+.5f}")
 
     # ------------------------------------------------------------------
-    # Experiment 3: 3D Chiral 1T -> 1R vs 1T -> 2T Nonlinear Cascade Selection Rule
+    # Experiment 3: 3D Chiral 1T -> 1R vs 1T -> 2T Selection Rule (Small-A0 Quartic & Fixed 3D Energies)
     # ------------------------------------------------------------------
     print("\n--- Experiment 3: 3D Chiral 1T -> 1R vs 1T -> 2T Selection Rule ---")
-    A_grid = [0.02, 0.04, 0.06, 0.08, 0.10]
+    A_grid = [0.005, 0.01, 0.02, 0.04, 0.06, 0.08, 0.10]
     exp3_disk_tasks = []
     for A0 in A_grid:
-        exp3_disk_tasks.append((f"disk24_spin_A{A0:.2f}",  dict(nr=24, nth=96, ic_kind="spin_1T", A_eq=A0, t_end=16.0)))
-        exp3_disk_tasks.append((f"disk24_stand_A{A0:.2f}", dict(nr=24, nth=96, ic_kind="stand_1T", A_eq=A0, t_end=16.0)))
-    # Fine-grid 32x128 convergence check at A_0 = 0.08
+        exp3_disk_tasks.append((f"disk24_spin_A{A0:g}",  dict(nr=24, nth=96, ic_kind="spin_1T", A_eq=A0, t_end=16.0)))
+        exp3_disk_tasks.append((f"disk24_stand_A{A0:g}", dict(nr=24, nth=96, ic_kind="stand_1T", A_eq=A0, t_end=16.0)))
     exp3_disk_tasks.append(("disk32_spin_A0.08",  dict(nr=32, nth=128, ic_kind="spin_1T", A_eq=0.08, t_end=16.0)))
     exp3_disk_tasks.append(("disk32_stand_A0.08", dict(nr=32, nth=128, ic_kind="stand_1T", A_eq=0.08, t_end=16.0)))
     exp3_disk_res = run_batch(_disk_worker, exp3_disk_tasks)
     for A0 in A_grid:
-        sp = exp3_disk_res[f"disk24_spin_A{A0:.2f}"]; st = exp3_disk_res[f"disk24_stand_A{A0:.2f}"]
+        sp = exp3_disk_res[f"disk24_spin_A{A0:g}"]; st = exp3_disk_res[f"disk24_stand_A{A0:g}"]
         rat = st["E_1R_ac"] / max(sp["E_1R_ac"], 1e-30)
-        print(f"  3A A0={A0:.2f}: spin(E2T={sp['E_2T_over_E1T_pct']:.3f}%, E1R_ac={sp['E_1R_ac']:.2e}, DC={sp['E_1R_dc']:.2e}) | stand(E2T={st['E_2T_over_E1T_pct']:.3f}%, E1R_ac={st['E_1R_ac']:.2e} [{st['E_1R_ac_over_E1T_pct']:.2f}%]) | AC ratio={rat:.1e}x")
+        rat_l = st["E_1R_ac_10_16"] / max(sp["E_1R_ac_10_16"], 1e-30)
+        print(f"  3A A0={A0:5g}: spin(E1R_ac={sp['E_1R_ac']:.2e}) | stand(E2T={st['E_2T_over_E1T_pct']:.3f}%, E1R_ac={st['E_1R_ac']:.2e} [{st['E_1R_ac_over_E1T_pct']:.3f}%]) | ratio [6.4,16]={rat:.0f}x, [10,16]={rat_l:.0f}x")
     sp32 = exp3_disk_res["disk32_spin_A0.08"]; st32 = exp3_disk_res["disk32_stand_A0.08"]
-    print(f"  3A Grid 32x128 (A0=0.08): spin E1R_ac={sp32['E_1R_ac']:.2e}, stand E1R_ac={st32['E_1R_ac']:.2e} ({st32['E_1R_ac_over_E1T_pct']:.2f}%), E2T={st32['E_2T_over_E1T_pct']:.3f}%")
+    print(f"  3A Grid 32x128 (A0=0.08): spin E1R_ac={sp32['E_1R_ac']:.2e}, stand E1R_ac={st32['E_1R_ac']:.2e} ({st32['E_1R_ac_over_E1T_pct']:.2f}%), ratio={st32['E_1R_ac']/sp32['E_1R_ac']:.0f}x")
 
-    # Fit quartic scaling slope d log(E_1R_ac) / d log(A0) for standing 1T
-    stand_e1r_ac = [exp3_disk_res[f"disk24_stand_A{A0:.2f}"]["E_1R_ac"] for A0 in A_grid]
-    quartic_slope = float(np.polyfit(np.log(A_grid), np.log(stand_e1r_ac), 1)[0])
-    print(f"  3A Standing-1T -> 1R AC scaling exponent: E_1R_ac ~ A_0^{quartic_slope:.2f} (theory = 4.00)")
+    A_small = [0.005, 0.01, 0.02]
+    stand_e1r_all = [exp3_disk_res[f"disk24_stand_A{A0:g}"]["E_1R_ac"] for A0 in A_grid]
+    spin_e1r_all = [exp3_disk_res[f"disk24_spin_A{A0:g}"]["E_1R_ac"] for A0 in A_grid]
+    stand_e1r_small = [exp3_disk_res[f"disk24_stand_A{A0:g}"]["E_1R_ac"] for A0 in A_small]
+    spin_e1r_small = [exp3_disk_res[f"disk24_spin_A{A0:g}"]["E_1R_ac"] for A0 in A_small]
+    slope_stand_small = float(np.polyfit(np.log(A_small), np.log(stand_e1r_small), 1)[0])
+    slope_spin_small = float(np.polyfit(np.log(A_small), np.log(spin_e1r_small), 1)[0])
+    slope_stand_all = float(np.polyfit(np.log(A_grid), np.log(stand_e1r_all), 1)[0])
+    slope_spin_all = float(np.polyfit(np.log(A_grid), np.log(spin_e1r_all), 1)[0])
+    print(f"  3A Slopes: small-A (<=0.02) stand={slope_stand_small:.3f}, spin={slope_spin_small:.3f} | full range stand={slope_stand_all:.3f}, spin={slope_spin_all:.3f}")
 
-    # 3B: Full 3D cylindrical throughflow reacting check (spin_1T vs stand_1T at A_0 = 0.06, M_c = 0.12, n_p = 0.24)
     exp3b_tasks = [
         ("th3d_spin1T_nl",  dict(nx=20, nr=12, nth=48, t_end=26.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=0.06, n_p=0.24, record_stride=12)),
         ("th3d_stand1T_nl", dict(nx=20, nr=12, nth=48, t_end=26.0, M_c=0.12, mode="straight", init_type="stand_1T", A_eq=0.06, n_p=0.24, record_stride=12)),
@@ -1265,16 +1280,131 @@ def main() -> None:
             "E_1R_dc_late": float(np.mean(c0_l) ** 2),
             "p_peak_pct": float(np.mean(rr["p_max_pct"][ml])),
         }
-        print(f"  3B [{cid:16s}] P={exp3b_stats[cid]['p_peak_pct']:.2f}% | E_1T={exp3b_stats[cid]['E_1T_late']:.2e}, E_2T={exp3b_stats[cid]['E_2T_late']:.2e}, E_1R_ac={exp3b_stats[cid]['E_1R_ac_late']:.2e}")
+        print(f"  3B [{cid:16s}] P={exp3b_stats[cid]['p_peak_pct']:.2f}% | E_1T={exp3b_stats[cid]['E_1T_late']:.3e}, E_2T={exp3b_stats[cid]['E_2T_late']:.3e}, E_1R_ac={exp3b_stats[cid]['E_1R_ac_late']:.3e}")
 
     # ------------------------------------------------------------------
-    # Experiment 1E & Experiment 4: Numerical Damping Audit, Vorticity Plateaus & EP-Matched Cavities
+    # Experiment 4: Matched-Window Shroud vs Hub (12x48 & 20x64), 4-pt EP Sweep & t=120 / 20x20x64 Shootout
     # ------------------------------------------------------------------
-    exp1e = run_num_damping_and_vort_plateau()
-    bare_mc = {k: mc_cheb_vs_3d[k]["pde_3d_24x12x48"] for k in ("mc_3d_1T", "mc_3d_2T", "mc_3d_1R")}
-    exp4_dict, exp4_nl_res, _ = run_exp4_ep_and_shootout(bare_mc)
+    print("\n--- Experiment 4: Matched-Window Shroud vs Hub (12x48 & 20x64) & Long-Horizon Shootout ---")
+    analytical_weights = {
+        "shroud_r1": {"1T": float(bessel_modal_weight(1, S11, 1.0)), "2T": float(bessel_modal_weight(2, S21, 1.0)),
+                      "1R": float(bessel_modal_weight(0, S02, 1.0)), "3T": float(bessel_modal_weight(3, S31, 1.0))},
+        "hub_r0":    {"1T": 0.0, "2T": 0.0, "1R": float(bessel_modal_weight(0, S02, 0.0)), "3T": 0.0},
+    }
 
-    # Save metrics JSON BEFORE plotting
+    # 4B: Matched t_end=24, record_stride=10, window [7, 22] for ALL bare & cavity runs (Review #11 M2, M3, m6!)
+    lin_tasks_12 = [
+        ("bare12_1T",        dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, record_stride=10)),
+        ("bare12_2T",        dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_2T", A_eq=1e-4, record_stride=10)),
+        ("bare12_1R",        dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="1R",      A_eq=1e-4, record_stride=10)),
+        ("w05_1T_shroud",    dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, cav_spec=[{"beta": 0.005, "wH": S11, "xiH": 0.14, "sigma_o": 0.06, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": False}], record_stride=10)),
+        ("w05_1T_uniform",   dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, cav_spec=[{"beta": 0.005, "wH": S11, "xiH": 0.14, "sigma_o": 0.06, "n_cav": 5, "r_lo": 0.00, "r_hi": 1.00, "nonlinear": False}], record_stride=10)),
+        # 4-point xi_H sweep on 2.0% shroud 1T to directly locate the 3D EP peak (Review #11 m6!)
+        ("ep10_1T_shroud",   dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S11, "xiH": 0.10, "sigma_o": 0.06, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": False}], record_stride=10)),
+        ("ep14_1T_shroud",   dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S11, "xiH": 0.14, "sigma_o": 0.06, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": False}], record_stride=10)),
+        ("ep24_1T_shroud",   dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S11, "xiH": 0.24, "sigma_o": 0.06, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": False}], record_stride=10)),
+        ("ep36_1T_shroud",   dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S11, "xiH": 0.36, "sigma_o": 0.06, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": False}], record_stride=10)),
+        ("ep24_1T_uniform",  dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S11, "xiH": 0.24, "sigma_o": 0.06, "n_cav": 5, "r_lo": 0.00, "r_hi": 1.00, "nonlinear": False}], record_stride=10)),
+        ("ep24_1T_hub",      dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S11, "xiH": 0.24, "sigma_o": 0.06, "n_cav": 1, "r_lo": 0.00, "r_hi": 0.26, "nonlinear": False}], record_stride=10)),
+        ("ep26_2T_shroud",   dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_2T", A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S21, "xiH": 0.26, "sigma_o": 0.06, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": False}], record_stride=10)),
+        ("ep26_2T_uniform",  dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_2T", A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S21, "xiH": 0.26, "sigma_o": 0.06, "n_cav": 5, "r_lo": 0.00, "r_hi": 1.00, "nonlinear": False}], record_stride=10)),
+        ("ep14_1R_shroud",   dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="1R",      A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S02, "xiH": 0.14, "sigma_o": 0.06, "n_cav": 1, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": False}], record_stride=10)),
+        ("ep14_1R_uniform",  dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="1R",      A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S02, "xiH": 0.14, "sigma_o": 0.06, "n_cav": 1, "r_lo": 0.00, "r_hi": 1.00, "nonlinear": False}], record_stride=10)),
+        ("ep14_1R_hub035",   dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="1R",      A_eq=1e-4, cav_spec=[{"beta": 0.0035,"wH": S02, "xiH": 0.14, "sigma_o": 0.03, "n_cav": 1, "r_lo": 0.00, "r_hi": 0.26, "nonlinear": False}], record_stride=10)),
+        ("ep38_1R_hub20",    dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", init_type="1R",      A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S02, "xiH": 0.38, "sigma_o": 0.14, "n_cav": 1, "r_lo": 0.00, "r_hi": 0.26, "nonlinear": False}], record_stride=10)),
+    ]
+    lin_res_12 = run_batch(_sim3d_worker, lin_tasks_12)
+    lin_12 = {}
+    for cid, _ in lin_tasks_12:
+        ek = "e_1r" if "_1R" in cid else ("e_2t" if "_2T" in cid else "e_1t")
+        lin_12[cid] = fit_alpha(lin_res_12[cid], 7.0, 22.0, key=ek)
+        print(f"  4B (12x48) [{cid:16s}] alpha[7,22]={lin_12[cid]:+.5f}")
+
+    # Refined 24x20x64 linear placement audit (Review #11 M2 & M3!)
+    lin_tasks_20 = [
+        ("bare20_1T",       dict(nx=24, nr=20, nth=64, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, record_stride=12)),
+        ("bare20_1R",       dict(nx=24, nr=20, nth=64, t_end=24.0, M_c=0.12, mode="straight", init_type="1R",      A_eq=1e-4, record_stride=12)),
+        ("f20_w05_1T_shrd", dict(nx=24, nr=20, nth=64, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, cav_spec=[{"beta": 0.005, "wH": S11, "xiH": 0.14, "sigma_o": 0.06, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": False}], record_stride=12)),
+        ("f20_w05_1T_unif", dict(nx=24, nr=20, nth=64, t_end=24.0, M_c=0.12, mode="straight", init_type="spin_1T", A_eq=1e-4, cav_spec=[{"beta": 0.005, "wH": S11, "xiH": 0.14, "sigma_o": 0.06, "n_cav": 5, "r_lo": 0.00, "r_hi": 1.00, "nonlinear": False}], record_stride=12)),
+        ("f20_1R_shroud",   dict(nx=24, nr=20, nth=64, t_end=24.0, M_c=0.12, mode="straight", init_type="1R",      A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S02, "xiH": 0.14, "sigma_o": 0.06, "n_cav": 1, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": False}], record_stride=12)),
+        ("f20_1R_uniform",  dict(nx=24, nr=20, nth=64, t_end=24.0, M_c=0.12, mode="straight", init_type="1R",      A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S02, "xiH": 0.14, "sigma_o": 0.06, "n_cav": 1, "r_lo": 0.00, "r_hi": 1.00, "nonlinear": False}], record_stride=12)),
+        ("f20_1R_hub035",   dict(nx=24, nr=20, nth=64, t_end=24.0, M_c=0.12, mode="straight", init_type="1R",      A_eq=1e-4, cav_spec=[{"beta": 0.0035,"wH": S02, "xiH": 0.14, "sigma_o": 0.03, "n_cav": 1, "r_lo": 0.00, "r_hi": 0.26, "nonlinear": False}], record_stride=12)),
+        ("f20_1R_hub20",    dict(nx=24, nr=20, nth=64, t_end=24.0, M_c=0.12, mode="straight", init_type="1R",      A_eq=1e-4, cav_spec=[{"beta": 0.020, "wH": S02, "xiH": 0.38, "sigma_o": 0.14, "n_cav": 1, "r_lo": 0.00, "r_hi": 0.26, "nonlinear": False}], record_stride=12)),
+    ]
+    lin_res_20 = run_batch(_sim3d_worker, lin_tasks_20)
+    lin_20 = {}
+    for cid, _ in lin_tasks_20:
+        ek = "e_1r" if "_1R" in cid else "e_1t"
+        a7 = fit_alpha(lin_res_20[cid], 7.0, 22.0, key=ek)
+        a14 = fit_alpha(lin_res_20[cid], 14.0, 24.0, key=ek)
+        lin_20[cid] = {"alpha_7_22": a7, "alpha_14_24": a14}
+        print(f"  4B (20x64) [{cid:16s}] alpha[7,22]={a7:+.5f}, alpha[14,24]={a14:+.5f}")
+
+    # 4C: Long-horizon t=120 reacting 3D shootout (20x12x48) + refined 20x20x64 (t=48) 1R shootout!
+    cav_shroud_only = [
+        {"beta": 0.0210, "wH": S11, "xiH": 0.22, "sigma_o": 0.10, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
+        {"beta": 0.0090, "wH": S21, "xiH": 0.24, "sigma_o": 0.08, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
+    ]
+    cav_dualzone = [
+        {"beta": 0.0185, "wH": S11, "xiH": 0.22, "sigma_o": 0.10, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
+        {"beta": 0.0080, "wH": S21, "xiH": 0.24, "sigma_o": 0.08, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
+        {"beta": 0.0035, "wH": S02, "xiH": 0.14, "sigma_o": 0.04, "n_cav": 1, "r_lo": 0.00, "r_hi": 0.26, "nonlinear": True},
+    ]
+    nl_tasks_120 = [
+        ("nl_bare_1T",     dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", init_type="spin_1T",  A_eq=0.04, n_p=0.30, record_stride=24)),
+        ("nl_bare_st1T",   dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", init_type="stand_1T", A_eq=0.04, n_p=0.30, record_stride=24)),
+        ("nl_bare_2T",     dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", init_type="spin_2T",  A_eq=0.04, n_p=0.30, record_stride=24)),
+        ("nl_bare_1R",     dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", init_type="1R",       A_eq=0.04, n_p=0.30, record_stride=24)),
+        ("nl_shroud_1T",   dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", init_type="spin_1T",  A_eq=0.04, n_p=0.30, cav_spec=cav_shroud_only, record_stride=24)),
+        ("nl_shroud_st1T", dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", init_type="stand_1T", A_eq=0.04, n_p=0.30, cav_spec=cav_shroud_only, record_stride=24)),
+        ("nl_shroud_1R",   dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", init_type="1R",       A_eq=0.04, n_p=0.30, cav_spec=cav_shroud_only, record_stride=24)),
+        ("nl_dualz_1T",    dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", init_type="spin_1T",  A_eq=0.04, n_p=0.30, cav_spec=cav_dualzone, record_stride=24)),
+        ("nl_dualz_st1T",  dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", init_type="stand_1T", A_eq=0.04, n_p=0.30, cav_spec=cav_dualzone, record_stride=24)),
+        ("nl_dualz_2T",    dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", init_type="spin_2T",  A_eq=0.04, n_p=0.30, cav_spec=cav_dualzone, record_stride=24)),
+        ("nl_dualz_1R",    dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", init_type="1R",       A_eq=0.04, n_p=0.30, cav_spec=cav_dualzone, record_stride=24)),
+    ]
+    nl_res_120 = run_batch(_sim3d_worker, nl_tasks_120)
+    nl_out_120 = {}
+    for cid, _ in nl_tasks_120:
+        rr = nl_res_120[cid]; t = rr["t"]
+        m48 = (t >= 38.4) & (t <= 48.0)
+        m120 = t >= 110.4
+        nl_out_120[cid] = {
+            "p_peak_48": float(np.mean(rr["p_max_pct"][m48])),
+            "p_peak_120": float(np.mean(rr["p_max_pct"][m120])),
+            "e_wave_48": float(np.mean(rr["e_ch"][m48])),
+            "e_wave_120": float(np.mean(rr["e_ch"][m120])),
+            "slope_28_48": fit_alpha(rr, 28.8, 48.0, "e_ch"),
+            "slope_84_120": fit_alpha(rr, 84.0, 120.0, "e_ch"),
+            "e_1t_120": float(np.mean(rr["e_1t"][m120])),
+            "e_2t_120": float(np.mean(rr["e_2t"][m120])),
+            "e_1r_120": float(np.mean(rr["e_1r"][m120])),
+            "e_1l_120": float(np.mean(rr["e_1l"][m120])),
+            "e_2l_120": float(np.mean(rr["e_2l"][m120])),
+            "e_mean_120": float(np.mean(rr["e_mean"][m120])),
+            "E_1R_ac_48": float(np.var(rr["c0_re"][m48])),
+        }
+        s = nl_out_120[cid]
+        print(f"  4C(t=120) [{cid:15s}] P48={s['p_peak_48']:5.2f}%->P120={s['p_peak_120']:5.2f}% | slp[84,120]={s['slope_84_120']:+.4f} | 1T={s['e_1t_120']:.1e}, 1L={s['e_1l_120']:.1e}, 2L={s['e_2l_120']:.1e}, mn={s['e_mean_120']:.1e}")
+
+    nl_tasks_20 = [
+        ("nl20_bare_1R",   dict(nx=20, nr=20, nth=64, t_end=48.0, M_c=0.12, mode="straight", init_type="1R", A_eq=0.04, n_p=0.30, record_stride=24)),
+        ("nl20_shroud_1R", dict(nx=20, nr=20, nth=64, t_end=48.0, M_c=0.12, mode="straight", init_type="1R", A_eq=0.04, n_p=0.30, cav_spec=cav_shroud_only, record_stride=24)),
+        ("nl20_dualz_1R",  dict(nx=20, nr=20, nth=64, t_end=48.0, M_c=0.12, mode="straight", init_type="1R", A_eq=0.04, n_p=0.30, cav_spec=cav_dualzone, record_stride=24)),
+    ]
+    nl_res_20 = run_batch(_sim3d_worker, nl_tasks_20)
+    nl_out_20 = {}
+    for cid, _ in nl_tasks_20:
+        rr = nl_res_20[cid]; t = rr["t"]; ml = t >= 38.4
+        nl_out_20[cid] = {
+            "p_peak_48": float(np.mean(rr["p_max_pct"][ml])),
+            "e_wave_48": float(np.mean(rr["e_ch"][ml])),
+            "slope_28_48": fit_alpha(rr, 28.8, 48.0, "e_ch"),
+        }
+        s = nl_out_20[cid]
+        print(f"  4C(20x20x64) [{cid:15s}] P48={s['p_peak_48']:5.2f}% | E={s['e_wave_48']:.2e} | slp={s['slope_28_48']:+.4f}")
+
+    # Save hardened metrics JSON BEFORE plotting
     metrics = {
         "bessel_constants": {"s_11_1T": S11, "s_21_2T": S21, "s_02_1R": S02, "s_31_3T": S31, "s_12_1T1R": S12,
                              "ratio_2T_over_1T": S21 / S11, "ratio_1R_over_1T": S02 / S11},
@@ -1283,66 +1413,39 @@ def main() -> None:
             "quiescent_bell_err": rq["quiescent_err"],
             "periodic_3d_bell_cons_err": rc["periodic_cons_err"],
             "closed_cyl_bessel_fft": bessel_fft,
-            "straight_mc_cheb_vs_3d": mc_cheb_vs_3d,
-            "num_damping_and_vort_plateaus": exp1e,
+            "closed_cyl_num_damping": num_audit,
+            "straight_axial_refinement": axial_refinement,
         },
         "exp2_3d_bell_cutoff": {
-            "Ln_sweep_Mc012": exp2_Ln_rows,
-            "Mc_hopf_nv0_Ln050": exp2_hopf_3d,
-            "axi_base_Ln60_56x16": {k: v for k, v in axi_60_f.items() if k != "prim_axi"},
-            "axi_base_Ln80_44x12": {k: v for k, v in axi_80_c.items() if k != "prim_axi"},
+            "Ln_sweep_Mc012_N160": exp2_Ln_rows,
+            "Mc_hopf_nv0_Ln050_tau016": exp2_hopf_3d,
+            "tau040_hopf_cross_check": tau040_check,
+            "axi_base_c2_Ln50_40x12": {k: v for k, v in axi_c2_50.items() if k != "prim_axi"},
+            "axi_base_smooth_Ln60_56x20": {k: v for k, v in axi_60_56x20.items() if k != "prim_axi"},
+            "axi_base_smooth_Ln80_44x12": {k: v for k, v in axi_80_44x12.items() if k != "prim_axi"},
             "true_3d_bell_vs_quasi3d": exp2b_summary,
         },
         "exp3_chiral_1T_to_1R_cascade": {
             "A_grid": A_grid,
             "disk_runs": exp3_disk_res,
-            "stand_1R_ac_quartic_slope": quartic_slope,
+            "stand_1R_ac_slope_smallA": slope_stand_small,
+            "spin_1R_ac_slope_smallA": slope_spin_small,
+            "stand_1R_ac_slope_all": slope_stand_all,
+            "spin_1R_ac_slope_all": slope_spin_all,
             "reacting_3d_throughflow": exp3b_stats,
         },
-        "exp4_shroud_vs_hub_cavities": exp4_dict,
+        "exp4_shroud_vs_hub_cavities": {
+            "analytical_weights": analytical_weights,
+            "linear_placement_12x48_matched": lin_12,
+            "linear_placement_20x64_matched": lin_20,
+            "reacting_t120_shootout_12x48": nl_out_120,
+            "reacting_t48_1R_shootout_20x64": nl_out_20,
+        },
     }
     out_path.write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
-    print(f"\nSaved metrics -> {out_path}")
+    print(f"\nSaved hardened metrics to {out_path}")
 
-    # ------------------------------------------------------------------
-    # Figures 1, 2, 3
-    # ------------------------------------------------------------------
-    plot_fig1_and_fig3(metrics, exp4_nl_res)
-
-    # Figure 2: 3D Chiral 1T -> 1R vs 2T Selection Rule & Shroud-vs-Hub Cavity Law
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.4, 5.5), dpi=150)
-    ax1.loglog(A_grid, [exp3_disk_res[f"disk24_stand_A{a:.2f}"]["E_1R_ac"] for a in A_grid], "o-", color="#d62728", lw=2.5,
-               label=f"Standing $1T \\to$ AC $1R$ ($E \\propto A_0^{{{quartic_slope:.2f}}}$)")
-    ax1.loglog(A_grid, [exp3_disk_res[f"disk24_stand_A{a:.2f}"]["E_2T_mean"] for a in A_grid], "s--", color="#ff7f0e", lw=2.0,
-               label="Standing $1T \\to$ detuned $2T$ ($1.66\\omega_{1T}$)")
-    ax1.loglog(A_grid, [exp3_disk_res[f"disk24_spin_A{a:.2f}"]["E_2T_mean"] for a in A_grid], "^-.", color="#1f77b4", lw=2.0,
-               label="Spinning $1T \\to$ detuned $2T$")
-    ax1.loglog(A_grid, [max(exp3_disk_res[f"disk24_spin_A{a:.2f}"]["E_1R_ac"], 1e-13) for a in A_grid], "v:", color="#2ca02c", lw=2.0,
-               label="Spinning $1T \\to$ AC $1R$ ($SO(2)$ forbidden!)")
-    ax1.set_xlabel("Initial $1T$ Mode Amplitude $A_0$", fontsize=11)
-    ax1.set_ylabel("Cascaded Modal Energy $E_{\\mathrm{mode}}$", fontsize=11)
-    ax1.set_title("3D Chiral Selection Rule: Standing $1T \\to 1R$ vs. Spinning $1T$", fontsize=11.5, fontweight="bold")
-    ax1.grid(True, which="both", alpha=0.25)
-    ax1.legend(fontsize=8.3, loc="lower right", framealpha=0.94)
-
-    r_plot = np.linspace(0.0, 1.0, 200)
-    ax2.plot(r_plot, bessel_modal_weight(0, S02, r_plot), "-", color="#d62728", lw=2.6, label="$1R$ ($s_{02}$): Hub $6.16\\times$ Shroud!")
-    ax2.plot(r_plot, bessel_modal_weight(1, S11, r_plot), "--", color="#1f77b4", lw=2.2, label="$1T$ ($s_{11}$): Shroud $1.42\\times$, Hub $0$")
-    ax2.plot(r_plot, bessel_modal_weight(2, S21, r_plot), "-.", color="#ff7f0e", lw=2.2, label="$2T$ ($s_{21}$): Shroud $1.75\\times$, Hub $0$")
-    ax2.plot(r_plot, bessel_modal_weight(3, S31, r_plot), ":", color="#2ca02c", lw=2.1, label="$3T$ ($s_{31}$): Shroud $2.04\\times$, Hub $0$")
-    ax2.axvspan(0.0, 0.26, color="#d62728", alpha=0.09, label="Micro-Hub $1R$ Zone ($0.35\\%$)")
-    ax2.axvspan(0.78, 1.0, color="#1f77b4", alpha=0.09, label="Outer Shroud $1T/2T$ Zone ($2.65\\%$)")
-    ax2.set_xlabel("Normalized Faceplate Radius $r / R$", fontsize=11)
-    ax2.set_ylabel("Normalized Modal Coupling Weight $W_{mn}(r)$", fontsize=11)
-    ax2.set_title("3D Shroud-vs.-Hub Faceplate Cavity Placement Theorem", fontsize=11.5, fontweight="bold")
-    ax2.set_ylim(-0.15, 6.6)
-    ax2.grid(True, alpha=0.28)
-    ax2.legend(fontsize=8.0, loc="upper center", framealpha=0.94)
-    fig.tight_layout()
-    fig.savefig(RESULTS_DIR / "exp014_3d_chiral_1R_cascade_and_shroud_hub.png", dpi=150)
-    plt.close(fig)
-    print("Saved plots -> exp014_3d_bessel_bell_cutoff_collapse.png, exp014_3d_chiral_1R_cascade_and_shroud_hub.png, exp014_3d_shroud_hub_pde_shootout.png")
-    print("Done!")
+    plot_all_figures(metrics, nl_res_20, nl_res_120)
 
 
 if __name__ == "__main__":
