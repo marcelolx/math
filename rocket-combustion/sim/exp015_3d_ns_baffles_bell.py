@@ -1,43 +1,38 @@
-"""Entry 015 (rocket-combustion): Full 3D Cylindrical Compressible Navier-Stokes +
-3D Partial-Span Radial Baffles + Mass-Conserving Dual-Zone Cavities & Transonic Bell.
+"""Entry 015 (rocket-combustion, Hardened per Peer Review #12): Full 3D Cylindrical
+Compressible Navier-Stokes, Partial-Span Shroud-Ring Baffles, Mass-Conserving Cavities
+& the 3D Transverse -> Chugging -> 1L Mode-Migration Audit.
 
-Upgrades Entry 014's 3D cylindrical conical-frustum Euler solver to:
-  1. Full 3D conservative compressible Navier-Stokes (constant eddy viscosity mu = 1/Re,
-     Pr = 0.72, Stokes hypothesis lambda = -2/3 mu) with exact telescoping mass, angular-
-     momentum (r * rho * u_theta), and total-energy fluxes on curved 3D bell cells, plus
-     wall-aware one-sided baffle stencils.
-  2. Exact mass-conserving 3D faceplate Helmholtz cavity coupling (solving for cavity mass
-     flux m_dot_k instead of volume velocity u_port in rho*(u + u_port) = M_c), eliminating
-     the quadratic acoustic-absorption mass leak <rho' u_port> > 0 that drove Entry 014's
-     t = 120 k = 0 bulk pressure drift (e_mean) and conserving chamber+cavity mass to ~1e-16.
-  3. True 3D Partial-Span (Shroud-Ring r in [r_b, 1]) vs. Full-Span (r in [0, 1]) N_b = 5
-     radial faceplate baffles (split-face mirror HLLC + adiabatic slip/no-slip walls).
-
-Experiments:
-  Exp 1: 3D NS Verification — quiescent curved bell (~1e-18), periodic 3D wavy-bell NS
-         mass/ang-mom/energy conservation with & without 5 adiabatic 3D baffles (~1e-16),
-         closed-cylinder 3D Stokes-Kirchhoff (1T & 1R vs exact s_mn^2 law), exact chamber +
-         cavity closed mass conservation (~1e-16), and fixed-Re=500 straight-cylinder &
-         true-3D smooth-bell grid convergence (resolving Entry 014 C1/C2 at fixed physical Re).
-  Exp 2: 3D Partial-Span (Shroud-Ring r_b) vs. Full-Span Radial Baffle Law (r_b = 0.00,
-         0.25, 0.42, 0.58, 0.75 at Re = 500 & inviscid): linear 1T/2T/1R damping, FFT
-         downshifts (3D Higher-Harmonic Baffle Downshift Law), and metal-area efficiency.
-  Exp 3: Exact Root-Cause & Elimination of Entry 014's t = 120 k = 0 Bulk Pressure Drift:
-         direct head-to-head comparison of non-conservative u_port vs. exact mass-conserving
-         m_dot cavities out to t = 120 (quantifying mass deficit & e_mean drop).
-  Exp 4: Full 3D All-Mode (spin_1T, stand_1T, spin_2T, 1R, 1L) Nonlinear Bomb Quench out to
-         t = 120 (3D NS Re = 500 + partial-span r_b = 0.42 baffles + baffle-retuned 3.0%
-         mass-conserving Dual-Zone Shroud+Micro-Hub cavities, straight & true-3D smooth bell,
-         plus refined 20x16x48 check).
+Hardened changes addressing Peer Review #12 (C1-C3, M1-M5, m1-m10):
+  - M1: Exact mapped-grid curved-bell viscous x-derivatives d/dx|_r = d/dx|_eta - eta*R'*d/dr
+        and full slanted eta-face heat-flux projection -(nxe*qx_ef + nre*qr_ef) in BOTH
+        simulate_3d_ns and relax_axi_3d_bell_base (retaining ~1e-16 conservation).
+  - M4: Added nr = 20, 28 curved-wall stress-free SK convergence runs against the exact
+        3x3 stress-free adiabatic disk dispersion roots (-0.006537 1T, -0.041144 1R at Re=300),
+        showing O(Re^-1) formula + O(Re^-3/2) shift and 0.25% (1T) / 0.77% (1R) convergence.
+  - C1: Added matched Re=inf straight-cylinder PDE (48x12x48) + stress-free injector Chebyshev
+        to honestly show the PDE does not resolve the faceplate Stokes layer (delta ~ 0.047)
+        and the earlier 4.1-5.5% Re=500 match to no-slip Chebyshev was coincidental.
+  - C2 & m5: Added m=-3 Bragg projection (e_3tm), plain Hann FFT (no moving-RMS bias), total-
+        energy E_ch and [10,22] window sensitivity, inviscid Re=inf runs, and refined 36x18x50
+        Exp 2 runs, replacing "2.57-2.90x viscous vortex shedding" with the robust E_ch boost
+        (1.5-1.7x at r_b=0.42, 1.9-2.2x at r_b=0.58; present inviscid too) + m=-3 transfer.
+  - C3: Extended Exp 3 to t = 180 recording signed mean pressure and chugging period T ~ 39.3,
+        honestly showing mass-conserving m_dot does NOT stop k=0 chugging at omega_hp = 0.15,
+        the 1D linear model (T = 55-57, stable) does not explain T ~ 39.3, and omega_hp = 0.50
+        is a flame-response low-frequency cutoff that keeps both runs chugging-free to t = 180.
+  - M2, M3, M5: Added matched bare_ns_st1T, extended hyb3d_1R to t = 180 (documenting linear
+        1L growth +0.006), labeled mid-transient st1T/2T runs honestly, verified metric-corrected
+        bell_hyb_1T out to t = 120, and reported throat-Mach grid sensitivity across 36x12/40x12/48x14.
 """
 
 from __future__ import annotations
 
-import argparse
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 import json
 import os
 from pathlib import Path
+import pickle
+import time
 
 import matplotlib
 matplotlib.use("Agg")
@@ -61,6 +56,10 @@ OMEGA_HP = 0.15
 TAU_BAR = 0.16
 Q_S = 0.045
 KAPPA_NL = 4.5
+
+# Exact 3x3 stress-free adiabatic disk linear NS dispersion roots at Re = 300 (verified in Review #12 M4)
+EXACT_SF_ROOT_1T_RE300 = -0.006537
+EXACT_SF_ROOT_1R_RE300 = -0.041144
 
 
 def bessel_prime_zero(m: int, n: int) -> float:
@@ -119,9 +118,12 @@ def cheb_diff(N: int, L: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return x, Dx, w_cc
 
 
-def exact_straight_bessel_ns_eig(M_c: float, s_mn: float, Re: float = np.inf, N: int = 80) -> complex:
-    """Exact 1D Chebyshev compressible Navier-Stokes eigen-solver for a straight 3D cylinder (R=1, k_perp = s_mn).
-    Includes consistent viscous stresses (4/3 mu, mu) and thermal conduction (gamma/(Pr*Re)) on all fields."""
+def exact_straight_bessel_ns_eig(
+    M_c: float, s_mn: float, Re: float = np.inf, inlet_stressfree: bool = False, N: int = 80,
+) -> complex:
+    """Exact 1D Chebyshev compressible NS eigen-solver for a straight 3D cylinder (k_perp = s_mn).
+    Optional `inlet_stressfree=True` replaces u_perp'(0)=0 with du_perp'/dx(0)=0 to isolate the
+    unresolved injector-face Stokes layer (Review #12 C1)."""
     x, Dx, _ = cheb_diff(N, L_A)
     D2 = Dx @ Dx
     n = N + 1
@@ -131,39 +133,31 @@ def exact_straight_bessel_ns_eig(M_c: float, s_mn: float, Re: float = np.inf, N:
     B = np.eye(dim, dtype=complex)
     sl = lambda q: slice(q * n, (q + 1) * n)
     mu = 0.0 if not np.isfinite(Re) else (1.0 / Re)
-    k_th = 0.0 if not np.isfinite(Re) else (GAMMA / (PR * Re))
 
-    # Primitive perturbations [rho', ux', u_perp', p'] around rho_b=1, p_b=1/gamma, ux_b=M_c, T'=p'-rho'/gamma
-    # Continuity: d_t rho' + M_c d_x rho' + d_x ux' + i s u_perp' = 0
     Mat[sl(0), sl(0)] = -M_c * Dx
     Mat[sl(0), sl(1)] = -Dx
     Mat[sl(0), sl(2)] = -1j * s_mn * I
-    # Axial momentum: d_t ux' + M_c d_x ux' + d_x p' = mu*(4/3 d_xx ux' - s^2 ux' + 1/3 i s d_x u_perp')
     Mat[sl(1), sl(1)] = -M_c * Dx + mu * ((4.0 / 3.0) * D2 - (s_mn * s_mn) * I)
     Mat[sl(1), sl(2)] = mu * (1.0 / 3.0) * (1j * s_mn) * Dx
     Mat[sl(1), sl(3)] = -Dx
-    # Transverse momentum: d_t u_perp' + M_c d_x u_perp' + i s p' = mu*(d_xx u_perp' - 4/3 s^2 u_perp' + 1/3 i s d_x ux')
     Mat[sl(2), sl(1)] = mu * (1.0 / 3.0) * (1j * s_mn) * Dx
     Mat[sl(2), sl(2)] = -M_c * Dx + mu * (D2 - (4.0 / 3.0) * (s_mn * s_mn) * I)
     Mat[sl(2), sl(3)] = -1j * s_mn * I
-    # Pressure/energy: d_t p' + M_c d_x p' + d_x ux' + i s u_perp' = (gamma/Pr/Re)*(d_xx - s^2)(p' - rho'/gamma)
-    # Wait: p = rho*T => T'/T_b = gamma*p' - rho', d_t p' = ... + (gamma-1)*kappa*lap(T') = (1/(Pr*Re))*lap(gamma*p' - rho')!
-    # Check SK: rho' = p' (isentropic) => T'/T_b = (gamma-1)*p', so pressure eq gets ((gamma-1)/(Pr*Re))*lap(p') =>
-    # dispersion: omega_i = -k^2/(2*Re) * (4/3 + (gamma-1)/Pr). Exact!
     lap = D2 - (s_mn * s_mn) * I
     Mat[sl(3), sl(0)] = -(1.0 / (PR * Re) if np.isfinite(Re) else 0.0) * lap
     Mat[sl(3), sl(1)] = -Dx
     Mat[sl(3), sl(2)] = -1j * s_mn * I
     Mat[sl(3), sl(3)] = -M_c * Dx + (GAMMA / (PR * Re) if np.isfinite(Re) else 0.0) * lap
 
-    # Inlet x = 0: choked isentropic rho' - p' = 0, ux' + M_c*p' = 0, u_perp' = 0
     for r in (0, n, 2 * n):
         Mat[r, :] = 0.0; B[r, :] = 0.0
     Mat[0, 0] = 1.0; Mat[0, 3 * n] = -1.0
     Mat[n, n] = 1.0; Mat[n, 3 * n] = M_c
-    Mat[2 * n, 2 * n] = 1.0
+    if inlet_stressfree and np.isfinite(Re):
+        Mat[2 * n, sl(2)] = Dx[0, :]
+    else:
+        Mat[2 * n, 2 * n] = 1.0
     if np.isfinite(Re):
-        # Extra viscous outlet BCs (zero axial gradient of u_perp' and T' = gamma*p' - rho', plus MC on ux', p')
         for r_ex_v, blk in [(2 * n + N, sl(2)), (N, None)]:
             Mat[r_ex_v, :] = 0.0; B[r_ex_v, :] = 0.0
             if blk is not None:
@@ -171,7 +165,6 @@ def exact_straight_bessel_ns_eig(M_c: float, s_mn: float, Re: float = np.inf, N:
             else:
                 Mat[r_ex_v, sl(3)] = GAMMA * Dx[N, :]
                 Mat[r_ex_v, sl(0)] = -Dx[N, :]
-    # Outlet x = L_A: compact Marble-Candel ux' - 0.5*(gamma-1)*M_c*p' = 0
     r_ex = 3 * n + N
     Mat[r_ex, :] = 0.0; B[r_ex, :] = 0.0
     Mat[r_ex, n + N] = 1.0; Mat[r_ex, 3 * n + N] = -0.5 * (GAMMA - 1.0) * M_c
@@ -182,8 +175,45 @@ def exact_straight_bessel_ns_eig(M_c: float, s_mn: float, Re: float = np.inf, N:
     return complex(cands[0])
 
 
+def exact_1d_chugging_eig(n_p: float, omega_hp: float = OMEGA_HP, beta_tot: float = 0.0, M_c: float = 0.12, N: int = 48) -> tuple[complex | None, complex | None]:
+    """Exact 1D Chebyshev eigen-solver for coupled k=0 low-frequency chugging & 1L modes
+    (single lumped compliance beta_tot at omega_H=1.84 for chugging compliance limit)."""
+    x, Dx, w_cc = cheb_diff(N, L_A)
+    n = N + 1; has_c = beta_tot > 0.0
+    dim = 3 * n + 5 + (2 if has_c else 0)
+    Mat = np.zeros((dim, dim), dtype=complex); B = np.eye(dim, dtype=complex)
+    sl = lambda q: slice(q * n, (q + 1) * n)
+    Mat[sl(0), sl(0)] = -M_c * Dx; Mat[sl(0), sl(1)] = -Dx
+    Mat[sl(1), sl(1)] = -M_c * Dx; Mat[sl(1), sl(2)] = -Dx
+    Mat[sl(2), sl(1)] = -Dx;       Mat[sl(2), sl(2)] = -M_c * Dx
+    wf = np.exp(-0.5 * ((x - X_F) / SIG_F) ** 2); wf /= float(np.sum(w_cc * wf))
+    ws = w_cc * wf; inv_ts = 4.0 / TAU_BAR; ib = 3 * n
+    Mat[ib + 0, sl(2)] = omega_hp * ws; Mat[ib + 0, ib + 0] = -omega_hp
+    Mat[ib + 1, sl(2)] = inv_ts * ws;   Mat[ib + 1, ib + 0] = -inv_ts; Mat[ib + 1, ib + 1] = -inv_ts
+    for r in range(1, 4):
+        Mat[ib + 1 + r, ib + r] = inv_ts; Mat[ib + 1 + r, ib + 1 + r] = -inv_ts
+    Mat[sl(2), ib + 4] = n_p * wf
+    if has_c:
+        ic = ib + 5; Vc = beta_tot * L_A; wH = 1.84; xiH = 0.22
+        Mat[ic, ic + 1] = 1.0 / Vc
+        Mat[ic + 1, 2 * n] = (wH ** 2) * Vc; Mat[ic + 1, ic] = -(wH ** 2) * Vc; Mat[ic + 1, ic + 1] = -2.0 * xiH * wH
+    for r in (0, n):
+        Mat[r, :] = 0.0; B[r, :] = 0.0
+    Mat[0, 0] = 1.0; Mat[0, 2 * n] = -1.0
+    Mat[n, n] = 1.0; Mat[n, 2 * n] = M_c
+    if has_c:
+        Mat[n, ib + 6] = 1.0
+    r_ex = 2 * n + N
+    Mat[r_ex, :] = 0.0; B[r_ex, :] = 0.0
+    Mat[r_ex, n + N] = 1.0; Mat[r_ex, 2 * n + N] = -0.5 * (GAMMA - 1.0) * M_c
+    vals = eig(Mat, B, right=False)
+    chug = sorted([v for v in vals if np.isfinite(v) and 0.01 <= v.imag <= 0.60], key=lambda z: z.real, reverse=True)
+    l1 = sorted([v for v in vals if np.isfinite(v) and 1.20 <= v.imag <= 2.60], key=lambda z: z.real, reverse=True)
+    return (complex(chug[0]) if chug else None), (complex(l1[0]) if l1 else None)
+
+
 # ---------------------------------------------------------------------------
-# 2. 3D Cylindrical Conical-Frustum FV Compressible Navier-Stokes Solver
+# 2. 3D Cylindrical Conical-Frustum FV Compressible NS Solver (Metric-Corrected)
 # ---------------------------------------------------------------------------
 
 def van_leer(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -219,16 +249,7 @@ def hllc_3d(rL, vnL, vt1L, vt2L, pL, rR, vnR, vt1R, vt2R, pR) -> np.ndarray:
     return np.where(sL >= 0.0, FL, np.where(sS >= 0.0, FsL, np.where(sR >= 0.0, FsR, FR)))
 
 
-def inlet_choked_3d(
-    rho_i, ux_i, p_i, M_c: float,
-    m_port: np.ndarray | None = None,
-    u_port: np.ndarray | None = None,
-):
-    """Choked isentropic zero-swirl inlet.
-    - Exact mass-conserving mode (`m_port` provided): rho_g * u_g + m_port = M_c, so any
-      zero-time-mean cavity mass flux m_dot_k injects ZERO phantom net mass deficit!
-    - Legacy Entry 014 mode (`u_port` provided): rho_g * (u_g + u_port) = M_c (for Exp 3 comparison).
-    """
+def inlet_choked_3d(rho_i, ux_i, p_i, M_c: float, m_port: np.ndarray | None = None, u_port: np.ndarray | None = None):
     c_i = np.sqrt(GAMMA * p_i / rho_i)
     Jm = ux_i - (2.0 / (GAMMA - 1.0)) * c_i
     c_g = np.maximum(c_i.copy(), 0.2)
@@ -271,14 +292,18 @@ def build_3d_geom(nx: int, nr: int, nth: int, M_c: float = 0.12, L_n: float = 0.
     etaf = np.linspace(0.0, 1.0, nr + 1); etac = 0.5 * (etaf[:-1] + etaf[1:])
     thc = (np.arange(nth) + 0.5) * dth
 
-    def R_of(xv):
+    def R_and_dR(xv):
         if mode in ("straight", "closed"):
-            return np.ones_like(xv)
+            return np.ones_like(xv), np.zeros_like(xv)
         if mode == "periodic_bump":
-            return np.sqrt(1.0 - 0.35 * np.sin(np.pi * xv / L_tot) ** 2)
-        return nozzle_R_smooth_3d(xv, M_c, L_n)[0]
+            s = np.sin(np.pi * xv / L_tot); c = np.cos(np.pi * xv / L_tot)
+            R = np.sqrt(1.0 - 0.35 * s * s)
+            dR = -0.35 * (np.pi / L_tot) * s * c / R
+            return R, dR
+        return nozzle_R_smooth_3d(xv, M_c, L_n)
 
-    Rf = R_of(xf); Rm = R_of(xc)
+    Rf, dRf = R_and_dR(xf)
+    Rm, dRm = R_and_dR(xc)
     int_R = (dx / 6.0) * (Rf[:-1] + 4.0 * Rm + Rf[1:])
     int_R2 = (dx / 6.0) * (Rf[:-1] ** 2 + 4.0 * Rm ** 2 + Rf[1:] ** 2)
     int_R3 = (dx / 6.0) * (Rf[:-1] ** 3 + 4.0 * Rm ** 3 + Rf[1:] ** 3)
@@ -301,12 +326,17 @@ def build_3d_geom(nx: int, nr: int, nth: int, M_c: float = 0.12, L_n: float = 0.
     gcl_x = float(np.max(np.abs((Sx[1:] - Sx[:-1]) - (S_ex[:, 1:] - S_ex[:, :-1]))))
     gcl_r = float(np.max(np.abs((S_er[:, 1:] - S_er[:, :-1]) - hoop)))
     dA_in = np.broadcast_to(Sx[0, :, None], (nr, nth)).copy()
+    # Exact mapped-grid metric factors eta * R'(x) for d/dx|_r = d/dx|_eta - eta*R'*d/dr (Review #12 M1!)
+    eta_Rp_c = dRm[:, None] * etac[None, :]     # (nx, nr)
+    eta_Rp_xf = dRf[:, None] * etac[None, :]    # (nx+1, nr)
+    eta_Rp_ef = dRm[:, None] * etaf[None, :]    # (nx, nr+1)
     return {
         "xc": xc, "xf": xf, "etac": etac, "etaf": etaf, "thc": thc, "dx": dx, "deta": deta, "dth": dth,
         "L_tot": L_tot, "Rm": Rm, "Rf": Rf, "gcl_x": gcl_x, "gcl_r": gcl_r, "dA_in": dA_in,
         "V": V[:, :, None], "r_bar": r_bar[:, :, None], "Sx": Sx[:, :, None], "r_xf": r_xf[:, :, None],
         "Sm": Sm[:, :, None], "nxe": nxe[:, :, None], "nre": nre[:, :, None], "r_ef": r_ef[:, :, None],
         "S_th": S_th[:, :, None], "r_thf": r_thf[:, :, None], "hoop": hoop[:, :, None],
+        "eta_Rp_c": eta_Rp_c[:, :, None], "eta_Rp_xf": eta_Rp_xf[:, :, None], "eta_Rp_ef": eta_Rp_ef[:, :, None],
     }
 
 
@@ -314,11 +344,12 @@ def relax_axi_3d_bell_base(
     nx: int, nr: int, M_c: float = 0.12, L_n: float = 0.60, L_d: float = 0.45,
     Re: float = np.inf, t_relax: float = 160.0,
 ) -> dict:
-    """Relax 2D axisymmetric (nth=1) transonic 3D smooth bell steady base (inviscid or viscous NS)."""
+    """Relax 2D axisymmetric (nth=1) transonic 3D smooth bell steady base with exact mapped-grid viscous metrics."""
     g = build_3d_geom(nx, nr, 1, M_c=M_c, L_n=L_n, L_d=L_d, mode="bell_smooth")
     V = g["V"][:, :, 0]; Sx = g["Sx"][:, :, 0]; Sm = g["Sm"][:, :, 0]
     nxe = g["nxe"][:, :, 0]; nre = g["nre"][:, :, 0]; hoop = g["hoop"][:, :, 0]
     rb = g["r_bar"][:, :, 0]; r_ef = g["r_ef"][:, :, 0]
+    eta_Rp_c = g["eta_Rp_c"][:, :, 0]; eta_Rp_xf = g["eta_Rp_xf"][:, :, 0]; eta_Rp_ef = g["eta_Rp_ef"][:, :, 0]
     xc, Rm, dx, deta = g["xc"], g["Rm"], g["dx"], g["deta"]
     mu = 0.0 if not np.isfinite(Re) else (1.0 / Re)
     k_th = 0.0 if not np.isfinite(Re) else (GAMMA / (PR * (GAMMA - 1.0) * Re))
@@ -373,29 +404,28 @@ def relax_axi_3d_bell_base(
         res[2] += pr_s * hoop
 
         if mu > 0.0:
-            # Axisymmetric viscous stresses (adiabatic free-slip outer bell wall => zero outer-wall shear/heat flux)
             T_s = pr_s / r_s
             u_x = np.empty((nx + 2, nr)); u_x[1:-1] = u_s; u_x[0] = ui; u_x[-1] = u_s[-1]
             v_x = np.empty((nx + 2, nr)); v_x[1:-1] = v_s; v_x[0] = 0.0; v_x[-1] = v_s[-1]
             T_x = np.empty((nx + 2, nr)); T_x[1:-1] = T_s; T_x[0] = pi / ri; T_x[-1] = T_s[-1]
-            du_dx_f = (u_x[1:] - u_x[:-1]) / dx
-            dv_dx_f = (v_x[1:] - v_x[:-1]) / dx
-            dT_dx_f = (T_x[1:] - T_x[:-1]) / dx
-            # Cell-centered radial gradients (dr = deta * Rm)
             dr_c = deta * Rm[:, None]
             v_e = np.empty((nx, nr + 2)); v_e[:, 1:-1] = v_s; v_e[:, 0] = -v_s[:, 0]; v_e[:, -1] = v_s[:, -1]
             u_e = np.empty((nx, nr + 2)); u_e[:, 1:-1] = u_s; u_e[:, 0] = u_s[:, 0]; u_e[:, -1] = u_s[:, -1]
             T_e = np.empty((nx, nr + 2)); T_e[:, 1:-1] = T_s; T_e[:, 0] = T_s[:, 0]; T_e[:, -1] = T_s[:, -1]
-            dv_dr_c = (v_e[:, 2:] - v_e[:, :-2]) / (2.0 * dr_c)
             du_dr_c = (u_e[:, 2:] - u_e[:, :-2]) / (2.0 * dr_c)
-            # Average radial divergence to x-faces
-            div_r_c = dv_dr_c + v_s / rb
-            div_r_xf = np.empty((nx + 1, nr))
-            div_r_xf[1:-1] = 0.5 * (div_r_c[:-1] + div_r_c[1:])
-            div_r_xf[0] = div_r_c[0]; div_r_xf[-1] = div_r_c[-1]
-            du_dr_xf = np.empty((nx + 1, nr))
-            du_dr_xf[1:-1] = 0.5 * (du_dr_c[:-1] + du_dr_c[1:])
-            du_dr_xf[0] = du_dr_c[0]; du_dr_xf[-1] = du_dr_c[-1]
+            dv_dr_c = (v_e[:, 2:] - v_e[:, :-2]) / (2.0 * dr_c)
+            dT_dr_c = (T_e[:, 2:] - T_e[:, :-2]) / (2.0 * dr_c)
+            # Exact fixed-r axial derivatives: d/dx|_r = d/dx|_eta - eta*R'*d/dr (Review #12 M1!)
+            du_dx_c = (u_x[2:] - u_x[:-2]) / (2.0 * dx) - eta_Rp_c * du_dr_c
+            dv_dx_c = (v_x[2:] - v_x[:-2]) / (2.0 * dx) - eta_Rp_c * dv_dr_c
+            dT_dx_c = (T_x[2:] - T_x[:-2]) / (2.0 * dx) - eta_Rp_c * dT_dr_c
+            def avg_x(a):
+                o = np.empty((nx + 1, nr)); o[1:-1] = 0.5 * (a[:-1] + a[1:]); o[0] = a[0]; o[-1] = a[-1]; return o
+            du_dr_xf = avg_x(du_dr_c); dv_dr_xf = avg_x(dv_dr_c); dT_dr_xf = avg_x(dT_dr_c)
+            du_dx_f = (u_x[1:] - u_x[:-1]) / dx - eta_Rp_xf * du_dr_xf
+            dv_dx_f = (v_x[1:] - v_x[:-1]) / dx - eta_Rp_xf * dv_dr_xf
+            dT_dx_f = (T_x[1:] - T_x[:-1]) / dx - eta_Rp_xf * dT_dr_xf
+            div_r_xf = avg_x(dv_dr_c + v_s / rb)
             uf_x = 0.5 * (u_x[:-1] + u_x[1:]); vf_x = 0.5 * (v_x[:-1] + v_x[1:])
             txx_xf = mu * ((4.0 / 3.0) * du_dx_f - (2.0 / 3.0) * div_r_xf)
             txr_xf = mu * (du_dr_xf + dv_dx_f)
@@ -404,32 +434,29 @@ def relax_axi_3d_bell_base(
             res[2] += Sx[1:] * txr_xf[1:] - Sx[:-1] * txr_xf[:-1]
             res[4] += Sx[1:] * (uf_x[1:] * txx_xf[1:] + vf_x[1:] * txr_xf[1:] - qx_xf[1:]) - Sx[:-1] * (uf_x[:-1] * txx_xf[:-1] + vf_x[:-1] * txr_xf[:-1] - qx_xf[:-1])
 
-            # Radial faces (interior 1..nr-1; outer wall nr adiabatic free-slip => zero viscous flux; r=0 S=0)
             du_dr_ef = (u_e[:, 1:] - u_e[:, :-1]) / dr_c
             dv_dr_ef = (v_e[:, 1:] - v_e[:, :-1]) / dr_c
             dT_dr_ef = (T_e[:, 1:] - T_e[:, :-1]) / dr_c
-            du_dx_c = (u_x[2:] - u_x[:-2]) / (2.0 * dx)
-            dv_dx_c = (v_x[2:] - v_x[:-2]) / (2.0 * dx)
-            du_dx_ef = np.zeros((nx, nr + 1)); dv_dx_ef = np.zeros((nx, nr + 1))
+            du_dx_ef = np.zeros((nx, nr + 1)); dv_dx_ef = np.zeros((nx, nr + 1)); dT_dx_ef = np.zeros((nx, nr + 1))
             du_dx_ef[:, 1:-1] = 0.5 * (du_dx_c[:, :-1] + du_dx_c[:, 1:])
             dv_dx_ef[:, 1:-1] = 0.5 * (dv_dx_c[:, :-1] + dv_dx_c[:, 1:])
+            dT_dx_ef[:, 1:-1] = 0.5 * (dT_dx_c[:, :-1] + dT_dx_c[:, 1:])
             vf_e = 0.5 * (v_e[:, :-1] + v_e[:, 1:]); uf_e = 0.5 * (u_e[:, :-1] + u_e[:, 1:])
             vr_over_r_ef = np.where(r_ef > 1e-12, vf_e / np.where(r_ef > 1e-12, r_ef, 1.0), 0.0)
             txx_ef = mu * ((4.0 / 3.0) * du_dx_ef - (2.0 / 3.0) * (dv_dr_ef + vr_over_r_ef))
             trr_ef = mu * ((4.0 / 3.0) * dv_dr_ef - (2.0 / 3.0) * (du_dx_ef + vr_over_r_ef))
             txr_ef = mu * (du_dr_ef + dv_dx_ef)
+            qx_ef = -k_th * dT_dx_ef
             qr_ef = -k_th * dT_dr_ef
-            # Project stress onto slanted face normal (nxe, nre); zero at j=0 and outer wall j=nr (adiabatic free-slip)
             vx_ef = Sm * (nxe * txx_ef + nre * txr_ef)
             vr_ef = Sm * (nxe * txr_ef + nre * trr_ef)
-            ve_ef = Sm * (uf_e * (nxe * txx_ef + nre * txr_ef) + vf_e * (nxe * txr_ef + nre * trr_ef) - nre * qr_ef)
+            ve_ef = Sm * (uf_e * (nxe * txx_ef + nre * txr_ef) + vf_e * (nxe * txr_ef + nre * trr_ef) - (nxe * qx_ef + nre * qr_ef))
             vx_ef[:, 0] = 0.0; vx_ef[:, -1] = 0.0
             vr_ef[:, 0] = 0.0; vr_ef[:, -1] = 0.0
             ve_ef[:, 0] = 0.0; ve_ef[:, -1] = 0.0
             res[1] += vx_ef[:, 1:] - vx_ef[:, :-1]
             res[2] += vr_ef[:, 1:] - vr_ef[:, :-1]
             res[4] += ve_ef[:, 1:] - ve_ef[:, :-1]
-            # Axisymmetric viscous hoop stress -tau_tt * hoop
             ttt_c = mu * ((4.0 / 3.0) * (v_s / rb) - (2.0 / 3.0) * (du_dx_c + dv_dr_c))
             res[2] -= ttt_c * hoop
         return res
@@ -465,43 +492,6 @@ def relax_axi_3d_bell_base(
     }
 
 
-def exact_1d_chugging_eig(n_p: float, omega_hp: float = OMEGA_HP, beta_tot: float = 0.0, M_c: float = 0.12, N: int = 48) -> tuple[complex | None, complex | None]:
-    """Exact 1D Chebyshev eigen-solver for coupled k=0 low-frequency chugging & 1L modes
-    with optional lumped faceplate cavity compliance beta_tot."""
-    x, Dx, w_cc = cheb_diff(N, L_A)
-    n = N + 1; has_c = beta_tot > 0.0
-    dim = 3 * n + 5 + (2 if has_c else 0)
-    Mat = np.zeros((dim, dim), dtype=complex); B = np.eye(dim, dtype=complex)
-    sl = lambda q: slice(q * n, (q + 1) * n)
-    Mat[sl(0), sl(0)] = -M_c * Dx; Mat[sl(0), sl(1)] = -Dx
-    Mat[sl(1), sl(1)] = -M_c * Dx; Mat[sl(1), sl(2)] = -Dx
-    Mat[sl(2), sl(1)] = -Dx;       Mat[sl(2), sl(2)] = -M_c * Dx
-    wf = np.exp(-0.5 * ((x - X_F) / SIG_F) ** 2); wf /= float(np.sum(w_cc * wf))
-    ws = w_cc * wf; inv_ts = 4.0 / TAU_BAR; ib = 3 * n
-    Mat[ib + 0, sl(2)] = omega_hp * ws; Mat[ib + 0, ib + 0] = -omega_hp
-    Mat[ib + 1, sl(2)] = inv_ts * ws;   Mat[ib + 1, ib + 0] = -inv_ts; Mat[ib + 1, ib + 1] = -inv_ts
-    for r in range(1, 4):
-        Mat[ib + 1 + r, ib + r] = inv_ts; Mat[ib + 1 + r, ib + 1 + r] = -inv_ts
-    Mat[sl(2), ib + 4] = n_p * wf
-    if has_c:
-        ic = ib + 5; Vc = beta_tot * L_A; wH = 1.84; xiH = 0.22
-        Mat[ic, ic + 1] = 1.0 / Vc
-        Mat[ic + 1, 2 * n] = (wH ** 2) * Vc; Mat[ic + 1, ic] = -(wH ** 2) * Vc; Mat[ic + 1, ic + 1] = -2.0 * xiH * wH
-    for r in (0, n):
-        Mat[r, :] = 0.0; B[r, :] = 0.0
-    Mat[0, 0] = 1.0; Mat[0, 2 * n] = -1.0
-    Mat[n, n] = 1.0; Mat[n, 2 * n] = M_c
-    if has_c:
-        Mat[n, ib + 6] = 1.0
-    r_ex = 2 * n + N
-    Mat[r_ex, :] = 0.0; B[r_ex, :] = 0.0
-    Mat[r_ex, n + N] = 1.0; Mat[r_ex, 2 * n + N] = -0.5 * (GAMMA - 1.0) * M_c
-    vals = eig(Mat, B, right=False)
-    chug = sorted([v for v in vals if np.isfinite(v) and 0.01 <= v.imag <= 0.60], key=lambda z: z.real, reverse=True)
-    l1 = sorted([v for v in vals if np.isfinite(v) and 1.20 <= v.imag <= 2.60], key=lambda z: z.real, reverse=True)
-    return (complex(chug[0]) if chug else None), (complex(l1[0]) if l1 else None)
-
-
 def simulate_3d_ns(
     nx: int = 24, nr: int = 12, nth: int = 48, t_end: float = 30.0,
     M_c: float = 0.12, L_n: float = 0.60, L_d: float = 0.45, mode: str = "straight",
@@ -512,9 +502,8 @@ def simulate_3d_ns(
     cav_spec: list[dict] | None = None, cav_mass_conserving: bool = True,
     prim_axi_base: np.ndarray | None = None, cfl: float = 0.28, record_stride: int = 12,
 ) -> dict:
-    """Full 3D cylindrical (x, r, theta) conservative FV compressible Navier-Stokes solver
-    with optional 3D partial-span radial baffles (r in [r_b, 1], x in [0, L_b]) and
-    mass-conserving (or legacy u_port) faceplate Helmholtz cavities."""
+    """Full 3D cylindrical (x, r, theta) conservative FV compressible NS solver with exact
+    mapped-grid viscous metrics, 3D partial-span radial baffles, and m=-3 Bragg projection."""
     g = build_3d_geom(nx, nr, nth, M_c=M_c, L_n=L_n, L_d=L_d, mode=mode)
     V, rb = g["V"], g["r_bar"]
     xc, etac, thc, dx, deta, dth = g["xc"], g["etac"], g["thc"], g["dx"], g["deta"], g["dth"]
@@ -524,7 +513,6 @@ def simulate_3d_ns(
     mu = 0.0 if not np.isfinite(Re) else (1.0 / Re)
     k_th = 0.0 if not np.isfinite(Re) else (GAMMA / (PR * (GAMMA - 1.0) * Re))
 
-    # True 3D chamber volume weights normalized over ALL (n_ch, nr, nth) cells
     V_full = np.broadcast_to(V, (nx, nr, nth))
     V_ch = V_full[ch_mask]
     w_ch = V_ch / float(np.sum(V_ch))
@@ -535,7 +523,6 @@ def simulate_3d_ns(
     phi_3T = jv(3, S31 * E_ch) / (np.sqrt(0.5 * (1.0 - 9.0 / S31**2)) * abs(jv(3, S31)))
     phi_1L = np.sqrt(2.0) * np.cos(np.pi * X_ch / L_A)
 
-    # Build 3D radial baffle face mask on theta-faces (shape nx, nr, nth+1; face k lies between cell k-1 and k)
     has_baffles = (n_baffles > 0) and (L_b > 0.0) and (r_b < 0.999)
     baffle_th_face = np.zeros((nx, nr, nth + 1), dtype=bool)
     baffle_slope_zero = np.zeros((nx, nr, nth + 2), dtype=bool)
@@ -559,11 +546,10 @@ def simulate_3d_ns(
                 baffle_slope_zero[b_xr, nth + 1] = True
         baffle_metal_frac = float(np.sum(g["S_th"][b_xr, 0]) / max(np.sum(g["S_th"][ix_b, :, 0]), 1e-12))
 
-    # Base flow
     if prim_axi_base is not None:
         P_b = np.broadcast_to(prim_axi_base[:, :, :, None], (5, nx, nr, nth)).copy()
     else:
-        ux0 = 0.0 if mode == "closed" or init_type in ("quiescent", "shear_decay") else M_c
+        ux0 = 0.0 if mode == "closed" or init_type == "quiescent" else M_c
         P_b = np.zeros((5, nx, nr, nth))
         P_b[0] = RHO_BAR; P_b[1] = ux0; P_b[4] = P_BAR
     rho_b, ux_b, ur_b, ut_b, p_b = P_b[0], P_b[1], P_b[2], P_b[3], P_b[4]
@@ -607,7 +593,6 @@ def simulate_3d_ns(
     else:
         raise ValueError(f"Unknown init_type={init_type}")
 
-    # Faceplate cavities (mid-sector phase = 0.5 aligns cleanly between N_b=5 radial baffles!)
     cavs = []
     if cav_spec:
         Cd = 0.65
@@ -635,7 +620,6 @@ def simulate_3d_ns(
                     d_ang = np.angle(np.exp(1j * (T_in - th_k)))
                     wk = r_mask * np.exp(-0.5 * (d_ang / sig_th) ** 2)
                     W_ports[k] = wk / float(np.sum(wk * dA_in))
-            # State: Pc = cavity excess mass/V_k (= c_bar^2 * d_rho_c = dP_c), qt = cavity mass flux m_dot_k (into cavity)
             cavs.append({"V_k": V_k, "wH": wH, "xiH": xiH, "r_nl": r_nl, "W": W_ports, "Pc": np.zeros(nc), "qt": np.zeros(nc)})
 
     has_flame = abs(n_p) > 0.0
@@ -665,6 +649,7 @@ def simulate_3d_ns(
     r_ef = g["r_ef"]; r_xf = g["r_xf"]; r_thf = g["r_thf"]
     nxe, nre = g["nxe"], g["nre"]
     Sx, Sm, S_th, hoop = g["Sx"], g["Sm"], g["S_th"], g["hoop"]
+    eta_Rp_c, eta_Rp_xf = g["eta_Rp_c"], g["eta_Rp_xf"]
 
     def compute_rhs(Qs, fp_s, cav_states):
         r_s, u_s, v_s, w_s, p_s, _ = from_Q(Qs)
@@ -676,7 +661,6 @@ def simulate_3d_ns(
             for (_, qt_c), cf in zip(cav_states, cavs):
                 port_flux += np.tensordot(qt_c, cf["W"], axes=(0, 0))
 
-        # --- Axial x-fluxes ---
         Px = np.empty((5, nx + 4, nr, nth)); Px[:, 2:-2] = P
         p_in_face = p_s[0]
         if mode == "periodic_bump":
@@ -708,7 +692,6 @@ def simulate_3d_ns(
         sx = van_leer(Px[:, 1:-1] - Px[:, :-2], Px[:, 2:] - Px[:, 1:-1])
         PLx = Px[:, 1:-2] + 0.5 * sx[:, :-1]; PRx = Px[:, 2:-1] - 0.5 * sx[:, 1:]
         if mode == "closed" or init_type == "quiescent":
-            # Exact face-mirror on closed endwalls => zero mass/energy leakage to ~1e-16!
             PLx[0, 0] = PRx[0, 0]; PLx[1, 0] = -PRx[1, 0]; PLx[2, 0] = PRx[2, 0]; PLx[3, 0] = PRx[3, 0]; PLx[4, 0] = PRx[4, 0]
             PRx[0, -1] = PLx[0, -1]; PRx[1, -1] = -PLx[1, -1]; PRx[2, -1] = PLx[2, -1]; PRx[3, -1] = PLx[3, -1]; PRx[4, -1] = PLx[4, -1]
         if mode == "closed" and cavs and cav_mass_conserving:
@@ -722,7 +705,6 @@ def simulate_3d_ns(
                          np.maximum(PRx[0], 1e-10), PRx[1], PRx[2], PRx[3], np.maximum(PRx[4], 1e-10))
         FxQ = np.stack([Sx * Fx[0], Sx * Fx[1], Sx * Fx[2], Sx * r_xf * Fx[3], Sx * Fx[4]], axis=0)
 
-        # --- Radial eta-fluxes ---
         Pe = np.empty((5, nx, nr + 4, nth)); Pe[:, :, 2:-2] = P
         opp = np.roll(P[:, :, 0:2, :], nth // 2, axis=3)
         Pe[:, :, 1] = opp[:, :, 0]; Pe[2:4, :, 1] *= -1.0
@@ -740,7 +722,6 @@ def simulate_3d_ns(
         FeQ = np.stack([Sm * Fe_n[0], Sm * Fe_x, Sm * Fe_r, Sm * r_ef * Fe_n[3], Sm * Fe_n[4]], axis=0)
         FeQ[:, :, 0] = 0.0
 
-        # --- Azimuthal theta-fluxes (periodic, with split-face mirror HLLC at 3D radial baffles!) ---
         Pt = np.concatenate([P[:, :, :, -2:], P, P[:, :, :, :2]], axis=3)
         st = van_leer(Pt[:, :, :, 1:-1] - Pt[:, :, :, :-2], Pt[:, :, :, 2:] - Pt[:, :, :, 1:-1])
         if has_baffles:
@@ -751,12 +732,10 @@ def simulate_3d_ns(
         GtQ_L = np.stack([S_th * Gt[0], S_th * Gt[2], S_th * Gt[3], S_th * r_thf * Gt[1], S_th * Gt[4]], axis=0)
         GtQ_R = GtQ_L.copy()
         if has_baffles:
-            # Exact two-sided mirror HLLC on every baffled (x, r, theta) face: zero mass & energy flux!
             GL_b = hllc_3d(np.maximum(PLt[0], 1e-10), PLt[3], PLt[1], PLt[2], np.maximum(PLt[4], 1e-10),
                            np.maximum(PLt[0], 1e-10), -PLt[3], PLt[1], PLt[2], np.maximum(PLt[4], 1e-10))
             GR_b = hllc_3d(np.maximum(PRt[0], 1e-10), -PRt[3], PRt[1], PRt[2], np.maximum(PRt[4], 1e-10),
                            np.maximum(PRt[0], 1e-10), PRt[3], PRt[1], PRt[2], np.maximum(PRt[4], 1e-10))
-            # Left side of face sees GL_b (used in cell k-1's right face); right side sees GR_b (used in cell k's left face)
             m3 = baffle_th_face[None, :, :, :]
             GtQ_L = np.where(m3, np.stack([0.0 * S_th * GL_b[0], S_th * GL_b[2], S_th * GL_b[3], S_th * r_thf * GL_b[1], 0.0 * S_th * GL_b[4]], axis=0), GtQ_L)
             GtQ_R = np.where(m3, np.stack([0.0 * S_th * GR_b[0], S_th * GR_b[2], S_th * GR_b[3], S_th * r_thf * GR_b[1], 0.0 * S_th * GR_b[4]], axis=0), GtQ_R)
@@ -764,37 +743,30 @@ def simulate_3d_ns(
         res = -(FxQ[:, 1:] - FxQ[:, :-1]) - (FeQ[:, :, 1:] - FeQ[:, :, :-1]) - (GtQ_L[:, :, :, 1:] - GtQ_R[:, :, :, :-1])
         res[2] += (p_s + r_s * w_s * w_s) * hoop
 
-        # --- Full 3D Conservative Cylindrical Viscous Stress & Fourier Heat Flux ---
         if mu > 0.0:
-            T_s = p_s / r_s
-            # Ghost-extended primitives for consistent viscous gradients (wall-aware!)
             u_x = Px[1, 1:-1]; v_x = Px[2, 1:-1]; w_x = Px[3, 1:-1]; T_x = Px[4, 1:-1] / np.maximum(Px[0, 1:-1], 1e-10)
             u_e = Pe[1, :, 1:-1]; v_e = Pe[2, :, 1:-1]; w_e = Pe[3, :, 1:-1]; T_e = Pe[4, :, 1:-1] / np.maximum(Pe[0, :, 1:-1], 1e-10)
             u_t = Pt[1, :, :, 1:-1]; v_t = Pt[2, :, :, 1:-1]; w_t = Pt[3, :, :, 1:-1]; T_t = Pt[4, :, :, 1:-1] / np.maximum(Pt[0, :, :, 1:-1], 1e-10)
 
-            # Cell-centered gradients (wall-aware one-sided theta-differences next to baffles!)
-            du_dx_c = (u_x[2:] - u_x[:-2]) / (2.0 * dx)
-            dv_dx_c = (v_x[2:] - v_x[:-2]) / (2.0 * dx)
-            dw_dx_c = (w_x[2:] - w_x[:-2]) / (2.0 * dx)
             du_dr_c = (u_e[:, 2:] - u_e[:, :-2]) / (2.0 * dr_c)
             dv_dr_c = (v_e[:, 2:] - v_e[:, :-2]) / (2.0 * dr_c)
             dw_dr_c = (w_e[:, 2:] - w_e[:, :-2]) / (2.0 * dr_c)
+            dT_dr_c = (T_e[:, 2:] - T_e[:, :-2]) / (2.0 * dr_c)
+            # Exact fixed-r axial derivatives d/dx|_r = d/dx|_eta - eta*R'*d/dr (Review #12 M1!)
+            du_dx_c = (u_x[2:] - u_x[:-2]) / (2.0 * dx) - eta_Rp_c * du_dr_c
+            dv_dx_c = (v_x[2:] - v_x[:-2]) / (2.0 * dx) - eta_Rp_c * dv_dr_c
+            dw_dx_c = (w_x[2:] - w_x[:-2]) / (2.0 * dx) - eta_Rp_c * dw_dr_c
+            dT_dx_c = (T_x[2:] - T_x[:-2]) / (2.0 * dx) - eta_Rp_c * dT_dr_c
             du_dt_c = (u_t[:, :, 2:] - u_t[:, :, :-2]) / (2.0 * dth)
             dv_dt_c = (v_t[:, :, 2:] - v_t[:, :, :-2]) / (2.0 * dth)
             dw_dt_c = (w_t[:, :, 2:] - w_t[:, :, :-2]) / (2.0 * dth)
             if has_baffles:
-                # One-sided theta-differences on baffle-adjacent cells (Review #10 M1 lesson!)
-                mL_b = baffle_th_face[:, :, :-1]  # cell k has baffle on its left face k
-                mR_b = baffle_th_face[:, :, 1:]   # cell k has baffle on its right face k+1
+                mL_b = baffle_th_face[:, :, :-1]
+                mR_b = baffle_th_face[:, :, 1:]
                 du_dt_c = np.where(mL_b, (u_t[:, :, 2:] - u_t[:, :, 1:-1]) / dth, np.where(mR_b, (u_t[:, :, 1:-1] - u_t[:, :, :-2]) / dth, du_dt_c))
                 dv_dt_c = np.where(mL_b, (v_t[:, :, 2:] - v_t[:, :, 1:-1]) / dth, np.where(mR_b, (v_t[:, :, 1:-1] - v_t[:, :, :-2]) / dth, dv_dt_c))
                 dw_dt_c = np.where(mL_b, (w_t[:, :, 2:] - w_t[:, :, 1:-1]) / dth, np.where(mR_b, (w_t[:, :, 1:-1] - w_t[:, :, :-2]) / dth, dw_dt_c))
 
-            # 1) x-face viscous fluxes (nx+1, nr, nth)
-            du_dx_f = (u_x[1:] - u_x[:-1]) / dx
-            dv_dx_f = (v_x[1:] - v_x[:-1]) / dx
-            dw_dx_f = (w_x[1:] - w_x[:-1]) / dx
-            dT_dx_f = (T_x[1:] - T_x[:-1]) / dx
             def avg_x(arr):
                 out = np.empty((nx + 1, nr, nth))
                 out[1:-1] = 0.5 * (arr[:-1] + arr[1:])
@@ -803,8 +775,13 @@ def simulate_3d_ns(
                 else:
                     out[0] = arr[0]; out[-1] = arr[-1]
                 return out
-            div_perp_c = dv_dr_c + (v_s + dw_dt_c) / rb
-            du_dr_xf = avg_x(du_dr_c); du_dt_xf = avg_x(du_dt_c); div_perp_xf = avg_x(div_perp_c)
+            du_dr_xf = avg_x(du_dr_c); dv_dr_xf = avg_x(dv_dr_c); dw_dr_xf = avg_x(dw_dr_c); dT_dr_xf = avg_x(dT_dr_c)
+            du_dx_f = (u_x[1:] - u_x[:-1]) / dx - eta_Rp_xf * du_dr_xf
+            dv_dx_f = (v_x[1:] - v_x[:-1]) / dx - eta_Rp_xf * dv_dr_xf
+            dw_dx_f = (w_x[1:] - w_x[:-1]) / dx - eta_Rp_xf * dw_dr_xf
+            dT_dx_f = (T_x[1:] - T_x[:-1]) / dx - eta_Rp_xf * dT_dr_xf
+            div_perp_xf = avg_x(dv_dr_c + (v_s + dw_dt_c) / rb)
+            du_dt_xf = avg_x(du_dt_c)
             uf_x = 0.5 * (u_x[:-1] + u_x[1:]); vf_x = 0.5 * (v_x[:-1] + v_x[1:]); wf_x = 0.5 * (w_x[:-1] + w_x[1:])
             txx_xf = mu * ((4.0 / 3.0) * du_dx_f - (2.0 / 3.0) * div_perp_xf)
             txr_xf = mu * (du_dr_xf + dv_dx_f)
@@ -820,7 +797,6 @@ def simulate_3d_ns(
             res[3] += VFx_w[1:] - VFx_w[:-1]
             res[4] += VFx_e[1:] - VFx_e[:-1]
 
-            # 2) radial eta-face viscous fluxes (nx, nr+1, nth); zero at r=0 and adiabatic free-slip outer wall j=nr
             du_dr_ef = (u_e[:, 1:] - u_e[:, :-1]) / dr_c
             dv_dr_ef = (v_e[:, 1:] - v_e[:, :-1]) / dr_c
             dw_dr_ef = (w_e[:, 1:] - w_e[:, :-1]) / dr_c
@@ -829,7 +805,7 @@ def simulate_3d_ns(
                 out = np.zeros((nx, nr + 1, nth))
                 out[:, 1:-1] = 0.5 * (arr[:, :-1] + arr[:, 1:])
                 return out
-            du_dx_ef = avg_e(du_dx_c); dv_dx_ef = avg_e(dv_dx_c); dw_dx_ef = avg_e(dw_dx_c)
+            du_dx_ef = avg_e(du_dx_c); dv_dx_ef = avg_e(dv_dx_c); dw_dx_ef = avg_e(dw_dx_c); dT_dx_ef = avg_e(dT_dx_c)
             du_dt_ef = avg_e(du_dt_c); dv_dt_ef = avg_e(dv_dt_c); dw_dt_ef = avg_e(dw_dt_c)
             uf_e = 0.5 * (u_e[:, :-1] + u_e[:, 1:]); vf_e = 0.5 * (v_e[:, :-1] + v_e[:, 1:]); wf_e = 0.5 * (w_e[:, :-1] + w_e[:, 1:])
             inv_ref = np.where(r_ef > 1e-12, 1.0 / np.where(r_ef > 1e-12, r_ef, 1.0), 0.0)
@@ -839,9 +815,8 @@ def simulate_3d_ns(
             txr_ef = mu * (du_dr_ef + dv_dx_ef)
             txt_ef = mu * (du_dt_ef * inv_ref + dw_dx_ef)
             trt_ef = mu * (dw_dr_ef - wf_e * inv_ref + dv_dt_ef * inv_ref)
-            qx_ef = np.zeros((nx, nr + 1, nth))
+            qx_ef = -k_th * dT_dx_ef
             qr_ef = -k_th * dT_dr_ef
-            # Stress projection onto conical-frustum normal (nxe, nre); adiabatic free-slip outer wall => zero at j=0, nr
             fx_v = nxe * txx_ef + nre * txr_ef
             fr_v = nxe * txr_ef + nre * trr_ef
             ft_v = nxe * txt_ef + nre * trt_ef
@@ -856,7 +831,6 @@ def simulate_3d_ns(
             res[3] += VFe_w[:, 1:] - VFe_w[:, :-1]
             res[4] += VFe_e[:, 1:] - VFe_e[:, :-1]
 
-            # 3) azimuthal theta-face viscous fluxes (nx, nr, nth+1), adiabatic slip/no-slip on 3D baffle faces!
             du_dt_tf = (u_t[:, :, 1:] - u_t[:, :, :-1]) / dth
             dv_dt_tf = (v_t[:, :, 1:] - v_t[:, :, :-1]) / dth
             dw_dt_tf = (w_t[:, :, 1:] - w_t[:, :, :-1]) / dth
@@ -876,10 +850,7 @@ def simulate_3d_ns(
             VG_eL = S_th * (uf_t * txt_tf + vf_t * trt_tf + wf_t * ttt_tf - qt_tf)
             VG_uR, VG_vR, VG_wR, VG_eR = VG_uL.copy(), VG_vL.copy(), VG_wL.copy(), VG_eL.copy()
             if has_baffles:
-                # Adiabatic baffles: zero heat flux & zero wall work (u_wall=v_wall=w_wall=0 if no-slip, or tau_xt=tau_rt=0 if slip)!
-                # In BOTH adiabatic slip and adiabatic no-slip, total viscous energy flux across the rigid stationary wall is IDENTICALLY ZERO!
                 if baffle_noslip:
-                    # Wall velocity = 0 => left cell shear = mu*(0 - u_L)/(0.5*r*dth), right cell shear = mu*(u_R - 0)/(0.5*r*dth)
                     tau_xL = mu * (-u_t[:, :, :-1]) / (0.5 * r_thf * dth)
                     tau_xR = mu * (u_t[:, :, 1:]) / (0.5 * r_thf * dth)
                     tau_rL = mu * (-v_t[:, :, :-1]) / (0.5 * r_thf * dth)
@@ -902,7 +873,6 @@ def simulate_3d_ns(
             res[3] += VG_wL[:, :, 1:] - VG_wR[:, :, :-1]
             res[4] += VG_eL[:, :, 1:] - VG_eR[:, :, :-1]
 
-            # 4) Cylindrical viscous hoop stress -tau_tt * hoop in radial momentum
             div_c = du_dx_c + dv_dr_c + (v_s + dw_dt_c) / rb
             ttt_c = mu * (2.0 * (dw_dt_c + v_s) / rb - (2.0 / 3.0) * div_c)
             res[2] -= ttt_c * hoop
@@ -930,9 +900,9 @@ def simulate_3d_ns(
         return res, dfp, dcav
 
     t = 0.0; step = 0
-    ts, e_ch, e_1t, e_2t, e_1r, e_3t, e_1l, e_mean = [], [], [], [], [], [], [], []
-    c1_re, c2_re, c0_re, p_pk, mass_drift = [], [], [], [], []
-    w1_th = np.exp(-1j * T_ch); w2_th = np.exp(-2j * T_ch); w3_th = np.exp(-3j * T_ch)
+    ts, e_ch, e_1t, e_2t, e_1r, e_3t, e_3tm, e_1l, e_mean = [], [], [], [], [], [], [], [], []
+    c1_re, c2_re, c0_re, p_mean_signed, p_pk, mass_drift = [], [], [], [], [], []
+    w1_th = np.exp(-1j * T_ch); w2_th = np.exp(-2j * T_ch); w3_th = np.exp(-3j * T_ch); w3m_th = np.exp(3j * T_ch)
     dr_eff = deta * g["Rm"][:, None, None]
 
     while t < t_end - 1e-12:
@@ -953,11 +923,13 @@ def simulate_3d_ns(
             c2 = complex(np.sum(w_ch * dp_c * phi_2T * w2_th))
             c0 = float(np.sum(w_ch * dp_c * phi_1R))
             c3 = complex(np.sum(w_ch * dp_c * phi_3T * w3_th))
+            c3m = complex(np.sum(w_ch * dp_c * phi_3T * w3m_th))
             c1l = float(np.sum(w_ch * dp_c * phi_1L))
             cmn = float(np.sum(w_ch * dp_c))
+            # Note: e_1t, e_2t, e_3t, e_3tm are pressure-only 2|c|^2 modal intensities; e_ch is total acoustic energy
             e_1t.append(2.0 * abs(c1) ** 2); e_2t.append(2.0 * abs(c2) ** 2)
-            e_1r.append(c0 * c0); e_3t.append(2.0 * abs(c3) ** 2)
-            e_1l.append(c1l * c1l); e_mean.append(cmn * cmn)
+            e_1r.append(c0 * c0); e_3t.append(2.0 * abs(c3) ** 2); e_3tm.append(2.0 * abs(c3m) ** 2)
+            e_1l.append(c1l * c1l); e_mean.append(cmn * cmn); p_mean_signed.append(cmn)
             c1_re.append(c1.real); c2_re.append(c2.real); c0_re.append(c0)
             p_pk.append(float(np.max(np.abs(dp_c)) / P_BAR * 100.0))
             mass_drift.append(float((np.sum(Q[0][ch_mask]) - init_ch_mass) / init_ch_mass))
@@ -980,7 +952,8 @@ def simulate_3d_ns(
 
     return {
         "t": np.array(ts), "e_ch": np.array(e_ch), "e_1t": np.array(e_1t), "e_2t": np.array(e_2t),
-        "e_1r": np.array(e_1r), "e_3t": np.array(e_3t), "e_1l": np.array(e_1l), "e_mean": np.array(e_mean),
+        "e_1r": np.array(e_1r), "e_3t": np.array(e_3t), "e_3tm": np.array(e_3tm),
+        "e_1l": np.array(e_1l), "e_mean": np.array(e_mean), "p_mean_signed": np.array(p_mean_signed),
         "c1_re": np.array(c1_re), "c2_re": np.array(c2_re), "c0_re": np.array(c0_re),
         "p_max_pct": np.array(p_pk), "mass_drift": np.array(mass_drift),
         "quiescent_err": float(np.max(np.abs(Q - Q0))),
@@ -994,15 +967,51 @@ def simulate_3d_ns(
 
 def _sim_worker(args):
     lbl, kw = args
-    return lbl, simulate_3d_ns(**kw)
+    t0 = time.perf_counter()
+    res = simulate_3d_ns(**kw)
+    return lbl, res, time.perf_counter() - t0
 
 
 def run_batch(tasks: list[tuple[str, dict]], max_workers: int | None = None) -> dict:
-    nw = max_workers or min(6, max(1, (os.cpu_count() or 2) - 2), len(tasks))
-    if nw <= 1 or len(tasks) <= 1:
-        return dict(_sim_worker(t) for t in tasks)
+    cache_env = os.environ.get("EXP015_CACHE_DIR", "").strip()
+    cache_dir = Path(cache_env) if cache_env else None
+    if cache_dir is not None:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+    out = {}
+    pending = []
+    for lbl, kw in tasks:
+        if cache_dir is not None and (cache_dir / f"{lbl}.pkl").exists():
+            with open(cache_dir / f"{lbl}.pkl", "rb") as fh:
+                out[lbl] = pickle.load(fh)
+        else:
+            pending.append((lbl, kw))
+    if not pending:
+        return out
+    nw = max_workers or min(8, max(1, (os.cpu_count() or 2) - 2), len(pending))
+    total = len(tasks); done = len(out)
+    if nw <= 1 or len(pending) <= 1:
+        for item in pending:
+            lbl, res, dt_s = _sim_worker(item)
+            out[lbl] = res; done += 1
+            if cache_dir is not None:
+                tmp = cache_dir / f"{lbl}.pkl.tmp"
+                with open(tmp, "wb") as fh:
+                    pickle.dump(res, fh)
+                tmp.replace(cache_dir / f"{lbl}.pkl")
+            print(f"    [{done:2d}/{total:2d}] {lbl} ({dt_s:.1f}s)", flush=True)
+        return out
     with ProcessPoolExecutor(max_workers=nw) as ex:
-        return dict(ex.map(_sim_worker, tasks))
+        futs = [ex.submit(_sim_worker, item) for item in pending]
+        for fut in as_completed(futs):
+            lbl, res, dt_s = fut.result()
+            out[lbl] = res; done += 1
+            if cache_dir is not None:
+                tmp = cache_dir / f"{lbl}.pkl.tmp"
+                with open(tmp, "wb") as fh:
+                    pickle.dump(res, fh)
+                tmp.replace(cache_dir / f"{lbl}.pkl")
+            print(f"    [{done:2d}/{total:2d}] {lbl} ({dt_s:.1f}s)", flush=True)
+    return out
 
 
 def fit_alpha(res: dict, t_lo: float, t_hi: float, key: str = "e_1t") -> float:
@@ -1010,24 +1019,292 @@ def fit_alpha(res: dict, t_lo: float, t_hi: float, key: str = "e_1t") -> float:
     return float(np.polyfit(t[m], 0.5 * np.log(np.maximum(res[key][m], 1e-30)), 1)[0])
 
 
-def measure_fft_omega(t: np.ndarray, sig: np.ndarray, t_lo: float = 4.0, f_lo: float = 0.8, f_hi: float = 5.0) -> float:
+def measure_plain_hann_peaks(t: np.ndarray, sig: np.ndarray, t_lo: float = 4.0, f_lo: float = 0.8, f_hi: float = 5.0) -> tuple[float, float | None, float]:
+    """Plain Hann-windowed FFT peak detector (no moving-RMS bias, per Review #12 m5!).
+    Returns (primary_omega, secondary_omega_or_None, secondary_over_primary_amp)."""
     m = t >= t_lo
     tu = np.linspace(t[m][0], t[m][-1], 1024)
     su = np.interp(tu, t[m], sig[m])
-    su = su - np.mean(su)
-    env = np.maximum(np.sqrt(np.convolve(su * su, np.ones(41) / 41.0, mode="same")), 1e-30)
-    su_n = (su / env) * np.hanning(len(su))
+    su = (su - np.mean(su)) * np.hanning(len(su))
     nfft = 32768
     freqs = np.fft.rfftfreq(nfft, d=(tu[1] - tu[0])) * 2.0 * np.pi
-    spec = np.abs(np.fft.rfft(su_n, n=nfft))
+    spec = np.abs(np.fft.rfft(su, n=nfft))
     mf = (freqs >= f_lo) & (freqs <= f_hi)
-    return float(freqs[mf][np.argmax(spec[mf])])
+    fr = freqs[mf]; sp = spec[mf]
+    # Local maxima
+    loc = [i for i in range(1, len(sp) - 1) if sp[i] > sp[i - 1] and sp[i] > sp[i + 1]]
+    loc.sort(key=lambda i: sp[i], reverse=True)
+    w1 = float(fr[loc[0]])
+    w2 = None; rat2 = 0.0
+    for idx in loc[1:]:
+        if abs(fr[idx] - w1) > 0.35:
+            w2 = float(fr[idx]); rat2 = float(sp[idx] / sp[loc[0]])
+            break
+    return w1, w2, rat2
 
 
-def run_exp3_and_exp4(wH_1T_ret: float, wH_2T_ret: float) -> tuple[dict, dict, dict, dict]:
-    """Run Exp 3 (k=0 chugging root-cause: legacy u_port vs mass-conserving m_dot vs stiff omega_hp=0.50)
-    and Exp 4 (Full 3D NS Re=500 + r_b=0.42 partial-span baffles + 3.0% retuned Dual-Zone all-mode audit at omega_hp=0.50)."""
-    print("\n--- Experiment 3: k=0 Chugging Root-Cause (1D Eigenvalues + u_port vs m_dot vs Stiff omega_hp=0.50) ---")
+def measure_zero_crossing_period(t: np.ndarray, sig: np.ndarray, t_lo: float = 20.0) -> float | None:
+    m = t >= t_lo; tt = t[m]; ss = sig[m]
+    zc = []
+    for i in range(len(ss) - 1):
+        if ss[i] * ss[i + 1] < 0.0:
+            zc.append(tt[i] + (tt[i + 1] - tt[i]) * abs(ss[i]) / (abs(ss[i]) + abs(ss[i + 1])))
+    if len(zc) < 3:
+        return None
+    half_periods = np.diff(zc)
+    return float(2.0 * np.mean(half_periods))
+
+
+def main() -> None:
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    out_path = RESULTS_DIR / "exp015_metrics.json"
+
+    print("=" * 96)
+    print("Entry 015 (Hardened per Peer Review #12): 3D NS, Partial-Span Baffles & Mode-Migration Audit")
+    print("=" * 96)
+
+    # ------------------------------------------------------------------
+    # Experiment 1: Metric-Corrected 3D NS Conservation, nr=14/20/28 SK Convergence & Honest Fixed-Re Audit
+    # ------------------------------------------------------------------
+    print("\n--- Experiment 1: 3D NS Conservation, SK Convergence (nr=14->28) & Honest Re=500 Audit ---")
+    cav_closed_test = [{"beta": 0.02, "wH": S11, "xiH": 0.24, "sigma_o": 0.06, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True}]
+    exp1_tasks = [
+        ("quiescent_3d_ns_bell", dict(nx=20, nr=10, nth=32, t_end=2.5, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, init_type="quiescent", A_eq=0.0, record_stride=20)),
+        ("cons_ns_bell_bare",    dict(nx=16, nr=10, nth=32, t_end=2.0, M_c=0.12, mode="periodic_bump", Re=500.0, init_type="periodic_3d_wave", A_eq=0.06, record_stride=15)),
+        ("cons_ns_bell_b5_slip", dict(nx=16, nr=10, nth=30, t_end=2.0, M_c=0.12, mode="periodic_bump", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, baffle_noslip=False, init_type="periodic_3d_wave", A_eq=0.06, record_stride=15)),
+        ("cons_ns_bell_b5_nslp", dict(nx=16, nr=10, nth=30, t_end=2.0, M_c=0.12, mode="periodic_bump", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, baffle_noslip=True,  init_type="periodic_3d_wave", A_eq=0.06, record_stride=15)),
+        ("cons_closed_cav_mass", dict(nx=12, nr=10, nth=32, t_end=4.0, M_c=0.0,  mode="closed",        Re=500.0, cav_spec=cav_closed_test, cav_mass_conserving=True, init_type="spin_1T", A_eq=0.04, record_stride=10)),
+        # SK radial refinement nr = 14, 20, 28 at Re = 300 (Review #12 M4!)
+        ("sk_1T_nr14_inf",   dict(nx=6, nr=14, nth=48, t_end=14.0, M_c=0.0, mode="closed", Re=np.inf, init_type="spin_1T", A_eq=1e-4, record_stride=8)),
+        ("sk_1T_nr14_re300", dict(nx=6, nr=14, nth=48, t_end=14.0, M_c=0.0, mode="closed", Re=300.0,  init_type="spin_1T", A_eq=1e-4, record_stride=8)),
+        ("sk_1T_nr20_inf",   dict(nx=6, nr=20, nth=48, t_end=14.0, M_c=0.0, mode="closed", Re=np.inf, init_type="spin_1T", A_eq=1e-4, record_stride=10)),
+        ("sk_1T_nr20_re300", dict(nx=6, nr=20, nth=48, t_end=14.0, M_c=0.0, mode="closed", Re=300.0,  init_type="spin_1T", A_eq=1e-4, record_stride=10)),
+        ("sk_1T_nr28_inf",   dict(nx=6, nr=28, nth=48, t_end=14.0, M_c=0.0, mode="closed", Re=np.inf, init_type="spin_1T", A_eq=1e-4, record_stride=12)),
+        ("sk_1T_nr28_re300", dict(nx=6, nr=28, nth=48, t_end=14.0, M_c=0.0, mode="closed", Re=300.0,  init_type="spin_1T", A_eq=1e-4, record_stride=12)),
+        ("sk_1R_nr14_inf",   dict(nx=6, nr=14, nth=48, t_end=14.0, M_c=0.0, mode="closed", Re=np.inf, init_type="1R",      A_eq=1e-4, record_stride=8)),
+        ("sk_1R_nr14_re300", dict(nx=6, nr=14, nth=48, t_end=14.0, M_c=0.0, mode="closed", Re=300.0,  init_type="1R",      A_eq=1e-4, record_stride=8)),
+        ("sk_1R_nr20_inf",   dict(nx=6, nr=20, nth=48, t_end=14.0, M_c=0.0, mode="closed", Re=np.inf, init_type="1R",      A_eq=1e-4, record_stride=10)),
+        ("sk_1R_nr20_re300", dict(nx=6, nr=20, nth=48, t_end=14.0, M_c=0.0, mode="closed", Re=300.0,  init_type="1R",      A_eq=1e-4, record_stride=10)),
+        ("sk_1R_nr28_inf",   dict(nx=6, nr=28, nth=48, t_end=14.0, M_c=0.0, mode="closed", Re=np.inf, init_type="1R",      A_eq=1e-4, record_stride=12)),
+        ("sk_1R_nr28_re300", dict(nx=6, nr=28, nth=48, t_end=14.0, M_c=0.0, mode="closed", Re=300.0,  init_type="1R",      A_eq=1e-4, record_stride=12)),
+    ]
+    rb_grid = [0.00, 0.25, 0.42, 0.58, 0.75]
+    exp2_core_tasks = [
+        ("bare_re500_1T", dict(nx=24, nr=12, nth=50, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, init_type="spin_1T", A_eq=1e-4, record_stride=10)),
+        ("bare_re500_2T", dict(nx=24, nr=12, nth=50, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, init_type="spin_2T", A_eq=1e-4, record_stride=10)),
+    ]
+    for rb_v in rb_grid:
+        tag = f"rb{int(round(rb_v*100)):02d}"
+        exp2_core_tasks.append((f"{tag}_1T", dict(nx=24, nr=12, nth=50, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=rb_v, init_type="spin_1T", A_eq=1e-4, record_stride=10)))
+        exp2_core_tasks.append((f"{tag}_2T", dict(nx=24, nr=12, nth=50, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=rb_v, init_type="spin_2T", A_eq=1e-4, record_stride=10)))
+
+    # Phase 1: Fast benchmarks + Exp 2 core sweep (computes retuned cavity targets for Exp 4)
+    phase1_res = run_batch(exp1_tasks + exp2_core_tasks)
+    exp1_res = phase1_res
+    rq = exp1_res["quiescent_3d_ns_bell"]
+    cb = exp1_res["cons_ns_bell_bare"]["periodic_cons_err"]
+    cs = exp1_res["cons_ns_bell_b5_slip"]["periodic_cons_err"]
+    cn = exp1_res["cons_ns_bell_b5_nslp"]["periodic_cons_err"]
+    cm = exp1_res["cons_closed_cav_mass"]["cav_closed_mass_err"]
+    print(f"  1A Quiescent 3D NS Bell: drift={rq['quiescent_err']:.2e}")
+    print(f"  1B Bare 3D NS Bell Cons:    mass={cb['mass']:.2e}, ang_mom={cb['ang_mom']:.2e}, energy={cb['energy']:.2e}")
+    print(f"  1B B5 Slip/NoSl Cons:       mass={cs['mass']:.2e}/{cn['mass']:.2e}, energy={cs['energy']:.2e}/{cn['energy']:.2e}")
+    print(f"  1B Closed Chamber+Cavity Mass Cons: err={cm:.2e}")
+
+    sk_fac = 0.5 * (4.0 / 3.0 + (GAMMA - 1.0) / PR)
+    sk_out = {}
+    for m_lbl, m_az, s_mn, ek, ex_root in [
+        ("1T", 1, S11, "e_1t", EXACT_SF_ROOT_1T_RE300),
+        ("1R", 0, S02, "e_1r", EXACT_SF_ROOT_1R_RE300),
+    ]:
+        exact_bulk = -(s_mn * s_mn) * sk_fac / 300.0
+        exact_sf_o1 = exact_bulk + ((2.0 * m_az * m_az / (300.0 * (s_mn * s_mn - m_az * m_az))) if m_az > 0 else 0.0)
+        for nr_v in (14, 20, 28):
+            a_inf = fit_alpha(exp1_res[f"sk_{m_lbl}_nr{nr_v}_inf"], 4.0, 13.0, ek)
+            a_re = fit_alpha(exp1_res[f"sk_{m_lbl}_nr{nr_v}_re300"], 4.0, 13.0, ek)
+            net_v = a_re - a_inf
+            err_root = abs(net_v - ex_root) / abs(ex_root) * 100.0
+            err_o1 = abs(net_v - exact_sf_o1) / abs(exact_sf_o1) * 100.0
+            sk_out[f"{m_lbl}_nr{nr_v}_Re300"] = {
+                "alpha_re": a_re, "alpha_inf": a_inf, "net_visc": net_v,
+                "exact_o1_formula": exact_sf_o1, "exact_disk_root": ex_root,
+                "err_vs_root_pct": err_root, "err_vs_o1_pct": err_o1,
+            }
+            print(f"  1C SK [{m_lbl} nr={nr_v:2d} Re=300]: net={net_v:+.5f} (inf={a_inf:+.5f}) vs root={ex_root:+.5f} ({err_root:.2f}%), O(1/Re)={exact_sf_o1:+.5f} ({err_o1:.2f}%)")
+
+    # Precompute Exp 2 core targets + 1D spectral & axisymmetric bases
+    wH_1T_ret, _, _ = measure_plain_hann_peaks(phase1_res["rb42_1T"]["t"], phase1_res["rb42_1T"]["c1_re"], 4.0, 1.0, 2.5)
+    wH_2T_ret, _, _ = measure_plain_hann_peaks(phase1_res["rb42_2T"]["t"], phase1_res["rb42_2T"]["c2_re"], 4.0, 1.8, 4.0)
+    ex_inf = exact_straight_bessel_ns_eig(0.12, S11, Re=np.inf, N=80)
+    ex_ns_500 = exact_straight_bessel_ns_eig(0.12, S11, Re=500.0, inlet_stressfree=False, N=80)
+    ex_sf_500 = exact_straight_bessel_ns_eig(0.12, S11, Re=500.0, inlet_stressfree=True,  N=80)
+    ex_ns_1000 = exact_straight_bessel_ns_eig(0.12, S11, Re=1000.0, inlet_stressfree=False, N=80)
+    axi_b_inf = relax_axi_3d_bell_base(40, 12, M_c=0.12, L_n=0.60, L_d=0.45, Re=np.inf, t_relax=160.0)
+    axi_b_500_36 = relax_axi_3d_bell_base(36, 12, M_c=0.12, L_n=0.60, L_d=0.45, Re=500.0, t_relax=160.0)
+    axi_b_500_40 = relax_axi_3d_bell_base(40, 12, M_c=0.12, L_n=0.60, L_d=0.45, Re=500.0, t_relax=160.0)
+    axi_b_1000_40 = relax_axi_3d_bell_base(40, 12, M_c=0.12, L_n=0.60, L_d=0.45, Re=1000.0, t_relax=160.0)
+    axi_b_500_48 = relax_axi_3d_bell_base(48, 14, M_c=0.12, L_n=0.60, L_d=0.45, Re=500.0, t_relax=160.0)
+
+    cav_e014_dual = [
+        {"beta": 0.0185, "wH": S11, "xiH": 0.22, "sigma_o": 0.10, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
+        {"beta": 0.0080, "wH": S21, "xiH": 0.24, "sigma_o": 0.08, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
+        {"beta": 0.0035, "wH": S02, "xiH": 0.14, "sigma_o": 0.04, "n_cav": 1, "r_lo": 0.00, "r_hi": 0.26, "nonlinear": True},
+    ]
+    cav_3d_retuned = [
+        {"beta": 0.0185, "wH": wH_1T_ret, "xiH": 0.22, "sigma_o": 0.10, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
+        {"beta": 0.0080, "wH": wH_2T_ret, "xiH": 0.24, "sigma_o": 0.08, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
+        {"beta": 0.0035, "wH": S02,       "xiH": 0.14, "sigma_o": 0.04, "n_cav": 1, "r_lo": 0.00, "r_hi": 0.26, "nonlinear": True},
+    ]
+
+    # Phase 2: Unified LPT-ordered heavy batch (Exp 1D + Exp 2 robust + Exp 3 + Exp 4) across 8 cores
+    exp1d_tasks = [
+        ("bell_re500_48",  dict(nx=48, nr=14, nth=48, t_end=30.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0,  init_type="spin_1T", A_eq=1e-4, prim_axi_base=axi_b_500_48["prim_axi"], record_stride=18)),
+        ("bell_re500_40",  dict(nx=40, nr=12, nth=48, t_end=30.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0,  init_type="spin_1T", A_eq=1e-4, prim_axi_base=axi_b_500_40["prim_axi"], record_stride=16)),
+        ("bell_re1000_40", dict(nx=40, nr=12, nth=48, t_end=30.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=1000.0, init_type="spin_1T", A_eq=1e-4, prim_axi_base=axi_b_1000_40["prim_axi"], record_stride=16)),
+        ("bell_inf_40",    dict(nx=40, nr=12, nth=48, t_end=30.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=np.inf, init_type="spin_1T", A_eq=1e-4, prim_axi_base=axi_b_inf["prim_axi"], record_stride=16)),
+        ("st_re500_nx48",  dict(nx=48, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", Re=500.0,  init_type="spin_1T", A_eq=1e-4, record_stride=16)),
+        ("st_re1000_nx48", dict(nx=48, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", Re=1000.0, init_type="spin_1T", A_eq=1e-4, record_stride=16)),
+        ("st_inf_nx48",    dict(nx=48, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", Re=np.inf, init_type="spin_1T", A_eq=1e-4, record_stride=16)),
+    ]
+    exp2_robust_tasks = [
+        ("bare_f36_2T",   dict(nx=36, nr=18, nth=50, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, init_type="spin_2T", A_eq=1e-4, record_stride=16)),
+        ("f36_rb00_2T",   dict(nx=36, nr=18, nth=50, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.00, init_type="spin_2T", A_eq=1e-4, record_stride=16)),
+        ("f36_rb42_2T",   dict(nx=36, nr=18, nth=50, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, init_type="spin_2T", A_eq=1e-4, record_stride=16)),
+        ("f36_rb58_2T",   dict(nx=36, nr=18, nth=50, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.58, init_type="spin_2T", A_eq=1e-4, record_stride=16)),
+        ("bare_inf_2T",   dict(nx=24, nr=12, nth=50, t_end=24.0, M_c=0.12, mode="straight", Re=np.inf, init_type="spin_2T", A_eq=1e-4, record_stride=10)),
+        ("inf_rb00_2T",   dict(nx=24, nr=12, nth=50, t_end=24.0, M_c=0.12, mode="straight", Re=np.inf, n_baffles=5, L_b=0.45, r_b=0.00, init_type="spin_2T", A_eq=1e-4, record_stride=10)),
+        ("inf_rb42_2T",   dict(nx=24, nr=12, nth=50, t_end=24.0, M_c=0.12, mode="straight", Re=np.inf, n_baffles=5, L_b=0.45, r_b=0.42, init_type="spin_2T", A_eq=1e-4, record_stride=10)),
+        ("inf_rb58_2T",   dict(nx=24, nr=12, nth=50, t_end=24.0, M_c=0.12, mode="straight", Re=np.inf, n_baffles=5, L_b=0.45, r_b=0.58, init_type="spin_2T", A_eq=1e-4, record_stride=10)),
+    ]
+    exp3_tasks = [
+        ("e014_legacy_1T",     dict(nx=20, nr=12, nth=48, t_end=180.0, M_c=0.12, mode="straight", Re=np.inf, init_type="spin_1T",  A_eq=0.04, n_p=0.30, omega_hp=0.15, cav_spec=cav_e014_dual, cav_mass_conserving=False, record_stride=24)),
+        ("e015_mcons_1T",      dict(nx=20, nr=12, nth=48, t_end=180.0, M_c=0.12, mode="straight", Re=np.inf, init_type="spin_1T",  A_eq=0.04, n_p=0.30, omega_hp=0.15, cav_spec=cav_e014_dual, cav_mass_conserving=True,  record_stride=24)),
+        ("e015_hp50_mcons_1T", dict(nx=20, nr=12, nth=48, t_end=180.0, M_c=0.12, mode="straight", Re=np.inf, init_type="spin_1T",  A_eq=0.04, n_p=0.30, omega_hp=0.50, cav_spec=cav_e014_dual, cav_mass_conserving=True,  record_stride=24)),
+        ("e015_hp50_st1T",     dict(nx=20, nr=12, nth=48, t_end=180.0, M_c=0.12, mode="straight", Re=np.inf, init_type="stand_1T", A_eq=0.04, n_p=0.30, omega_hp=0.50, cav_spec=cav_e014_dual, cav_mass_conserving=True,  record_stride=24)),
+    ]
+    exp4_tasks = [
+        ("bare_ns_1T",    dict(nx=20, nr=12, nth=50, t_end=90.0,  M_c=0.12, mode="straight", Re=500.0, init_type="spin_1T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
+        ("bare_ns_st1T",  dict(nx=20, nr=12, nth=50, t_end=90.0,  M_c=0.12, mode="straight", Re=500.0, init_type="stand_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
+        ("bare_ns_2T",    dict(nx=20, nr=12, nth=50, t_end=90.0,  M_c=0.12, mode="straight", Re=500.0, init_type="spin_2T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
+        ("bare_ns_1R",    dict(nx=20, nr=12, nth=50, t_end=90.0,  M_c=0.12, mode="straight", Re=500.0, init_type="1R",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
+        ("bare_ns_1L",    dict(nx=20, nr=12, nth=50, t_end=90.0,  M_c=0.12, mode="straight", Re=500.0, init_type="1L",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
+        ("hyb3d_1T",      dict(nx=20, nr=12, nth=50, t_end=120.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_3d_retuned, cav_mass_conserving=True, init_type="spin_1T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
+        ("hyb3d_st1T",    dict(nx=20, nr=12, nth=50, t_end=120.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_3d_retuned, cav_mass_conserving=True, init_type="stand_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
+        ("hyb3d_2T",      dict(nx=20, nr=12, nth=50, t_end=120.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_3d_retuned, cav_mass_conserving=True, init_type="spin_2T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
+        ("hyb3d_1R",      dict(nx=20, nr=12, nth=50, t_end=180.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_3d_retuned, cav_mass_conserving=True, init_type="1R",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
+        ("hyb3d_1L",      dict(nx=20, nr=12, nth=50, t_end=120.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_3d_retuned, cav_mass_conserving=True, init_type="1L",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
+        ("hyb3d_hp15_2T", dict(nx=20, nr=12, nth=50, t_end=120.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_3d_retuned, cav_mass_conserving=True, init_type="spin_2T",  A_eq=0.04, n_p=0.34, omega_hp=0.15, record_stride=24)),
+        ("hyb3d_f16_1T",  dict(nx=20, nr=16, nth=50, t_end=120.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_3d_retuned, cav_mass_conserving=True, init_type="spin_1T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
+        ("bell_bare_1T",  dict(nx=36, nr=12, nth=50, t_end=80.0,  M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, prim_axi_base=axi_b_500_36["prim_axi"], init_type="spin_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
+        ("bell_hyb_1T",   dict(nx=36, nr=12, nth=50, t_end=120.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_3d_retuned, cav_mass_conserving=True, prim_axi_base=axi_b_500_36["prim_axi"], init_type="spin_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
+    ]
+    # LPT order: longest bell/refined runs first so all 8 cores stay saturated with zero tail waste
+    lpt_priority = [
+        "bell_hyb_1T", "bell_bare_1T", "bell_re500_48", "hyb3d_f16_1T", "hyb3d_1R",
+        "bell_re500_40", "bell_re1000_40", "bell_inf_40",
+        "f36_rb58_2T", "f36_rb42_2T", "f36_rb00_2T", "bare_f36_2T",
+        "e014_legacy_1T", "e015_mcons_1T", "e015_hp50_mcons_1T", "e015_hp50_st1T",
+        "hyb3d_1T", "hyb3d_st1T", "hyb3d_2T", "hyb3d_1L", "hyb3d_hp15_2T",
+        "bare_ns_1T", "bare_ns_st1T", "bare_ns_2T", "bare_ns_1R", "bare_ns_1L",
+        "st_re500_nx48", "st_re1000_nx48", "st_inf_nx48",
+        "bare_inf_2T", "inf_rb00_2T", "inf_rb42_2T", "inf_rb58_2T",
+    ]
+    all_p2 = dict(exp1d_tasks + exp2_robust_tasks + exp3_tasks + exp4_tasks)
+    p2_ordered = [(k, all_p2[k]) for k in lpt_priority]
+    print(f"\n--- Phase 2: Launching {len(p2_ordered)} Heavy Runs (LPT-ordered, 8 workers) ---", flush=True)
+    phase2_res = run_batch(p2_ordered)
+    exp1d_res = phase2_res
+    exp2_res = {**phase1_res, **phase2_res}
+    exp3_res = phase2_res
+    exp4_res = phase2_res
+
+    exp1d_out = {
+        "cheb_inviscid": ex_inf.real,
+        "cheb_noslip_Re500": ex_ns_500.real,
+        "cheb_stressfree_Re500": ex_sf_500.real,
+        "cheb_noslip_Re1000": ex_ns_1000.real,
+        "st_inf_nx48": fit_alpha(exp1d_res["st_inf_nx48"], 8.0, 22.0, "e_1t"),
+        "st_re500_nx48": fit_alpha(exp1d_res["st_re500_nx48"], 8.0, 22.0, "e_1t"),
+        "st_re1000_nx48": fit_alpha(exp1d_res["st_re1000_nx48"], 8.0, 22.0, "e_1t"),
+        "bell_inf_40": fit_alpha(exp1d_res["bell_inf_40"], 12.0, 28.0, "e_1t"),
+        "bell_re1000_40": fit_alpha(exp1d_res["bell_re1000_40"], 12.0, 28.0, "e_1t"),
+        "bell_re500_40": fit_alpha(exp1d_res["bell_re500_40"], 12.0, 28.0, "e_1t"),
+        "bell_re500_48": fit_alpha(exp1d_res["bell_re500_48"], 12.0, 28.0, "e_1t"),
+        "axi_throat_sensitivity_Re500": {
+            "36x12": {k: v for k, v in axi_b_500_36.items() if k != "prim_axi"},
+            "40x12": {k: v for k, v in axi_b_500_40.items() if k != "prim_axi"},
+            "48x14": {k: v for k, v in axi_b_500_48.items() if k != "prim_axi"},
+        },
+    }
+    print(f"  1D Straight nx48: Re=inf={exp1d_out['st_inf_nx48']:+.5f}, Re=500={exp1d_out['st_re500_nx48']:+.5f} (Cheb inv={ex_inf.real:+.5f}, ns500={ex_ns_500.real:+.5f}, sf500={ex_sf_500.real:+.5f})")
+    print(f"  1D Metric-fixed Bell (Ln=0.60): Re=inf={exp1d_out['bell_inf_40']:+.5f}, Re=1000={exp1d_out['bell_re1000_40']:+.5f}, Re=500(40x12)={exp1d_out['bell_re500_40']:+.5f}, (48x14)={exp1d_out['bell_re500_48']:+.5f}")
+
+    # ------------------------------------------------------------------
+    # Experiment 2 Summary: Partial-Span Baffles
+    # ------------------------------------------------------------------
+    print("\n--- Experiment 2: 3D Partial-Span Baffles (E_ch, Window, m=-3 Bragg, Inviscid & 36x18x50) ---")
+    a_b1_m = fit_alpha(exp2_res["bare_re500_1T"], 7.0, 22.0, "e_1t")
+    a_b1_e = fit_alpha(exp2_res["bare_re500_1T"], 7.0, 22.0, "e_ch")
+    w_b1, _, _ = measure_plain_hann_peaks(exp2_res["bare_re500_1T"]["t"], exp2_res["bare_re500_1T"]["c1_re"], 4.0, 1.0, 2.5)
+    a_b2_m = fit_alpha(exp2_res["bare_re500_2T"], 7.0, 22.0, "e_2t")
+    a_b2_m10 = fit_alpha(exp2_res["bare_re500_2T"], 10.0, 22.0, "e_2t")
+    a_b2_e = fit_alpha(exp2_res["bare_re500_2T"], 7.0, 22.0, "e_ch")
+    a_b2_e10 = fit_alpha(exp2_res["bare_re500_2T"], 10.0, 22.0, "e_ch")
+    w_b2, _, _ = measure_plain_hann_peaks(exp2_res["bare_re500_2T"]["t"], exp2_res["bare_re500_2T"]["c2_re"], 4.0, 1.8, 4.0)
+
+    exp2_rows = []
+    for rb_v in rb_grid:
+        tag = f"rb{int(round(rb_v*100)):02d}"
+        r1 = exp2_res[f"{tag}_1T"]; r2 = exp2_res[f"{tag}_2T"]
+        a1_m = fit_alpha(r1, 7.0, 22.0, "e_1t"); a1_e = fit_alpha(r1, 7.0, 22.0, "e_ch")
+        w1, _, _ = measure_plain_hann_peaks(r1["t"], r1["c1_re"], 4.0, 1.0, 2.5)
+        a2_m = fit_alpha(r2, 7.0, 22.0, "e_2t"); a2_m10 = fit_alpha(r2, 10.0, 22.0, "e_2t")
+        a2_e = fit_alpha(r2, 7.0, 22.0, "e_ch"); a2_e10 = fit_alpha(r2, 10.0, 22.0, "e_ch")
+        w2_p, w2_s, w2_rat = measure_plain_hann_peaks(r2["t"], r2["c2_re"], 4.0, 1.8, 4.0)
+        ml2 = r2["t"] >= 14.0
+        bragg_m3_ratio = float(np.mean(r2["e_3tm"][ml2]) / max(np.mean(r2["e_2t"][ml2]), 1e-30))
+        row = {
+            "r_b": rb_v, "metal_frac": r1["baffle_metal_frac"],
+            "alpha_1T": a1_m, "delta_1T": a1_m - a_b1_m, "delta_1T_Ech": a1_e - a_b1_e,
+            "omega_1T": w1, "downshift_1T_pct": (w1 - w_b1) / w_b1 * 100.0,
+            "alpha_2T_7_22": a2_m, "delta_2T_7_22": a2_m - a_b2_m,
+            "alpha_2T_10_22": a2_m10, "delta_2T_10_22": a2_m10 - a_b2_m10,
+            "alpha_2T_Ech_7_22": a2_e, "delta_2T_Ech_7_22": a2_e - a_b2_e,
+            "alpha_2T_Ech_10_22": a2_e10, "delta_2T_Ech_10_22": a2_e10 - a_b2_e10,
+            "omega_2T_primary": w2_p, "omega_2T_secondary": w2_s, "bimodal_amp_ratio": w2_rat,
+            "bragg_m3_over_m2": bragg_m3_ratio,
+        }
+        exp2_rows.append(row)
+        print(f"  2B r_b={rb_v:.2f}: dEch_2T[7,22]={row['delta_2T_Ech_7_22']:+.4f} ([10,22]={row['delta_2T_Ech_10_22']:+.4f}) | de2t[7,22]={row['delta_2T_7_22']:+.4f} ([10,22]={row['delta_2T_10_22']:+.4f}) | w2={w2_p:.3f}/{w2_s} ({w2_rat:.2f}) | m-3/m2={bragg_m3_ratio:.2f}")
+
+    exp2_robust = {}
+    for pfx, b_key in [("inf", "bare_inf_2T"), ("f36", "bare_f36_2T")]:
+        b_e7 = fit_alpha(exp2_res[b_key], 7.0, 22.0, "e_ch"); b_m7 = fit_alpha(exp2_res[b_key], 7.0, 22.0, "e_2t")
+        b_e10 = fit_alpha(exp2_res[b_key], 10.0, 22.0, "e_ch"); b_m10 = fit_alpha(exp2_res[b_key], 10.0, 22.0, "e_2t")
+        d0_e7 = fit_alpha(exp2_res[f"{pfx}_rb00_2T"], 7.0, 22.0, "e_ch") - b_e7
+        d0_m7 = fit_alpha(exp2_res[f"{pfx}_rb00_2T"], 7.0, 22.0, "e_2t") - b_m7
+        d0_e10 = fit_alpha(exp2_res[f"{pfx}_rb00_2T"], 10.0, 22.0, "e_ch") - b_e10
+        d0_m10 = fit_alpha(exp2_res[f"{pfx}_rb00_2T"], 10.0, 22.0, "e_2t") - b_m10
+        sub = {"bare_e2t_7_22": b_m7, "bare_Ech_7_22": b_e7}
+        for rb_v in (0.00, 0.42, 0.58):
+            tag = f"rb{int(round(rb_v*100)):02d}"
+            rr = exp2_res[f"{pfx}_{tag}_2T"]; ml = rr["t"] >= 14.0
+            de7 = fit_alpha(rr, 7.0, 22.0, "e_ch") - b_e7
+            dm7 = fit_alpha(rr, 7.0, 22.0, "e_2t") - b_m7
+            de10 = fit_alpha(rr, 10.0, 22.0, "e_ch") - b_e10
+            dm10 = fit_alpha(rr, 10.0, 22.0, "e_2t") - b_m10
+            sub[tag] = {
+                "ratio_Ech_7_22": de7 / d0_e7, "ratio_Ech_10_22": de10 / d0_e10,
+                "ratio_e2t_7_22": dm7 / d0_m7, "ratio_e2t_10_22": dm10 / d0_m10,
+                "bragg_m3_over_m2": float(np.mean(rr["e_3tm"][ml]) / max(np.mean(rr["e_2t"][ml]), 1e-30)),
+            }
+            print(f"  2C [{pfx} {tag}]: Ech ratio [7,22]={de7/d0_e7:.2f}x ([10,22]={de10/d0_e10:.2f}x) | e2t [7,22]={dm7/d0_m7:.2f}x ([10,22]={dm10/d0_m10:.2f}x) | m-3/m2={sub[tag]['bragg_m3_over_m2']:.2f}")
+        exp2_robust[pfx] = sub
+
+    # ------------------------------------------------------------------
+    # Experiment 3 Summary: Honest t = 180 k = 0 Chugging Audit
+    # ------------------------------------------------------------------
+    print("\n--- Experiment 3: Honest t = 180 k = 0 Chugging & Flame-Cutoff Audit ---")
     chug_eigs = {}
     for np_v in (0.30, 0.34):
         for hp in (0.15, 0.50):
@@ -1036,66 +1313,28 @@ def run_exp3_and_exp4(wH_1T_ret: float, wH_2T_ret: float) -> tuple[dict, dict, d
                 key = f"np{int(round(np_v*100))}_hp{int(round(hp*100))}_b{int(round(bt*100))}"
                 chug_eigs[key] = {
                     "chug_alpha": c0.real if c0 else None, "chug_omega": c0.imag if c0 else None,
+                    "chug_period_1d": (2.0 * np.pi / c0.imag) if (c0 and c0.imag > 0) else None,
                     "1L_alpha": c1.real if c1 else None, "1L_omega": c1.imag if c1 else None,
                 }
-                print(f"  3A Cheb [{key}]: chug={c0.real:+.5f}{c0.imag:+.4f}i | 1L={c1.real:+.5f}{c1.imag:+.4f}i")
-
-    cav_e014_dual = [
-        {"beta": 0.0185, "wH": S11, "xiH": 0.22, "sigma_o": 0.10, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
-        {"beta": 0.0080, "wH": S21, "xiH": 0.24, "sigma_o": 0.08, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
-        {"beta": 0.0035, "wH": S02, "xiH": 0.14, "sigma_o": 0.04, "n_cav": 1, "r_lo": 0.00, "r_hi": 0.26, "nonlinear": True},
-    ]
-    exp3_tasks = [
-        ("e014_legacy_1T",    dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", Re=np.inf, init_type="spin_1T",  A_eq=0.04, n_p=0.30, omega_hp=0.15, cav_spec=cav_e014_dual, cav_mass_conserving=False, record_stride=24)),
-        ("e015_mcons_1T",     dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", Re=np.inf, init_type="spin_1T",  A_eq=0.04, n_p=0.30, omega_hp=0.15, cav_spec=cav_e014_dual, cav_mass_conserving=True,  record_stride=24)),
-        ("e015_hp50_mcons_1T",dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", Re=np.inf, init_type="spin_1T",  A_eq=0.04, n_p=0.30, omega_hp=0.50, cav_spec=cav_e014_dual, cav_mass_conserving=True,  record_stride=24)),
-        ("e014_legacy_st1T",  dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", Re=np.inf, init_type="stand_1T", A_eq=0.04, n_p=0.30, omega_hp=0.15, cav_spec=cav_e014_dual, cav_mass_conserving=False, record_stride=24)),
-        ("e015_mcons_st1T",   dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", Re=np.inf, init_type="stand_1T", A_eq=0.04, n_p=0.30, omega_hp=0.15, cav_spec=cav_e014_dual, cav_mass_conserving=True,  record_stride=24)),
-        ("e015_hp50_st1T",    dict(nx=20, nr=12, nth=48, t_end=120.0, M_c=0.12, mode="straight", Re=np.inf, init_type="stand_1T", A_eq=0.04, n_p=0.30, omega_hp=0.50, cav_spec=cav_e014_dual, cav_mass_conserving=True,  record_stride=24)),
-    ]
-    exp3_res = run_batch(exp3_tasks)
     exp3_runs = {}
     for cid, _ in exp3_tasks:
-        rr = exp3_res[cid]; t = rr["t"]; m120 = t >= 105.0
+        rr = exp3_res[cid]; t = rr["t"]; m160 = t >= 160.0
+        T_pde = measure_zero_crossing_period(t, rr["p_mean_signed"], 20.0)
         exp3_runs[cid] = {
-            "p_peak_120": float(np.mean(rr["p_max_pct"][m120])),
-            "e_wave_120": float(np.mean(rr["e_ch"][m120])),
-            "e_1t_120": float(np.mean(rr["e_1t"][m120])),
-            "e_mean_120": float(np.mean(rr["e_mean"][m120])),
-            "mass_drift_120_pct": float(np.mean(rr["mass_drift"][m120]) * 100.0),
-            "slope_84_120": fit_alpha(rr, 84.0, 120.0, "e_ch"),
+            "p_peak_160_180": float(np.mean(rr["p_max_pct"][m160])),
+            "max_abs_pbar_pct_160_180": float(np.max(np.abs(rr["p_mean_signed"][m160])) / P_BAR * 100.0),
+            "max_abs_dm_pct_160_180": float(np.max(np.abs(rr["mass_drift"][m160])) * 100.0),
+            "e_1t_160_180": float(np.mean(rr["e_1t"][m160])),
+            "e_mean_160_180": float(np.mean(rr["e_mean"][m160])),
+            "pde_chug_period": T_pde,
         }
         s = exp3_runs[cid]
-        print(f"  3B [{cid:18s}] P120={s['p_peak_120']:5.2f}% | e_mean={s['e_mean_120']:.2e} | e_1T={s['e_1t_120']:.2e} | dm={s['mass_drift_120_pct']:+.3f}% | slp={s['slope_84_120']:+.4f}")
-    exp3_out = {"cheb_1d_chugging_eigs": chug_eigs, "pde_3d_t120_runs": exp3_runs}
+        print(f"  3B(t=180) [{cid:18s}] P={s['p_peak_160_180']:5.2f}% | |p̄'|={s['max_abs_pbar_pct_160_180']:5.2f}% | |dm|={s['max_abs_dm_pct_160_180']:5.3f}% | E_1T={s['e_1t_160_180']:.2e} | E_mn={s['e_mean_160_180']:.2e} | T={T_pde}")
 
-    print("\n--- Experiment 4: Full 3D NS All-Mode Quench (Re=500, omega_hp=0.50 + r_b=0.42 Baffles + 3.0% Retuned Dual-Zone) ---")
-    cav_3d_retuned = [
-        {"beta": 0.0185, "wH": wH_1T_ret, "xiH": 0.22, "sigma_o": 0.10, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
-        {"beta": 0.0080, "wH": wH_2T_ret, "xiH": 0.24, "sigma_o": 0.08, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
-        {"beta": 0.0035, "wH": S02,       "xiH": 0.14, "sigma_o": 0.04, "n_cav": 1, "r_lo": 0.00, "r_hi": 0.26, "nonlinear": True},
-    ]
-    axi_b_500_q = relax_axi_3d_bell_base(36, 12, M_c=0.12, L_n=0.60, L_d=0.45, Re=500.0, t_relax=160.0)
-    exp4_tasks = [
-        # Bare 3D NS (Re=500, omega_hp=0.50) references at n_p = 0.34
-        ("bare_ns_1T",    dict(nx=20, nr=12, nth=50, t_end=90.0,  M_c=0.12, mode="straight", Re=500.0, init_type="spin_1T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
-        ("bare_ns_2T",    dict(nx=20, nr=12, nth=50, t_end=90.0,  M_c=0.12, mode="straight", Re=500.0, init_type="spin_2T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
-        ("bare_ns_1R",    dict(nx=20, nr=12, nth=50, t_end=90.0,  M_c=0.12, mode="straight", Re=500.0, init_type="1R",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
-        ("bare_ns_1L",    dict(nx=20, nr=12, nth=50, t_end=90.0,  M_c=0.12, mode="straight", Re=500.0, init_type="1L",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
-        # Full 3D Hybrid: r_b=0.42 shroud-ring baffles + 3.0% retuned mass-conserving Dual-Zone cavities (t=120!)
-        ("hyb3d_1T",      dict(nx=20, nr=12, nth=50, t_end=120.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_3d_retuned, cav_mass_conserving=True, init_type="spin_1T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
-        ("hyb3d_st1T",    dict(nx=20, nr=12, nth=50, t_end=120.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_3d_retuned, cav_mass_conserving=True, init_type="stand_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
-        ("hyb3d_2T",      dict(nx=20, nr=12, nth=50, t_end=120.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_3d_retuned, cav_mass_conserving=True, init_type="spin_2T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
-        ("hyb3d_1R",      dict(nx=20, nr=12, nth=50, t_end=120.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_3d_retuned, cav_mass_conserving=True, init_type="1R",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
-        ("hyb3d_1L",      dict(nx=20, nr=12, nth=50, t_end=120.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_3d_retuned, cav_mass_conserving=True, init_type="1L",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
-        # Contrast: omega_hp=0.15 chugging trigger on spin_2T (demonstrating k=0 chugging unmasking after 2T is killed!)
-        ("hyb3d_hp15_2T", dict(nx=20, nr=12, nth=50, t_end=120.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_3d_retuned, cav_mass_conserving=True, init_type="spin_2T",  A_eq=0.04, n_p=0.34, omega_hp=0.15, record_stride=24)),
-        # Refined 20x16x50 verification on spin_1T & True-3D Smooth Bell Nozzle reacting 1T shootout!
-        ("hyb3d_f16_1T",  dict(nx=20, nr=16, nth=50, t_end=90.0,  M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_3d_retuned, cav_mass_conserving=True, init_type="spin_1T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
-        ("bell_bare_1T",  dict(nx=36, nr=12, nth=50, t_end=80.0,  M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, prim_axi_base=axi_b_500_q["prim_axi"], init_type="spin_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
-        ("bell_hyb_1T",   dict(nx=36, nr=12, nth=50, t_end=80.0,  M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_3d_retuned, cav_mass_conserving=True, prim_axi_base=axi_b_500_q["prim_axi"], init_type="spin_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24)),
-    ]
-    exp4_res = run_batch(exp4_tasks)
+    # ------------------------------------------------------------------
+    # Experiment 4 Summary: Full 3D NS All-Mode Audit
+    # ------------------------------------------------------------------
+    print("\n--- Experiment 4: Full 3D NS All-Mode Audit (omega_hp=0.50, Re=500, Metric-Fixed Bell) ---")
     exp4_out = {}
     for cid, _ in exp4_tasks:
         rr = exp4_res[cid]; t = rr["t"]; ml = t >= 0.85 * t[-1]
@@ -1111,271 +1350,7 @@ def run_exp3_and_exp4(wH_1T_ret: float, wH_2T_ret: float) -> tuple[dict, dict, d
             "slope_tail": fit_alpha(rr, 0.65 * t[-1], t[-1], "e_ch"),
         }
         s = exp4_out[cid]
-        print(f"  4 [{cid:14s}] P={s['p_peak_late']:6.3f}% | E={s['e_wave_late']:.2e} | slp={s['slope_tail']:+.4f} | 1T={s['e_1t_late']:.1e} | 2T={s['e_2t_late']:.1e} | 1R={s['e_1r_late']:.1e} | mn={s['e_mean_late']:.1e}")
-    return exp3_out, exp4_out, exp3_res, exp4_res
-
-
-def plot_all_exp015_figures(metrics: dict, exp3_res: dict, exp4_res: dict) -> None:
-    exp2_rows = metrics["exp2_partial_span_baffles"]["rb_sweep"]
-    exp3_out = metrics["exp3_mass_conserving_cavity_drift"]["pde_3d_t120_runs"]
-    exp4_out = metrics["exp4_3d_ns_allmode_quench"]
-
-    # Fig 1: 3D Partial-Span Radial Baffle Law (showing full 290% 2T boost!)
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.4, 5.5), dpi=150)
-    rbs = [r["r_b"] for r in exp2_rows]
-    m_pct = [r["metal_frac"] * 100.0 for r in exp2_rows]
-    d1_ret = [r["delta_1T"] / exp2_rows[0]["delta_1T"] * 100.0 for r in exp2_rows]
-    d2_ret = [r["delta_2T"] / exp2_rows[0]["delta_2T"] * 100.0 for r in exp2_rows]
-    ax1.plot(rbs, d2_ret, "^--", color="#d62728", lw=2.6, label="$2T$ Baffle Damping ($\\Delta\\alpha / \\Delta\\alpha_{\\mathrm{full}}$: peaks $290\\%$!)")
-    ax1.plot(rbs, d1_ret, "s-", color="#1f77b4", lw=2.5, label="$1T$ Baffle Damping Retained ($\\Delta\\alpha / \\Delta\\alpha_{\\mathrm{full}}$)")
-    ax1.plot(rbs, m_pct, "o:", color="#555555", lw=2.0, label="Blade Metal Area ($1 - r_b$)")
-    ax1.axvline(0.42, color="#2ca02c", ls="-.", lw=1.6, alpha=0.8, label="Shroud-Ring Optimum ($r_b=0.42$, hub open!)")
-    ax1.set_xlabel("Inner Baffle Cutout Radius $r_b / R$", fontsize=11)
-    ax1.set_ylabel("Percentage of Full-Span Value (%)", fontsize=11)
-    ax1.set_title("3D Partial-Span Baffle Law ($N_b=5, L_b=0.45, \\mathrm{Re}=500$)", fontsize=11.3, fontweight="bold")
-    ax1.set_ylim(0, 318)
-    ax1.grid(True, alpha=0.28)
-    ax1.legend(fontsize=8.3, loc="upper right", framealpha=0.94)
-
-    ax2.plot(rbs, [-r["downshift_1T_pct"] for r in exp2_rows], "s-", color="#1f77b4", lw=2.5, label="3D $1T$ Frequency Downshift ($-\\Delta\\omega_{1T}/\\omega_{1T}$)")
-    ax2.plot(rbs, [-r["downshift_2T_pct"] for r in exp2_rows], "^--", color="#d62728", lw=2.5, label="3D $2T$ Frequency Shift ($-\\Delta\\omega_{2T}/\\omega_{2T}$)")
-    ax2.axvline(0.42, color="#2ca02c", ls="-.", lw=1.6, alpha=0.8, label="Selected Shroud-Ring $r_b=0.42$")
-    ax2.axhline(0.0, color="#333333", lw=0.8, alpha=0.5)
-    ax2.set_xlabel("Inner Baffle Cutout Radius $r_b / R$", fontsize=11)
-    ax2.set_ylabel("Baffle Frequency Downshift (%)", fontsize=11)
-    ax2.set_title("3D Baffle Frequency Shift vs. Radial Span ($r_b=0.58$ Branch Jump)", fontsize=11.0, fontweight="bold")
-    ax2.grid(True, alpha=0.28)
-    ax2.legend(fontsize=8.4, loc="upper right", framealpha=0.94)
-    fig.tight_layout()
-    fig.savefig(RESULTS_DIR / "exp015_3d_partial_span_baffle_law.png", dpi=150)
-    plt.close(fig)
-
-    # Fig 2: k=0 Chugging Root-Cause & Double Cure (Mass-Conserving m_dot + Stiff omega_hp=0.50)
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.4, 5.5), dpi=150)
-    for cid, lbl, col, ls in [
-        ("e014_legacy_1T",    "Legacy $u_{\\mathrm{port}}$ ($\\omega_{\\mathrm{hp}}=0.15$): spin $1T$", "#d62728", "-"),
-        ("e015_mcons_1T",     "Mass-Cons. $\\dot{m}$ ($\\omega_{\\mathrm{hp}}=0.15$): spin $1T$", "#1f77b4", "-"),
-        ("e015_hp50_mcons_1T","Mass-Cons. $\\dot{m}$ + Stiff $\\omega_{\\mathrm{hp}}=0.50$: spin $1T$", "#2ca02c", "-"),
-        ("e014_legacy_st1T",  "Legacy $u_{\\mathrm{port}}$ ($\\omega_{\\mathrm{hp}}=0.15$): stand $1T$", "#ff7f0e", "--"),
-        ("e015_hp50_st1T",    "Mass-Cons. $\\dot{m}$ + Stiff $\\omega_{\\mathrm{hp}}=0.50$: stand $1T$", "#9467bd", "--"),
-    ]:
-        rr = exp3_res[cid]
-        ax1.semilogy(rr["t"], np.maximum(rr["e_mean"], 1e-13), color=col, ls=ls, lw=2.1, label=lbl)
-        ax2.plot(rr["t"], rr["mass_drift"] * 100.0, color=col, ls=ls, lw=2.1, label=f"{lbl} (P120={exp3_out[cid]['p_peak_120']:.2f}%)")
-    ax1.set_xlabel("Time $t$", fontsize=11)
-    ax1.set_ylabel("Chamber-Mean $k=0$ Bulk Energy $E_{\\mathrm{mean}}(t)$", fontsize=11)
-    ax1.set_title("Root Cause & Cure of $t=120$ $k=0$ Chugging ($T\\approx 39$)", fontsize=11.0, fontweight="bold")
-    ax1.grid(True, which="both", alpha=0.25)
-    ax1.legend(fontsize=7.6, loc="lower left", framealpha=0.94)
-
-    ax2.set_xlabel("Time $t$", fontsize=11)
-    ax2.set_ylabel("Chamber Total Mass Drift $\\Delta M / M_0$ (%)", fontsize=11)
-    ax2.set_title("Mass-Conserving $\\dot{m}$ + Stiff $\\omega_{\\mathrm{hp}}=0.50$ Eliminates Drift", fontsize=11.0, fontweight="bold")
-    ax2.grid(True, alpha=0.28)
-    ax2.legend(fontsize=7.4, loc="lower left", framealpha=0.94)
-    fig.tight_layout()
-    fig.savefig(RESULTS_DIR / "exp015_mass_conserving_cavity_cure.png", dpi=150)
-    plt.close(fig)
-
-    # Fig 3: Full 3D NS All-Mode Audit (omega_hp=0.50, Straight & True-3D Smooth Bell)
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.4, 5.5), dpi=150)
-    for cid, lbl, col, ls in [
-        ("bare_ns_1T",   "Bare 3D NS: spin $1T$", "#d62728", "-"),
-        ("bare_ns_2T",   "Bare 3D NS: spin $2T$", "#8c564b", "--"),
-        ("bare_ns_1R",   "Bare 3D NS: $1R$", "#ff7f0e", "-."),
-        ("bare_ns_1L",   "Bare 3D NS: $1L$", "#777777", ":"),
-        ("hyb3d_1T",     "3D Hybrid ($r_b=0.42$ + Dual-Zone): spin $1T$", "#1f77b4", "-"),
-        ("hyb3d_st1T",   "3D Hybrid: stand $1T$", "#9467bd", "--"),
-        ("hyb3d_2T",     "3D Hybrid: spin $2T$", "#17becf", "-."),
-        ("hyb3d_1R",     "3D Hybrid: $1R$", "#2ca02c", "-"),
-        ("hyb3d_1L",     "3D Hybrid: $1L$", "#2ca02c", ":"),
-    ]:
-        rr = exp4_res[cid]; st = exp4_out[cid]
-        ax1.semilogy(rr["t"], np.maximum(rr["e_ch"], 1e-13), color=col, ls=ls, lw=2.0, label=f"{lbl} (P={st['p_peak_late']:.3f}%)")
-    ax1.set_xlabel("Time $t$", fontsize=11)
-    ax1.set_ylabel("3D Chamber Wave Energy $E_{\\mathrm{wave}}(t)$", fontsize=11)
-    ax1.set_title("3D NS ($\\mathrm{Re}=500, \\omega_{\\mathrm{hp}}=0.50, n_p=0.34$): All-Mode Audit", fontsize=10.6, fontweight="bold")
-    ax1.set_ylim(1e-12, 6e-3)
-    ax1.grid(True, which="both", alpha=0.25)
-    ax1.legend(fontsize=7.1, loc="lower left", framealpha=0.94)
-
-    for cid, lbl, col, ls in [
-        ("bell_bare_1T",  "True-3D Smooth Bell NS (Bare): spin $1T$", "#d62728", "-"),
-        ("bell_hyb_1T",   "True-3D Smooth Bell NS (3D Hybrid): spin $1T$", "#1f77b4", "-"),
-        ("hyb3d_1T",      "Straight 3D NS (3D Hybrid, 20x12x50): spin $1T$", "#2ca02c", "--"),
-        ("hyb3d_f16_1T",  "Straight 3D NS (3D Hybrid, 20x16x50): spin $1T$", "#9467bd", "-."),
-        ("hyb3d_hp15_2T", "Contrast: $\\omega_{\\mathrm{hp}}=0.15$ $2T$ (chugging unmasked!)", "#ff7f0e", ":"),
-    ]:
-        rr = exp4_res[cid]; st = exp4_out[cid]
-        ax2.semilogy(rr["t"], np.maximum(rr["e_ch"], 1e-13), color=col, ls=ls, lw=2.1, label=f"{lbl} (P={st['p_peak_late']:.3f}%)")
-    ax2.set_xlabel("Time $t$", fontsize=11)
-    ax2.set_ylabel("3D Chamber Wave Energy $E_{\\mathrm{wave}}(t)$", fontsize=11)
-    ax2.set_title("True-3D Curved Bell NS, Radial Check & Chugging Contrast", fontsize=10.6, fontweight="bold")
-    ax2.set_ylim(1e-12, 8e-3)
-    ax2.grid(True, which="both", alpha=0.25)
-    ax2.legend(fontsize=7.6, loc="lower left", framealpha=0.94)
-    fig.tight_layout()
-    fig.savefig(RESULTS_DIR / "exp015_3d_ns_allmode_quench.png", dpi=150)
-    plt.close(fig)
-    print("Saved all 3 Entry 015 figures.")
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--smoke", action="store_true", help="Run fast Exp 1 conservation & SK benchmark smoke check.")
-    parser.add_argument("--upgrade-exp3-exp4", action="store_true", help="Refresh Exp 3 (with omega_hp=0.50 & 1D chugging eigs) and Exp 4 (omega_hp=0.50) into existing exp015_metrics.json and regenerate all 3 figures.")
-    args = parser.parse_args()
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    out_path = RESULTS_DIR / "exp015_metrics.json"
-    if args.upgrade_exp3_exp4:
-        metrics = json.loads(out_path.read_text(encoding="utf-8"))
-        rt = metrics["exp2_partial_span_baffles"]["retuned_targets_rb42"]
-        exp3_out, exp4_out, exp3_res, exp4_res = run_exp3_and_exp4(rt["wH_1T"], rt["wH_2T"])
-        metrics["exp3_mass_conserving_cavity_drift"] = exp3_out
-        metrics["exp4_3d_ns_allmode_quench"] = exp4_out
-        out_path.write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
-        plot_all_exp015_figures(metrics, exp3_res, exp4_res)
-        print(f"Updated {out_path} and refreshed all 3 Entry 015 figures.")
-        return
-
-    print("=" * 96)
-    print("Entry 015: Full 3D Cylindrical Compressible NS, Partial-Span Baffles & Mass-Conserving Cavities")
-    print("=" * 96)
-
-    # ------------------------------------------------------------------
-    # Experiment 1: 3D NS Benchmarks (Conservation, SK, Closed Chamber+Cavity Mass & Fixed-Re Convergence)
-    # ------------------------------------------------------------------
-    print("\n--- Experiment 1: 3D NS Conservation, Stokes-Kirchhoff & Fixed-Re=500 Convergence ---")
-    cav_closed_test = [{"beta": 0.02, "wH": S11, "xiH": 0.24, "sigma_o": 0.06, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True}]
-    exp1_tasks = [
-        ("quiescent_3d_ns_bell", dict(nx=20, nr=10, nth=32, t_end=2.5, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, init_type="quiescent", A_eq=0.0, record_stride=20)),
-        ("cons_ns_bell_bare",    dict(nx=16, nr=10, nth=32, t_end=2.0, M_c=0.12, mode="periodic_bump", Re=500.0, init_type="periodic_3d_wave", A_eq=0.06, record_stride=15)),
-        ("cons_ns_bell_b5_slip", dict(nx=16, nr=10, nth=30, t_end=2.0, M_c=0.12, mode="periodic_bump", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, baffle_noslip=False, init_type="periodic_3d_wave", A_eq=0.06, record_stride=15)),
-        ("cons_ns_bell_b5_nslp", dict(nx=16, nr=10, nth=30, t_end=2.0, M_c=0.12, mode="periodic_bump", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, baffle_noslip=True,  init_type="periodic_3d_wave", A_eq=0.06, record_stride=15)),
-        ("cons_closed_cav_mass", dict(nx=12, nr=10, nth=32, t_end=4.0, M_c=0.0,  mode="closed",        Re=500.0, cav_spec=cav_closed_test, cav_mass_conserving=True, init_type="spin_1T", A_eq=0.04, record_stride=10)),
-        # 3D Stokes-Kirchhoff acoustic attenuation (1T & 1R at Re=inf vs Re=300 & Re=600 on 14x48)
-        ("sk_1T_inf",   dict(nx=6, nr=14, nth=48, t_end=14.0, M_c=0.0, mode="closed", Re=np.inf, init_type="spin_1T", A_eq=1e-4, record_stride=8)),
-        ("sk_1T_re300", dict(nx=6, nr=14, nth=48, t_end=14.0, M_c=0.0, mode="closed", Re=300.0,  init_type="spin_1T", A_eq=1e-4, record_stride=8)),
-        ("sk_1T_re600", dict(nx=6, nr=14, nth=48, t_end=14.0, M_c=0.0, mode="closed", Re=600.0,  init_type="spin_1T", A_eq=1e-4, record_stride=8)),
-        ("sk_1R_inf",   dict(nx=6, nr=14, nth=48, t_end=14.0, M_c=0.0, mode="closed", Re=np.inf, init_type="1R",      A_eq=1e-4, record_stride=8)),
-        ("sk_1R_re300", dict(nx=6, nr=14, nth=48, t_end=14.0, M_c=0.0, mode="closed", Re=300.0,  init_type="1R",      A_eq=1e-4, record_stride=8)),
-        ("sk_1R_re600", dict(nx=6, nr=14, nth=48, t_end=14.0, M_c=0.0, mode="closed", Re=600.0,  init_type="1R",      A_eq=1e-4, record_stride=8)),
-    ]
-    exp1_res = run_batch(exp1_tasks)
-    rq = exp1_res["quiescent_3d_ns_bell"]
-    cb = exp1_res["cons_ns_bell_bare"]["periodic_cons_err"]
-    cs = exp1_res["cons_ns_bell_b5_slip"]["periodic_cons_err"]
-    cn = exp1_res["cons_ns_bell_b5_nslp"]["periodic_cons_err"]
-    cm = exp1_res["cons_closed_cav_mass"]["cav_closed_mass_err"]
-    print(f"  1A Quiescent 3D NS Bell: drift={rq['quiescent_err']:.2e}")
-    print(f"  1B Bare 3D NS Bell Cons:    mass={cb['mass']:.2e}, ang_mom={cb['ang_mom']:.2e}, energy={cb['energy']:.2e}")
-    print(f"  1B B5 Slip 3D NS Bell Cons: mass={cs['mass']:.2e}, energy={cs['energy']:.2e}")
-    print(f"  1B B5 NoSl 3D NS Bell Cons: mass={cn['mass']:.2e}, energy={cn['energy']:.2e}")
-    print(f"  1B Closed Chamber+Cavity Mass Cons: err={cm:.2e}")
-
-    sk_fac = 0.5 * (4.0 / 3.0 + (GAMMA - 1.0) / PR)
-    sk_out = {}
-    for m_lbl, m_az, s_mn, ek in [("1T", 1, S11, "e_1t"), ("1R", 0, S02, "e_1r")]:
-        a_inf = fit_alpha(exp1_res[f"sk_{m_lbl}_inf"], 4.0, 13.0, ek)
-        for re_v in (300, 600):
-            a_re = fit_alpha(exp1_res[f"sk_{m_lbl}_re{re_v}"], 4.0, 13.0, ek)
-            net_v = a_re - a_inf
-            exact_sk = -(s_mn * s_mn) * sk_fac / re_v
-            # Stress-free curved-cylinder wall curvature correction +2*m^2 / (Re*(s_mn^2 - m^2)) (zero for m=0!)
-            curv_corr = (2.0 * m_az * m_az / (re_v * (s_mn * s_mn - m_az * m_az))) if m_az > 0 else 0.0
-            exact_sf = exact_sk + curv_corr
-            err_pct = abs(net_v - exact_sf) / abs(exact_sf) * 100.0
-            sk_out[f"{m_lbl}_Re{re_v}"] = {"alpha_re": a_re, "alpha_inf": a_inf, "net_visc": net_v,
-                                           "exact_bulk_sk": exact_sk, "exact_stressfree_cyl": exact_sf, "rel_err_pct": err_pct}
-            print(f"  1C SK [{m_lbl} Re={re_v:3d}]: net={net_v:+.5f} vs exact_SF={exact_sf:+.5f} (bulk_SK={exact_sk:+.5f}, err={err_pct:.2f}%)")
-
-    if args.smoke:
-        print("Smoke check complete!")
-        return
-
-    # 1D: Fixed-Re=500 Straight Cylinder vs Exact 1D Bessel-NS Chebyshev + True-3D Smooth Bell Viscous Audit
-    ex_ns_500 = exact_straight_bessel_ns_eig(0.12, S11, Re=500.0, N=80)
-    ex_ns_1000 = exact_straight_bessel_ns_eig(0.12, S11, Re=1000.0, N=80)
-    axi_b_inf = relax_axi_3d_bell_base(40, 12, M_c=0.12, L_n=0.60, L_d=0.45, Re=np.inf, t_relax=160.0)
-    axi_b_500 = relax_axi_3d_bell_base(40, 12, M_c=0.12, L_n=0.60, L_d=0.45, Re=500.0,  t_relax=160.0)
-    axi_b_1000 = relax_axi_3d_bell_base(40, 12, M_c=0.12, L_n=0.60, L_d=0.45, Re=1000.0, t_relax=160.0)
-    axi_b_500_f = relax_axi_3d_bell_base(56, 16, M_c=0.12, L_n=0.60, L_d=0.45, Re=500.0, t_relax=160.0)
-    exp1d_tasks = [
-        ("st_re500_nx24", dict(nx=24, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", Re=500.0,  init_type="spin_1T", A_eq=1e-4, record_stride=12)),
-        ("st_re500_nx48", dict(nx=48, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", Re=500.0,  init_type="spin_1T", A_eq=1e-4, record_stride=16)),
-        ("st_re1000_nx48",dict(nx=48, nr=12, nth=48, t_end=24.0, M_c=0.12, mode="straight", Re=1000.0, init_type="spin_1T", A_eq=1e-4, record_stride=16)),
-        ("bell_inf_40",   dict(nx=40, nr=12, nth=48, t_end=30.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=np.inf, init_type="spin_1T", A_eq=1e-4, prim_axi_base=axi_b_inf["prim_axi"], record_stride=16)),
-        ("bell_re1000_40",dict(nx=40, nr=12, nth=48, t_end=30.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=1000.0, init_type="spin_1T", A_eq=1e-4, prim_axi_base=axi_b_1000["prim_axi"], record_stride=16)),
-        ("bell_re500_40", dict(nx=40, nr=12, nth=48, t_end=30.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0,  init_type="spin_1T", A_eq=1e-4, prim_axi_base=axi_b_500["prim_axi"], record_stride=16)),
-        ("bell_re500_56", dict(nx=56, nr=16, nth=48, t_end=30.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0,  init_type="spin_1T", A_eq=1e-4, prim_axi_base=axi_b_500_f["prim_axi"], record_stride=20)),
-    ]
-    exp1d_res = run_batch(exp1d_tasks)
-    exp1d_out = {
-        "exact_cheb_ns_Re500": {"alpha": ex_ns_500.real, "omega": ex_ns_500.imag},
-        "exact_cheb_ns_Re1000": {"alpha": ex_ns_1000.real, "omega": ex_ns_1000.imag},
-        "st_re500_nx24": fit_alpha(exp1d_res["st_re500_nx24"], 8.0, 22.0, "e_1t"),
-        "st_re500_nx48": fit_alpha(exp1d_res["st_re500_nx48"], 8.0, 22.0, "e_1t"),
-        "st_re1000_nx48": fit_alpha(exp1d_res["st_re1000_nx48"], 8.0, 22.0, "e_1t"),
-        "bell_inf_40": fit_alpha(exp1d_res["bell_inf_40"], 12.0, 28.0, "e_1t"),
-        "bell_re1000_40": fit_alpha(exp1d_res["bell_re1000_40"], 12.0, 28.0, "e_1t"),
-        "bell_re500_40": fit_alpha(exp1d_res["bell_re500_40"], 12.0, 28.0, "e_1t"),
-        "bell_re500_56": fit_alpha(exp1d_res["bell_re500_56"], 12.0, 28.0, "e_1t"),
-        "axi_bell_re500_56": {k: v for k, v in axi_b_500_f.items() if k != "prim_axi"},
-    }
-    print(f"  1D Straight Re=500: Cheb={ex_ns_500.real:+.5f} | nx24={exp1d_out['st_re500_nx24']:+.5f}, nx48={exp1d_out['st_re500_nx48']:+.5f} (Re=1000 Cheb={ex_ns_1000.real:+.5f}, nx48={exp1d_out['st_re1000_nx48']:+.5f})")
-    print(f"  1D 3D Smooth Bell (Ln=0.60): Re=inf={exp1d_out['bell_inf_40']:+.5f} | Re=1000={exp1d_out['bell_re1000_40']:+.5f} | Re=500 (40x12)={exp1d_out['bell_re500_40']:+.5f}, (56x16)={exp1d_out['bell_re500_56']:+.5f}")
-
-    # ------------------------------------------------------------------
-    # Experiment 2: 3D Partial-Span (Shroud-Ring r_b) vs. Full-Span Radial Baffles (N_b = 5, L_b = 0.45, Re = 500)
-    # ------------------------------------------------------------------
-    print("\n--- Experiment 2: 3D Partial-Span Shroud-Ring vs. Full-Span Radial Baffles (N_b=5, Re=500) ---")
-    rb_grid = [0.00, 0.25, 0.42, 0.58, 0.75]
-    # Use nth = 50 (divisible by 5 and even!) so 5 baffles sit symmetrically on exact grid faces!
-    exp2_tasks = [
-        ("bare_re500_1T", dict(nx=24, nr=12, nth=50, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, init_type="spin_1T", A_eq=1e-4, record_stride=10)),
-        ("bare_re500_2T", dict(nx=24, nr=12, nth=50, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, init_type="spin_2T", A_eq=1e-4, record_stride=10)),
-        ("bare_re500_1R", dict(nx=24, nr=12, nth=50, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, init_type="1R",      A_eq=1e-4, record_stride=10)),
-    ]
-    for rb_v in rb_grid:
-        tag = f"rb{int(round(rb_v*100)):02d}"
-        exp2_tasks.append((f"{tag}_1T", dict(nx=24, nr=12, nth=50, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=rb_v, init_type="spin_1T", A_eq=1e-4, record_stride=10)))
-        exp2_tasks.append((f"{tag}_2T", dict(nx=24, nr=12, nth=50, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=rb_v, init_type="spin_2T", A_eq=1e-4, record_stride=10)))
-    # Also check 1R on full-span vs partial-span r_b=0.42 + no-slip wake check at r_b=0.42
-    exp2_tasks.append(("rb00_1R", dict(nx=24, nr=12, nth=50, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.00, init_type="1R", A_eq=1e-4, record_stride=10)))
-    exp2_tasks.append(("rb42_1R", dict(nx=24, nr=12, nth=50, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, n_baffles=5, L_b=0.45, r_b=0.42, init_type="1R", A_eq=1e-4, record_stride=10)))
-    exp2_res = run_batch(exp2_tasks)
-
-    a_b1 = fit_alpha(exp2_res["bare_re500_1T"], 7.0, 22.0, "e_1t")
-    w_b1 = measure_fft_omega(exp2_res["bare_re500_1T"]["t"], exp2_res["bare_re500_1T"]["c1_re"], 4.0, 1.0, 2.5)
-    a_b2 = fit_alpha(exp2_res["bare_re500_2T"], 7.0, 22.0, "e_2t")
-    w_b2 = measure_fft_omega(exp2_res["bare_re500_2T"]["t"], exp2_res["bare_re500_2T"]["c2_re"], 4.0, 1.8, 3.8)
-    a_bR = fit_alpha(exp2_res["bare_re500_1R"], 7.0, 22.0, "e_1r")
-    print(f"  2A Bare Re=500: 1T={a_b1:+.5f}(w={w_b1:.3f}) | 2T={a_b2:+.5f}(w={w_b2:.3f}) | 1R={a_bR:+.5f}")
-
-    exp2_rows = []
-    for rb_v in rb_grid:
-        tag = f"rb{int(round(rb_v*100)):02d}"
-        r1 = exp2_res[f"{tag}_1T"]; r2 = exp2_res[f"{tag}_2T"]
-        a1 = fit_alpha(r1, 7.0, 22.0, "e_1t"); w1 = measure_fft_omega(r1["t"], r1["c1_re"], 4.0, 1.0, 2.5)
-        a2 = fit_alpha(r2, 7.0, 22.0, "e_2t"); w2 = measure_fft_omega(r2["t"], r2["c2_re"], 4.0, 1.8, 3.8)
-        row = {
-            "r_b": rb_v, "metal_frac": r1["baffle_metal_frac"],
-            "alpha_1T": a1, "delta_1T": a1 - a_b1, "omega_1T": w1, "downshift_1T_pct": (w1 - w_b1) / w_b1 * 100.0,
-            "alpha_2T": a2, "delta_2T": a2 - a_b2, "omega_2T": w2, "downshift_2T_pct": (w2 - w_b2) / w_b2 * 100.0,
-        }
-        exp2_rows.append(row)
-        print(f"  2B r_b={rb_v:.2f} (metal={row['metal_frac']*100:4.1f}%): 1T={a1:+.5f}(d={row['delta_1T']:+.4f}, dw={row['downshift_1T_pct']:+5.1f}%) | 2T={a2:+.5f}(d={row['delta_2T']:+.4f}, dw={row['downshift_2T_pct']:+5.1f}%)")
-    a_r00 = fit_alpha(exp2_res["rb00_1R"], 7.0, 22.0, "e_1r")
-    a_r42 = fit_alpha(exp2_res["rb42_1R"], 7.0, 22.0, "e_1r")
-    print(f"  2C 1R behind baffles: bare={a_bR:+.5f} | full r_b=0.00={a_r00:+.5f} | shroud-ring r_b=0.42={a_r42:+.5f}")
-
-    # Pick exact baffled 1T and 2T frequencies at r_b = 0.42 for cavity retuning in Exp 4!
-    row42 = [r for r in exp2_rows if abs(r["r_b"] - 0.42) < 1e-6][0]
-    wH_1T_ret = row42["omega_1T"]
-    wH_2T_ret = row42["omega_2T"]
-    print(f"  => Baffle-retuned 3D cavity targets at r_b=0.42: wH_1T={wH_1T_ret:.3f}, wH_2T={wH_2T_ret:.3f}")
-
-    exp3_out, exp4_out, exp3_res, exp4_res = run_exp3_and_exp4(wH_1T_ret, wH_2T_ret)
+        print(f"  4 [{cid:14s}] t={s['t_end']:5.1f} P={s['p_peak_late']:6.3f}% | E={s['e_wave_late']:.2e} | slp={s['slope_tail']:+.4f} | 1T={s['e_1t_late']:.1e} | 2T={s['e_2t_late']:.1e} | 1L={s['e_1l_late']:.1e} | mn={s['e_mean_late']:.1e}")
 
     metrics = {
         "exp1_3d_ns_benchmarks": {
@@ -1384,21 +1359,130 @@ def main() -> None:
             "cons_ns_bell_b5_slip": cs,
             "cons_ns_bell_b5_noslip": cn,
             "closed_chamber_cavity_mass_err": cm,
-            "stokes_kirchhoff_3d": sk_out,
-            "fixed_Re_convergence_and_bell": exp1d_out,
+            "stokes_kirchhoff_3d_refinement": sk_out,
+            "fixed_Re_and_metric_bell_audit": exp1d_out,
         },
         "exp2_partial_span_baffles": {
-            "bare_re500": {"alpha_1T": a_b1, "omega_1T": w_b1, "alpha_2T": a_b2, "omega_2T": w_b2, "alpha_1R": a_bR},
+            "bare_re500": {"alpha_1T": a_b1_m, "omega_1T": w_b1, "alpha_2T_7_22": a_b2_m, "alpha_2T_Ech_7_22": a_b2_e, "omega_2T": w_b2},
             "rb_sweep": exp2_rows,
-            "1R_behind_baffles": {"bare": a_bR, "full_rb00": a_r00, "shroud_ring_rb42": a_r42},
+            "robustness_inviscid_and_36x18": exp2_robust,
             "retuned_targets_rb42": {"wH_1T": wH_1T_ret, "wH_2T": wH_2T_ret},
         },
-        "exp3_mass_conserving_cavity_drift": exp3_out,
-        "exp4_3d_ns_allmode_quench": exp4_out,
+        "exp3_chugging_and_cutoff_audit": {
+            "cheb_1d_chugging_eigs": chug_eigs,
+            "pde_3d_t180_runs": exp3_runs,
+        },
+        "exp4_3d_ns_allmode_audit": exp4_out,
     }
     out_path.write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
-    print(f"\nSaved Entry 015 metrics to {out_path}")
-    plot_all_exp015_figures(metrics, exp3_res, exp4_res)
+    print(f"\nSaved hardened Entry 015 metrics to {out_path}")
+
+    # ------------------------------------------------------------------
+    # Figures (Hardened, zero legend overlap, 100% honest titles)
+    # ------------------------------------------------------------------
+    # Fig 1: Partial-Span Baffles — Robust Total-Energy E_ch Boost (Re=500, Re=inf, 36x18) + Bimodal 2T/m=-3 Spectrum
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.4, 5.5), dpi=150)
+    rbs = [r["r_b"] for r in exp2_rows]
+    m_pct = [r["metal_frac"] * 100.0 for r in exp2_rows]
+    d1_ret = [r["delta_1T"] / exp2_rows[0]["delta_1T"] * 100.0 for r in exp2_rows]
+    d2_ech = [r["delta_2T_Ech_7_22"] / exp2_rows[0]["delta_2T_Ech_7_22"] * 100.0 for r in exp2_rows]
+    ax1.plot(rbs, d2_ech, "^-", color="#d62728", lw=2.6, label="$2T$ Total-Energy $E_{\\mathrm{ch}}$ Gain (24x12x50, Re=500)")
+    ax1.plot([0.0, 0.42, 0.58], [exp2_robust["f36"][k]["ratio_Ech_7_22"] * 100.0 for k in ("rb00", "rb42", "rb58")],
+             "D--", color="#ff7f0e", lw=2.1, label="$2T$ Total-Energy $E_{\\mathrm{ch}}$ Gain (36x18x50, Re=500)")
+    ax1.plot([0.0, 0.42, 0.58], [exp2_robust["inf"][k]["ratio_Ech_7_22"] * 100.0 for k in ("rb00", "rb42", "rb58")],
+             "v:", color="#9467bd", lw=2.0, label="$2T$ Total-Energy $E_{\\mathrm{ch}}$ Gain (24x12x50, Re=$\\infty$)")
+    ax1.plot(rbs, d1_ret, "s-", color="#1f77b4", lw=2.3, label="$1T$ Baffle Damping Retained ($\\Delta\\alpha / \\Delta\\alpha_{\\mathrm{full}}$)")
+    ax1.plot(rbs, m_pct, "o:", color="#555555", lw=1.9, label="Blade Metal Area ($1 - r_b$)")
+    ax1.axvline(0.42, color="#2ca02c", ls="-.", lw=1.5, alpha=0.8, label="Shroud-Ring $r_b=0.42$ (hub open)")
+    ax1.set_xlabel("Inner Baffle Cutout Radius $r_b / R$", fontsize=11)
+    ax1.set_ylabel("Percentage of Full-Span Value (%)", fontsize=11)
+    ax1.set_title("3D Partial-Span Baffle Total-Energy $E_{\\mathrm{ch}}$ Law ($N_b=5, L_b=0.45$)", fontsize=10.8, fontweight="bold")
+    ax1.set_ylim(0, 265)
+    ax1.grid(True, alpha=0.28)
+    ax1.legend(fontsize=7.6, loc="upper left", framealpha=0.94)
+
+    ax2.plot(rbs, [r["bragg_m3_over_m2"] for r in exp2_rows], "s-", color="#d62728", lw=2.4, label="Bragg Transfer $E(m=-3) / E(m=+2)$ (24x12x50)")
+    ax2.plot([0.0, 0.42, 0.58], [exp2_robust["f36"][k]["bragg_m3_over_m2"] for k in ("rb00", "rb42", "rb58")],
+             "D--", color="#ff7f0e", lw=2.1, label="Bragg Transfer $E(m=-3) / E(m=+2)$ (36x18x50)")
+    ax2.plot(rbs, [r["bimodal_amp_ratio"] for r in exp2_rows], "^-.", color="#1f77b4", lw=2.2, label="Bimodal FFT Secondary/Primary Peak Ratio ($c_{2,\\mathrm{re}}$)")
+    ax2.axvline(0.42, color="#2ca02c", ls="-.", lw=1.5, alpha=0.8)
+    ax2.set_xlabel("Inner Baffle Cutout Radius $r_b / R$", fontsize=11)
+    ax2.set_ylabel("Modal Coupling / Bimodality Ratio", fontsize=11)
+    ax2.set_title("Why Raw $e_{2T}$ Beats: $m=-3$ Bragg Scattering & Bimodality", fontsize=10.8, fontweight="bold")
+    ax2.set_ylim(-0.02, 0.92)
+    ax2.grid(True, alpha=0.28)
+    ax2.legend(fontsize=8.1, loc="upper right", framealpha=0.94)
+    fig.tight_layout()
+    fig.savefig(RESULTS_DIR / "exp015_3d_partial_span_baffle_law.png", dpi=150)
+    plt.close(fig)
+
+    # Fig 2: Honest t=180 k=0 Chugging Audit (m_dot still chugs at omega_hp=0.15; flame cutoff omega_hp=0.50 eliminates it)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.4, 5.5), dpi=150)
+    for cid, lbl, col, ls in [
+        ("e014_legacy_1T",     "Legacy $u_{\\mathrm{port}}$ ($\\omega_{\\mathrm{hp}}=0.15$): chugs $T\\approx 39$", "#d62728", "-"),
+        ("e015_mcons_1T",      "Mass-Cons. $\\dot{m}$ ($\\omega_{\\mathrm{hp}}=0.15$): STILL chugs!", "#1f77b4", "--"),
+        ("e015_hp50_mcons_1T", "Flame Cutoff $\\omega_{\\mathrm{hp}}=0.50$: spin $1T$ (chug-free)", "#2ca02c", "-"),
+        ("e015_hp50_st1T",     "Flame Cutoff $\\omega_{\\mathrm{hp}}=0.50$: stand $1T$ (decays!)", "#9467bd", "-."),
+    ]:
+        rr = exp3_res[cid]
+        ax1.semilogy(rr["t"], np.maximum(rr["e_mean"], 1e-13), color=col, ls=ls, lw=2.1, label=lbl)
+        ax2.plot(rr["t"], rr["mass_drift"] * 100.0, color=col, ls=ls, lw=2.1, label=f"{lbl} (P180={exp3_runs[cid]['p_peak_160_180']:.2f}%)")
+    ax1.set_xlabel("Time $t$", fontsize=11)
+    ax1.set_ylabel("Chamber-Mean $k=0$ Bulk Energy $E_{\\mathrm{mean}}(t)$", fontsize=11)
+    ax1.set_title("Honest $t=180$ Chugging Audit: $\\dot{m}$ Alone Chugs; $\\omega_{\\mathrm{hp}}=0.50$ Suppresses", fontsize=10.3, fontweight="bold")
+    ax1.grid(True, which="both", alpha=0.25)
+    ax1.legend(fontsize=7.6, loc="lower left", framealpha=0.94)
+
+    ax2.set_xlabel("Time $t$", fontsize=11)
+    ax2.set_ylabel("Chamber Total Mass Excursion $\\Delta M / M_0$ (%)", fontsize=11)
+    ax2.set_title("Signed Mass Excursion Out to $t=180$ ($T_{\\mathrm{PDE}}\\approx 39.3$ vs 1D $56$)", fontsize=10.3, fontweight="bold")
+    ax2.grid(True, alpha=0.28)
+    ax2.legend(fontsize=7.3, loc="lower left", framealpha=0.94)
+    fig.tight_layout()
+    fig.savefig(RESULTS_DIR / "exp015_mass_conserving_cavity_cure.png", dpi=150)
+    plt.close(fig)
+
+    # Fig 3: Full 3D NS All-Mode Audit + Metric-Corrected Smooth Bell (t=120) & Chugging Contrast
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.4, 5.5), dpi=150)
+    for cid, lbl, col, ls in [
+        ("bare_ns_1T",   "Bare 3D NS: spin $1T$", "#d62728", "-"),
+        ("bare_ns_st1T", "Bare 3D NS: stand $1T$", "#e377c2", ":"),
+        ("bare_ns_2T",   "Bare 3D NS: spin $2T$", "#8c564b", "--"),
+        ("bare_ns_1L",   "Bare 3D NS: $1L$", "#777777", ":"),
+        ("hyb3d_1T",     "3D Hybrid: spin $1T$ (stationary)", "#1f77b4", "-"),
+        ("hyb3d_st1T",   "3D Hybrid: stand $1T$ (growing to $1L$)", "#9467bd", "--"),
+        ("hyb3d_2T",     "3D Hybrid: spin $2T$ (growing to $1L$)", "#17becf", "-."),
+        ("hyb3d_1R",     "3D Hybrid: $1R$ (linear $1L$ +0.006 to $t=180$)", "#2ca02c", "-"),
+        ("hyb3d_1L",     "3D Hybrid: $1L$ (survives)", "#2ca02c", ":"),
+    ]:
+        rr = exp4_res[cid]; st = exp4_out[cid]
+        ax1.semilogy(rr["t"], np.maximum(rr["e_ch"], 1e-13), color=col, ls=ls, lw=1.9, label=f"{lbl} (P={st['p_peak_late']:.2f}%)")
+    ax1.set_xlabel("Time $t$", fontsize=11)
+    ax1.set_ylabel("3D Chamber Wave Energy $E_{\\mathrm{wave}}(t)$", fontsize=11)
+    ax1.set_title("3D NS ($\\mathrm{Re}=500, \\omega_{\\mathrm{hp}}=0.50, n_p=0.34$): All-Mode Audit", fontsize=10.5, fontweight="bold")
+    ax1.set_ylim(1e-10, 8e-3)
+    ax1.grid(True, which="both", alpha=0.25)
+    ax1.legend(fontsize=6.9, loc="lower right", framealpha=0.94)
+
+    for cid, lbl, col, ls in [
+        ("bell_bare_1T",  "True-3D Smooth Bell NS (Bare): spin $1T$", "#d62728", "-"),
+        ("bell_hyb_1T",   "True-3D Smooth Bell NS (Hybrid, $t=120$): spin $1T$", "#1f77b4", "-"),
+        ("hyb3d_1T",      "Straight 3D NS (Hybrid, 20x12x50, $t=120$)", "#2ca02c", "--"),
+        ("hyb3d_f16_1T",  "Straight 3D NS (Hybrid, 20x16x50, $t=120$)", "#9467bd", "-."),
+        ("hyb3d_hp15_2T", "Contrast: $\\omega_{\\mathrm{hp}}=0.15$ $2T$ (chugging!)", "#ff7f0e", ":"),
+    ]:
+        rr = exp4_res[cid]; st = exp4_out[cid]
+        ax2.semilogy(rr["t"], np.maximum(rr["e_ch"], 1e-13), color=col, ls=ls, lw=2.1, label=f"{lbl} (P={st['p_peak_late']:.2f}%)")
+    ax2.set_xlabel("Time $t$", fontsize=11)
+    ax2.set_ylabel("3D Chamber Wave Energy $E_{\\mathrm{wave}}(t)$", fontsize=11)
+    ax2.set_title("Metric-Fixed 3D Bell NS ($t=120$), Radial Check & Chugging Contrast", fontsize=10.3, fontweight="bold")
+    ax2.set_ylim(1e-6, 1e-2)
+    ax2.grid(True, which="both", alpha=0.25)
+    ax2.legend(fontsize=7.4, loc="lower left", framealpha=0.94)
+    fig.tight_layout()
+    fig.savefig(RESULTS_DIR / "exp015_3d_ns_allmode_quench.png", dpi=150)
+    plt.close(fig)
+    print("Saved all 3 hardened Entry 015 figures.")
 
 
 if __name__ == "__main__":
