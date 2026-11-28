@@ -2,7 +2,7 @@
 
 Investigating thermoacoustic combustion instability in rocket chambers—modeling the feedback loop between acoustic pressure waves and unsteady heat release (Rayleigh criterion) to explore stabilization mechanisms, geometric damping, nonlinear triggering, and 1D/2D compressible Euler shock dynamics.
 
-> **Consolidated Monograph:** See [`SYNTHESIS.md`](./SYNTHESIS.md) for the unified quantitative design laws, documented dead ends, and verified scope across Entries `000`–`016`. Audit receipts are archived in [`../reviews/README.md`](../reviews/README.md).
+> **Consolidated Monograph:** See [`SYNTHESIS.md`](./SYNTHESIS.md) for the unified quantitative design laws, documented dead ends, and verified scope across Entries `000`–`017`. Audit receipts are archived in [`../reviews/README.md`](../reviews/README.md).
 
 ## Entries
 
@@ -25,3 +25,4 @@ Investigating thermoacoustic combustion instability in rocket chambers—modelin
 | [014-3d-cylindrical-bell-bessel.md](./entries/014-3d-cylindrical-bell-bessel.md) | Full 3D Cylindrical $(x, r, \theta)$ Chamber & Transonic Bell Nozzle: Bessel Cutoff Collapse, Meridional Bell Damping, Chiral $1T \to 1R$ & Shroud/Hub Cavities | ✅ | [Review #11](../reviews/peer-review-11-rocket-014.md) (`b95cb0d`) |
 | [015-3d-ns-partial-baffles-chugging.md](./entries/015-3d-ns-partial-baffles-chugging.md) | Full 3D Cylindrical Compressible Navier–Stokes: Partial-Span Shroud-Ring Baffles, Mass-Conserving Cavities & Transverse$\to$Chugging$\to$$1L$ Cascade | ✅ | [Review #12](../reviews/peer-review-12-rocket-015.md) (`1d0fae2`) |
 | [016-3d-feed-chugging-triband.md](./entries/016-3d-feed-chugging-triband.md) | Physical Crocco–Cheng Feed-System Chugging, Indirect Entropy–Chug Coupling & Tri-Band 3D Faceplate Audit | ✅ | [Review #13](../reviews/peer-review-13-rocket-016.md) (`9dee502`) |
+| [017-3d-noslip-wakes-bell-quench.md](./entries/017-3d-noslip-wakes-bell-quench.md) | 3D Adiabatic No-Slip Baffle Wakes, Core-Bypass Flow & All-6-Mode Smooth-Bell Quench | 🟡 | *(Pending Review #14)* |

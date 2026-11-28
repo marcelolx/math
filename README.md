@@ -44,6 +44,7 @@ An open, general-purpose research notebook for tackling narrow, verifiable probl
 | [`014`](rocket-combustion/entries/014-3d-cylindrical-bell-bessel.md) | Full 3D Cylindrical $(x, r, \theta)$ Chamber & Bell Nozzle: Bessel Cutoff, Chiral $1T\to 1R$ & Shroud/Hub Cavities | ✅ | [Review #11](reviews/peer-review-11-rocket-014.md) (`b95cb0d`) |
 | [`015`](rocket-combustion/entries/015-3d-ns-partial-baffles-chugging.md) | Full 3D Cylindrical Compressible NS: Partial-Span Baffles, Mass-Conserving Cavities & Mode-Migration Cascade | ✅ | [Review #12](reviews/peer-review-12-rocket-015.md) (`1d0fae2`) |
 | [`016`](rocket-combustion/entries/016-3d-feed-chugging-triband.md) | Physical Crocco–Cheng Feed Chugging, Indirect Entropy–Chug Coupling & Tri-Band 3D Faceplate Audit | ✅ | [Review #13](reviews/peer-review-13-rocket-016.md) (`9dee502`) |
+| [`017`](rocket-combustion/entries/017-3d-noslip-wakes-bell-quench.md) | 3D Adiabatic No-Slip Baffle Wakes, Core-Bypass Flow & All-6-Mode Smooth-Bell Quench | 🟡 | *(Pending Review #14)* |
 
 ### 2. Plasma Nozzles & MHD Propulsion ([`plasma-nozzles/`](./plasma-nozzles/) · [`SYNTHESIS.md`](./plasma-nozzles/SYNTHESIS.md))
 
