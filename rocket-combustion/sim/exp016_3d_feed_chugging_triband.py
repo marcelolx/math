@@ -1,25 +1,31 @@
-"""Entry 016 (rocket-combustion): Physical Crocco-Cheng Feed-System Chugging,
-Coupled Intrinsic+Feed Stiffness Shift & Tri-Band 3D Faceplate All-Mode
-(1T, 2T, 1R, 1L, k=0) Quench in 3D Viscous Chambers & Curved Bells.
+"""Entry 016 (rocket-combustion, Hardened per Peer Review #13): Physical Crocco-Cheng
+Feed-System Chugging, Indirect Entropy-Chug Coupling & Tri-Band 3D Faceplate Audit
+in 3D Viscous Chambers & Metric-Corrected Smooth Bells.
 
-Key physics upgrades over Entry 015:
-  1. Replaces the constant-mass-flux inlet with a physical nonlinear Crocco-Cheng
-     pressurized-manifold + injector-inertance + Erlang-4 vaporization-lag feed
-     system ODE coupled directly into the 3D NS choked-inlet mass-flux BC:
-       tau_inj * d(m_inj)/dt + 0.5*(m_inj^2/M_c - M_c) = -(M_c/(2*psi))*(p_face - p_face0)/P_BAR
-       (tau_f/4) * dg_k/dt = g_{k-1} - g_k  (k=1..4, g_0=m_inj, m_gen=g_4)
-     giving exact DC stability (s=0 strictly negative for all psi>0, ZERO omega_hp
-     in pure feed chugging) and textbook critical injector stiffness psi_crit(tau_f, tau_inj).
-  2. Couples the physical feed system with Entry 015's high-frequency pressure-sensitive
-     flame (n_p=0.34, omega_hp=0.50), exposing the ~1.67x upward shift in required
-     injector stiffness (psi_crit: 0.097 pure -> 0.162 coupled) verified in 1D Chebyshev
-     and 3D NS PDE.
-  3. Exploits exact 3D Bessel orthogonality to place a dedicated 1L Nodal Mid-Ring cavity
-     at r in [0.44, 0.74] straddling the 1R Bessel nodal circle (r_0 = j_{0,1}/s_{02} = 0.6276),
-     achieving near-diagonal 3-zone faceplate decoupling (Shroud -> 1T/2T, Nodal Mid-Ring -> 1L,
-     Micro-Hub -> 1R) and testing axisymmetric (n_cav=1) vs. segmented (n_cav=5) mid-rings
-     plus 4.0% vs. 5.0% Tri-Band all-5-mode nonlinear quench in straight and metric-corrected
-     true-3D smooth curved bell NS chambers (Re = 500).
+Hardened changes addressing Peer Review #13 (C1-C4, M1-M7, m1-m8):
+  - C1: Added exact entropy-aware Marble-Candel outlet BC u' = 0.5*M_c*(gamma*p' - rho')
+        in exact_1d_coupled_feed_eig alongside isentropic outlet comparison, exposing the
+        +0.029-0.035 indirect entropy-chug feedback that lifts bare psi_crit from 0.1702
+        (isentropic) to 0.2574 (entropy-aware) and matches 3D linear coupled PDE runs
+        (psi=0.16 bare, psi=0.25 tri50, psi=0.35 tri50) to < 0.003 in alpha and 0.3% in omega.
+  - C2 & C4: Extended straight-chamber psi=0.25 runs (tri40seg_1T, tri50_1T, tri50_st1T,
+        tri50_1R) to t = 220 confirming linear k=0 chug growth (+0.0016 to +0.014 at
+        omega=0.281) and added straight-chamber psi = 0.35 runs (above entropy-aware
+        psi_crit) to prove genuine straight-chamber k=0 chug stabilization when stiff enough.
+  - C3 & m2: Extended all Exp 2B cold linear 1L EP & orthogonality runs to t = 40 with
+        consistent nonlinear=False and beat-averaged [6, 40] / [15, 40] fits, retiring the
+        [6, 20] beating artifact (-0.3189 / 3.18x) in favor of ~1.7x (-0.188 vs -0.109).
+  - M1: Instrumented flow reversal fraction, floor-clamp fraction, and artificial mass
+        injection; added check-valve closure (m_inj >= 0) on psi=0.07 AND clean zero-clamp
+        psi=0.09 nonlinear chugging case.
+  - M2 & M3: Computed full omega_hp sensitivity table for psi_crit_coupled (both isentropic
+        and entropy-aware) and strictly consistent bare-to-bare & Tri-Band-to-Tri-Band ratios.
+  - M4 & M5: Added genuine open-inlet mean-flow (M_c=0.12, t=50) equilibrium check calling
+        inlet_choked_3d with active feed ODE; corrected inlet thermodynamics docs (isentropic
+        inflow, compliance time theta_g = L_A/(gamma*M_c) = 10.0 vs residence time 12.5).
+  - M6, M7 & m8: Added bell_bare_1L (like-for-like bell 1L baseline), bell_tri50_st1T,
+        bell_tri50_2T, refined 36x12x40 bell_tri50_ref_1L (t=140), and extended bell_tri50_1L
+        (t=200) & bell_tri50_1R (t=180) with explicit bulk-mode decay reporting.
 """
 
 from __future__ import annotations
@@ -53,7 +59,6 @@ TAU_BAR = 0.16
 Q_S = 0.045
 KAPPA_NL = 4.5
 
-# Standard physical feed-system constants (Crocco-Cheng)
 TAU_INJ_DEF = 1.0
 TAU_F_DEF = 5.0
 
@@ -73,7 +78,6 @@ S02 = bessel_prime_zero(0, 1)   # 3.83170597 (1R)
 S31 = bessel_prime_zero(3, 1)   # 4.20118894 (3T)
 R0_1R = float(jn_zeros(0, 1)[0] / S02)  # 0.62761241 (exact 1R nodal circle)
 
-# Baffle-retuned targets from hardened Entry 015 (r_b = 0.42, N_b = 5, L_b = 0.45)
 WH_1T_RET = 1.7175
 WH_2T_RET = 3.3760
 WH_1L_TGT = 2.0900
@@ -125,8 +129,9 @@ def cheb_diff(N: int, L: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 
 def exact_0d_crocco_cheng_root(psi: float, tau_inj: float = TAU_INJ_DEF, tau_f: float = TAU_F_DEF, M_c: float = 0.12) -> complex:
-    """Exact 0D bulk Crocco-Cheng dispersion root:
-    theta_g * s + (gamma+1)/(2*gamma) + (1/(2*psi)) * (1 + s*tau_f/4)^(-4) / (1 + s*tau_inj) = 0."""
+    """Exact 0D isentropic bulk Crocco-Cheng dispersion root:
+    theta_g * s + (gamma+1)/(2*gamma) + (1/(2*psi)) * (1 + s*tau_f/4)^(-4) / (1 + s*tau_inj) = 0,
+    where theta_g = L_A/(gamma*M_c) = 10.0 is the isentropic chamber compliance time."""
     theta_g = L_A / (GAMMA * M_c)
     c_noz = (GAMMA + 1.0) / (2.0 * GAMMA)
 
@@ -146,11 +151,19 @@ def exact_1d_coupled_feed_eig(
     n_p: float = 0.0,
     omega_hp: float = 0.50,
     cav_list: list[dict] | None = None,
+    entropy_aware: bool = True,
     M_c: float = 0.12,
-    N: int = 56,
+    N: int = 64,
 ) -> dict:
-    """Exact 1D Chebyshev linearized compressible Euler + physical Crocco-Cheng feed ODE
-    (optional HF Erlang-4 pressure-coupled flame & multi-cavity faceplate)."""
+    """Exact 1D Chebyshev linearized compressible Euler + physical Crocco-Cheng feed ODE.
+    - Inlet BC at x=0: isentropic inflow (p'(0) = c_bar^2 rho'(0)) and mass-flux continuity.
+    - Outlet BC at x=L_A:
+        * entropy_aware=True (default, exact Marble-Candel matching PDE outlet_mc_choked_3d):
+            u'(L_A) = 0.5 * M_c * (gamma * p'(L_A) - rho'(L_A))
+        * entropy_aware=False (isentropic approximation ignoring flame-generated entropy waves):
+            u'(L_A) = 0.5 * (gamma - 1) * M_c * p'(L_A)
+    - Note (Review #13 m1): Strong BC imposition creates O(N^2) spurious Chebyshev modes
+      (e.g. +3.9 +/- 303i at N=56); physical roots are filtered via |v| < 12.0."""
     x, Dx, w_cc = cheb_diff(N, L_A)
     n = N + 1
     cav_list = cav_list or []
@@ -197,7 +210,7 @@ def exact_1d_coupled_feed_eig(
         Mat[ic + 1, ic] = -(wH ** 2) * Vc
         Mat[ic + 1, ic + 1] = -2.0 * xiH * wH
 
-    # Inlet BCs at x = 0: isentropic T_c = const and mass-flux continuity
+    # Inlet BCs at x = 0: isentropic inflow (p' = c_bar^2 rho') & mass-flux continuity
     for r in (0, n):
         Mat[r, :] = 0.0; B[r, :] = 0.0
     Mat[0, 0] = 1.0; Mat[0, 2 * n] = -1.0
@@ -207,11 +220,15 @@ def exact_1d_coupled_feed_eig(
     for k in range(nc):
         Mat[n, icav + 2 * k + 1] = 1.0
 
-    # Outlet BC at x = L_A (Marble-Candel choked nozzle)
+    # Outlet BC at x = L_A
     r_ex = 2 * n + N
     Mat[r_ex, :] = 0.0; B[r_ex, :] = 0.0
     Mat[r_ex, n + N] = 1.0
-    Mat[r_ex, 2 * n + N] = -0.5 * (GAMMA - 1.0) * M_c
+    if entropy_aware:
+        Mat[r_ex, 2 * n + N] = -0.5 * GAMMA * M_c
+        Mat[r_ex, N] = +0.5 * M_c
+    else:
+        Mat[r_ex, 2 * n + N] = -0.5 * (GAMMA - 1.0) * M_c
 
     vals = eig(Mat, B, right=False)
     vals = [v for v in vals if np.isfinite(v) and v.imag >= -1e-6 and abs(v) < 12.0]
@@ -219,6 +236,7 @@ def exact_1d_coupled_feed_eig(
     chug = sorted([v for v in vals if 0.02 <= v.imag <= 1.0], key=lambda z: z.real, reverse=True)
     l1 = sorted([v for v in vals if 1.4 <= v.imag <= 2.7], key=lambda z: z.real, reverse=True)
     return {
+        "has_real_dc_root": len(real_dc) > 0,
         "max_real_dc": float(real_dc[0]) if real_dc else None,
         "chug": complex(chug[0]) if chug else None,
         "l1": complex(l1[0]) if l1 else None,
@@ -226,8 +244,10 @@ def exact_1d_coupled_feed_eig(
 
 
 def compute_bessel_zone_coupling() -> dict:
-    """Exact analytical radial modal coupling C_mn = <psi_mn>_zone^2 / <psi_mn^2>_disk
-    for the three disjoint 3D faceplate zones."""
+    """Exact analytical radial projection weights C_mn,rad = <J_m(s_mn r)>_zone^2 / <J_m^2>_disk
+    for the three disjoint 3D faceplate zones. Note (Review #13 m3): for axisymmetric n_cav=1
+    zones, azimuthal coupling to m != 0 is identically zero; for n_cav=5 sectors, an azimuthal
+    windowing factor multiplies C_mn,rad."""
     r = np.linspace(0.0, 1.0, 10001)
     zones = {
         "micro_hub_00_26": (0.00, 0.26),
@@ -244,7 +264,7 @@ def compute_bessel_zone_coupling() -> dict:
             f = np.ones_like(r) if s_mn == 0.0 else jv(maz, s_mn * r)
             norm2 = float(2.0 * np.trapezoid(f * f * r, r))
             mean_f = float(2.0 * np.trapezoid(f[m] * r[m], r[m]) / area)
-            zdat[f"C_{mlbl}"] = (mean_f * mean_f) / norm2
+            zdat[f"C_rad_{mlbl}"] = (mean_f * mean_f) / norm2
             if mlbl == "1R":
                 zdat["signed_mean_J0"] = mean_f
         out["zones"][zname] = zdat
@@ -529,8 +549,9 @@ def simulate_3d_ns(
     cav_spec: list[dict] | None = None,
     prim_axi_base: np.ndarray | None = None, cfl: float = 0.28, record_stride: int = 14,
 ) -> dict:
-    """Metric-corrected 3D cylindrical NS solver with physical Crocco-Cheng feed ODE,
-    partial-span radial baffles, and Tri-Band mass-conserving faceplate cavities."""
+    """Metric-corrected 3D cylindrical NS solver with physical Crocco-Cheng feed ODE
+    (with optional check_valve closure and reversal/clamp diagnostics), partial-span radial
+    baffles, and Tri-Band mass-conserving faceplate cavities."""
     g = build_3d_geom(nx, nr, nth, M_c=M_c, L_n=L_n, L_d=L_d, mode=mode)
     V, rb = g["V"], g["r_bar"]
     xc, etac, thc, dx, deta, dth = g["xc"], g["etac"], g["thc"], g["dx"], g["deta"], g["dth"]
@@ -576,7 +597,7 @@ def simulate_3d_ns(
     rho_b, ux_b, ur_b, ut_b, p_b = P_b[0], P_b[1], P_b[2], P_b[3], P_b[4]
     rho = rho_b.copy(); ux = ux_b.copy(); ur = ur_b.copy(); ut = ut_b.copy(); p = p_b.copy()
 
-    if init_type == "quiescent":
+    if init_type in ("quiescent", "steady_mean"):
         pass
     elif init_type == "periodic_3d_wave":
         dp = A_eq * (np.cos(2.0 * np.pi * X3 / g["L_tot"] + T3) * jv(1, S11 * E3) + 0.4 * jv(0, S02 * E3))
@@ -623,6 +644,8 @@ def simulate_3d_ns(
     f_tau_inj = float(feed_spec.get("tau_inj", TAU_INJ_DEF)) if has_feed else 1.0
     f_tau_f = float(feed_spec.get("tau_f", TAU_F_DEF)) if has_feed else 5.0
     f_nl = bool(feed_spec.get("nonlinear", True)) if has_feed else True
+    f_check_valve = bool(feed_spec.get("check_valve", False)) if has_feed else False
+    f_floor_frac = float(feed_spec.get("floor_frac", 0.05)) if has_feed else 0.05
 
     cavs = []
     if cav_spec:
@@ -690,7 +713,11 @@ def simulate_3d_ns(
             for (_, qt_c), cf in zip(cav_states, cavs):
                 port_flux += np.tensordot(qt_c, cf["W"], axes=(0, 0))
 
-        m_in_now = float(np.maximum(f_s[4], 0.05 * M_c)) if has_feed else M_c
+        if has_feed:
+            floor_val = 0.0 if f_check_valve else (f_floor_frac * M_c)
+            m_in_now = float(np.maximum(f_s[4], floor_val))
+        else:
+            m_in_now = M_c
 
         Px = np.empty((5, nx + 4, nr, nth)); Px[:, 2:-2] = P
         p_in_face = p_s[0]
@@ -886,14 +913,17 @@ def simulate_3d_ns(
         if has_feed:
             p_face_avg = float(np.sum(p_in_face * dA_in) / A_in_tot)
             dp_rel = (p_face_avg - p_face_base) / P_BAR
-            m_cur = f_s[0]
+            m_cur = max(0.0, f_s[0]) if f_check_valve else f_s[0]
             if f_nl:
                 m_res = 0.5 * ((m_cur * abs(m_cur)) / M_c - M_c)
             else:
                 m_res = m_cur - M_c
-            dfeed[0] = (-m_res - (M_c / (2.0 * f_psi)) * dp_rel) / f_tau_inj
+            rhs_m0 = (-m_res - (M_c / (2.0 * f_psi)) * dp_rel) / f_tau_inj
+            if f_check_valve and m_cur <= 0.0 and rhs_m0 < 0.0:
+                rhs_m0 = 0.0
+            dfeed[0] = rhs_m0
             rf = 4.0 / f_tau_f
-            dfeed[1] = rf * (f_s[0] - f_s[1])
+            dfeed[1] = rf * (m_cur - f_s[1])
             dfeed[2] = rf * (f_s[1] - f_s[2])
             dfeed[3] = rf * (f_s[2] - f_s[3])
             dfeed[4] = rf * (f_s[3] - f_s[4])
@@ -906,6 +936,9 @@ def simulate_3d_ns(
     w1_th = np.exp(-1j * T_ch); w2_th = np.exp(-2j * T_ch)
     dr_eff = deta * g["Rm"][:, None, None]
 
+    # Review #13 M1 diagnostics: flow reversal, clamp activity & artificial mass
+    rev_steps = 0; clamp_steps = 0; added_mass_int = 0.0; min_minj_ratio = 1.0
+
     while t < t_end - 1e-12:
         r_c, u_c, v_c, w_c, p_c, c_c = from_Q(Q)
         lam_adv = (np.abs(u_c) + c_c) / dx + (np.abs(v_c) + c_c) / dr_eff + (np.abs(w_c) + c_c) / (rb * dth)
@@ -915,6 +948,15 @@ def simulate_3d_ns(
             lam_visc = nu_eff * (1.0 / (dx * dx) + 1.0 / (dr_eff * dr_eff) + 1.0 / ((rb * dth) ** 2))
             inv_dt = inv_dt + lam_visc / 0.40
         dt = min(1.0 / float(np.max(inv_dt)), t_end - t)
+
+        if has_feed:
+            min_minj_ratio = min(min_minj_ratio, float(feed_state[0] / M_c))
+            if feed_state[0] < 0.0:
+                rev_steps += 1
+            floor_val = 0.0 if f_check_valve else (f_floor_frac * M_c)
+            if feed_state[4] < floor_val:
+                clamp_steps += 1
+                added_mass_int += (floor_val - feed_state[4]) * dt
 
         if step % record_stride == 0:
             dp_c = (p_c - p_b)[ch_mask]; du_c = (u_c - ux_b)[ch_mask]; dv_c = (v_c - ur_b)[ch_mask]; dw_c = (w_c - ut_b)[ch_mask]
@@ -938,14 +980,19 @@ def simulate_3d_ns(
         c0_s = [(cf["Pc"], cf["qt"]) for cf in cavs]
         k1Q, k1f, k1c, k1fd = compute_rhs(Q, fp, c0_s, feed_state)
         Q1 = Q + dt * k1Q; fp1 = fp + dt * k1f; fd1 = feed_state + dt * k1fd
+        if f_check_valve:
+            fd1[0] = max(0.0, fd1[0])
         c1_s = [(s0 + dt * ds1, v0 + dt * dv1) for (s0, v0), (ds1, dv1) in zip(c0_s, k1c)]
         k2Q, k2f, k2c, k2fd = compute_rhs(Q1, fp1, c1_s, fd1)
         Q = 0.5 * (Q + Q1 + dt * k2Q); fp = 0.5 * (fp + fp1 + dt * k2f)
         feed_state = 0.5 * (feed_state + fd1 + dt * k2fd)
+        if f_check_valve:
+            feed_state[0] = max(0.0, feed_state[0])
         for cf, (s0, v0), (s1, v1), (ds2, dv2) in zip(cavs, c0_s, c1_s, k2c):
             cf["Pc"] = 0.5 * (s0 + s1 + dt * ds2); cf["qt"] = 0.5 * (v0 + v1 + dt * dv2)
         t += dt; step += 1
 
+    n_st = max(step, 1)
     return {
         "t": np.array(ts), "e_ch": np.array(e_ch), "e_1t": np.array(e_1t), "e_2t": np.array(e_2t),
         "e_1r": np.array(e_1r), "e_1l": np.array(e_1l), "e_mean": np.array(e_mean),
@@ -953,6 +1000,10 @@ def simulate_3d_ns(
         "mass_drift": np.array(mass_drift), "m_inj_pct": np.array(m_inj_hist),
         "quiescent_err": float(np.max(np.abs(Q - Q0))),
         "feed_quiescent_err": float(np.max(np.abs(feed_state - M_c))),
+        "rev_frac": float(rev_steps / n_st),
+        "clamp_frac": float(clamp_steps / n_st),
+        "added_mass_frac": float(added_mass_int / max(M_c * t_end, 1e-12)),
+        "min_minj_ratio": float(min_minj_ratio),
         "periodic_cons_err": {"mass": float(max_cons[0]), "ang_mom": float(max_cons[3]), "energy": float(max_cons[4])},
     }
 
@@ -1011,16 +1062,14 @@ def fit_alpha(res: dict, t_lo: float, t_hi: float, key: str = "e_ch") -> float:
 
 
 def fit_damped_oscillator(t: np.ndarray, sig: np.ndarray, t_lo: float, t_hi: float) -> tuple[float, float]:
-    """Fit damped cosine A*exp(alpha*t)*cos(omega*t + phi) from local peak envelope & zero-crossings."""
+    """Fit A*exp(alpha*t)*cos(omega*t + phi) from local peak envelope & zero-crossings."""
     m = (t >= t_lo) & (t <= t_hi)
     tt = t[m]; ss = sig[m]
-    # Zero crossings for frequency
     zc = []
     for i in range(len(ss) - 1):
         if ss[i] * ss[i + 1] < 0.0:
             zc.append(tt[i] + (tt[i + 1] - tt[i]) * abs(ss[i]) / (abs(ss[i]) + abs(ss[i + 1])))
     omega = float(np.pi / np.mean(np.diff(zc))) if len(zc) >= 3 else 0.0
-    # Hilbert-free peak envelope from extrema between consecutive zero crossings
     p_t, p_v = [], []
     if len(zc) >= 3:
         for i in range(len(zc) - 1):
@@ -1037,11 +1086,16 @@ def fit_damped_oscillator(t: np.ndarray, sig: np.ndarray, t_lo: float, t_hi: flo
 
 def summarize_nl(res: dict) -> dict:
     t = res["t"]; ml = t >= 0.85 * t[-1]
+    bulk_a, bulk_w = fit_damped_oscillator(t, res["p_mean_signed"], 0.55 * t[-1], t[-1])
     return {
         "t_end": float(t[-1]),
         "p_peak_late": float(np.mean(res["p_max_pct"][ml])),
         "max_abs_pbar_pct": float(np.max(np.abs(res["p_mean_signed"][ml])) / P_BAR * 100.0),
         "max_abs_minj_pct": float(np.max(np.abs(res["m_inj_pct"][ml]))),
+        "rev_frac": res["rev_frac"],
+        "clamp_frac": res["clamp_frac"],
+        "added_mass_frac": res["added_mass_frac"],
+        "min_minj_ratio": res["min_minj_ratio"],
         "e_wave_late": float(np.mean(res["e_ch"][ml])),
         "e_1t_late": float(np.mean(res["e_1t"][ml])),
         "e_2t_late": float(np.mean(res["e_2t"][ml])),
@@ -1049,6 +1103,8 @@ def summarize_nl(res: dict) -> dict:
         "e_1l_late": float(np.mean(res["e_1l"][ml])),
         "e_mean_late": float(np.mean(res["e_mean"][ml])),
         "slope_tail": fit_alpha(res, 0.65 * t[-1], t[-1], "e_ch"),
+        "bulk_alpha_late": bulk_a,
+        "bulk_omega_late": bulk_w,
     }
 
 
@@ -1056,245 +1112,298 @@ def main() -> None:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     out_path = RESULTS_DIR / "exp016_metrics.json"
 
-    print("=" * 96)
-    print("Entry 016: Physical Crocco-Cheng Feed-System Chugging & Tri-Band 3D Faceplate 5-Mode Quench")
-    print("=" * 96)
+    print("=" * 98)
+    print("Entry 016 (Hardened per Peer Review #13): Indirect Entropy-Chug Coupling & Tri-Band 3D Audit")
+    print("=" * 98)
 
-    # ------------------------------------------------------------------
-    # Analytical & 1D Chebyshev Anchors (Instantaneous!)
-    # ------------------------------------------------------------------
     bessel_zones = compute_bessel_zone_coupling()
-    print("\n--- Analytical 1: Exact 3-Zone Bessel Modal Coupling (r_0 = 0.6276) ---")
-    for zn, zd in bessel_zones["zones"].items():
-        print(f"  {zn:20s} (area={zd['area_frac']*100:4.1f}%): C_1T={zd['C_1T']:.3f}, C_2T={zd['C_2T']:.3f}, C_1R={zd['C_1R']:.4f}, C_1L={zd['C_1L']:.3f}")
-
-    # Cavity definitions (all mass-conserving!)
     cav_dual30 = [
         {"beta": 0.0185, "wH": WH_1T_RET, "xiH": 0.22, "sigma_o": 0.10, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
         {"beta": 0.0080, "wH": WH_2T_RET, "xiH": 0.24, "sigma_o": 0.08, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
         {"beta": 0.0035, "wH": S02,       "xiH": 0.14, "sigma_o": 0.04, "n_cav": 1, "r_lo": 0.00, "r_hi": 0.26, "nonlinear": True},
     ]
-    cav_mid10_ax = [{"beta": 0.0100, "wH": WH_1L_TGT, "xiH": 0.14, "sigma_o": 0.08, "n_cav": 1, "r_lo": 0.44, "r_hi": 0.74, "nonlinear": True}]
-    cav_mid10_seg = [{"beta": 0.0100, "wH": WH_1L_TGT, "xiH": 0.14, "sigma_o": 0.08, "n_cav": 5, "r_lo": 0.44, "r_hi": 0.74, "nonlinear": True}]
-    cav_tri40_ax = cav_dual30 + cav_mid10_ax
-    cav_tri40_seg = cav_dual30 + cav_mid10_seg
+    cav_mid10_ax_lin  = [{"beta": 0.0100, "wH": WH_1L_TGT, "xiH": 0.14, "sigma_o": 0.08, "n_cav": 1, "r_lo": 0.44, "r_hi": 0.74, "nonlinear": False}]
+    cav_mid10_seg_lin = [{"beta": 0.0100, "wH": WH_1L_TGT, "xiH": 0.14, "sigma_o": 0.08, "n_cav": 5, "r_lo": 0.44, "r_hi": 0.74, "nonlinear": False}]
+    cav_mid10_ax_nl   = [{"beta": 0.0100, "wH": WH_1L_TGT, "xiH": 0.14, "sigma_o": 0.08, "n_cav": 1, "r_lo": 0.44, "r_hi": 0.74, "nonlinear": True}]
+    cav_mid10_seg_nl  = [{"beta": 0.0100, "wH": WH_1L_TGT, "xiH": 0.14, "sigma_o": 0.08, "n_cav": 5, "r_lo": 0.44, "r_hi": 0.74, "nonlinear": True}]
+    cav_tri40_ax = cav_dual30 + cav_mid10_ax_nl
+    cav_tri40_seg = cav_dual30 + cav_mid10_seg_nl
     cav_tri50_ax = [
         {"beta": 0.0285, "wH": WH_1T_RET, "xiH": 0.25, "sigma_o": 0.14, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
         {"beta": 0.0080, "wH": WH_2T_RET, "xiH": 0.24, "sigma_o": 0.08, "n_cav": 5, "r_lo": 0.78, "r_hi": 1.00, "nonlinear": True},
         {"beta": 0.0035, "wH": S02,       "xiH": 0.14, "sigma_o": 0.04, "n_cav": 1, "r_lo": 0.00, "r_hi": 0.26, "nonlinear": True},
         {"beta": 0.0100, "wH": WH_1L_TGT, "xiH": 0.14, "sigma_o": 0.08, "n_cav": 1, "r_lo": 0.44, "r_hi": 0.74, "nonlinear": True},
     ]
+    cav_tri50_lin = [{**c, "nonlinear": False} for c in cav_tri50_ax]
 
-    # Exact 0D & 1D Chebyshev Crocco-Cheng sweep + psi_crit(n_p) shift + 1L EP sweep
-    psi_grid = [0.05, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.20, 0.25, 0.30]
+    # Exact 1D Chebyshev sweeps: pure vs. coupled isentropic vs. coupled ENTROPY-AWARE (Review #13 C1, M2, M3!)
+    psi_grid = [0.05, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.20, 0.25, 0.30, 0.35]
     cc_sweep = []
     for pv in psi_grid:
         s0d = exact_0d_crocco_cheng_root(pv)
-        e_pure = exact_1d_coupled_feed_eig(psi=pv, n_p=0.0)
-        e_coup = exact_1d_coupled_feed_eig(psi=pv, n_p=0.34, omega_hp=0.50, cav_list=cav_tri40_ax)
+        e_pure = exact_1d_coupled_feed_eig(psi=pv, n_p=0.0, entropy_aware=True)
+        e_is_bare = exact_1d_coupled_feed_eig(psi=pv, n_p=0.34, omega_hp=0.50, cav_list=[], entropy_aware=False)
+        e_en_bare = exact_1d_coupled_feed_eig(psi=pv, n_p=0.34, omega_hp=0.50, cav_list=[], entropy_aware=True)
+        e_en_tri5 = exact_1d_coupled_feed_eig(psi=pv, n_p=0.34, omega_hp=0.50, cav_list=cav_tri50_ax, entropy_aware=True)
         cc_sweep.append({
             "psi": pv,
             "s0d_alpha": s0d.real, "s0d_omega": s0d.imag,
-            "pure_dc_max": e_pure["max_real_dc"],
+            "has_real_dc_root": e_pure["has_real_dc_root"],
             "pure_alpha": e_pure["chug"].real, "pure_omega": e_pure["chug"].imag,
-            "coupled_alpha": e_coup["chug"].real, "coupled_omega": e_coup["chug"].imag,
-            "coupled_1L_alpha": e_coup["l1"].real, "coupled_1L_omega": e_coup["l1"].imag,
+            "coupled_isen_bare_alpha": e_is_bare["chug"].real, "coupled_isen_bare_omega": e_is_bare["chug"].imag,
+            "coupled_ent_bare_alpha": e_en_bare["chug"].real,  "coupled_ent_bare_omega": e_en_bare["chug"].imag,
+            "coupled_ent_tri5_alpha": e_en_tri5["chug"].real,  "coupled_ent_tri5_omega": e_en_tri5["chug"].imag,
+            "coupled_ent_tri5_1L_alpha": e_en_tri5["l1"].real, "coupled_ent_tri5_1L_omega": e_en_tri5["l1"].imag,
         })
-    psi_crit_pure = float(brentq(lambda p: exact_1d_coupled_feed_eig(psi=p, n_p=0.0)["chug"].real, 0.06, 0.15))
-    psi_crit_coupled = float(brentq(lambda p: exact_1d_coupled_feed_eig(psi=p, n_p=0.34, omega_hp=0.50, cav_list=cav_tri40_ax)["chug"].real, 0.10, 0.25))
-    print(f"\n--- Analytical 2: Exact Crocco-Cheng Critical Stiffness ---")
-    print(f"  Pure feed (n_p=0, ZERO omega_hp):     psi_crit = {psi_crit_pure:.4f} (DC root < 0 for all psi!)")
-    print(f"  Coupled (n_p=0.34, omega_hp=0.50):    psi_crit = {psi_crit_coupled:.4f} ({psi_crit_coupled/psi_crit_pure:.2f}x upward shift!)")
 
-    np_crit_curve = []
-    for npv in [0.00, 0.10, 0.20, 0.28, 0.34, 0.40]:
-        pc = float(brentq(lambda p: exact_1d_coupled_feed_eig(psi=p, n_p=npv, omega_hp=0.50, cav_list=cav_tri40_ax)["chug"].real, 0.05, 0.35))
-        np_crit_curve.append({"n_p": npv, "psi_crit": pc})
+    # Strictly consistent bare-to-bare and Tri-Band-to-Tri-Band critical stiffnesses (Review #13 M3!)
+    psi_crit_pure_bare = float(brentq(lambda p: exact_1d_coupled_feed_eig(psi=p, n_p=0.0, cav_list=[], entropy_aware=True)["chug"].real, 0.06, 0.15))
+    psi_crit_pure_tri4 = float(brentq(lambda p: exact_1d_coupled_feed_eig(psi=p, n_p=0.0, cav_list=cav_tri40_ax, entropy_aware=True)["chug"].real, 0.06, 0.15))
+    psi_crit_pure_tri5 = float(brentq(lambda p: exact_1d_coupled_feed_eig(psi=p, n_p=0.0, cav_list=cav_tri50_ax, entropy_aware=True)["chug"].real, 0.06, 0.15))
+    psi_crit_isen_bare = float(brentq(lambda p: exact_1d_coupled_feed_eig(psi=p, n_p=0.34, omega_hp=0.50, cav_list=[], entropy_aware=False)["chug"].real, 0.10, 0.30))
+    psi_crit_isen_tri4 = float(brentq(lambda p: exact_1d_coupled_feed_eig(psi=p, n_p=0.34, omega_hp=0.50, cav_list=cav_tri40_ax, entropy_aware=False)["chug"].real, 0.10, 0.30))
+    psi_crit_ent_bare  = float(brentq(lambda p: exact_1d_coupled_feed_eig(psi=p, n_p=0.34, omega_hp=0.50, cav_list=[], entropy_aware=True)["chug"].real, 0.12, 0.45))
+    psi_crit_ent_tri4  = float(brentq(lambda p: exact_1d_coupled_feed_eig(psi=p, n_p=0.34, omega_hp=0.50, cav_list=cav_tri40_ax, entropy_aware=True)["chug"].real, 0.12, 0.45))
+    psi_crit_ent_tri5  = float(brentq(lambda p: exact_1d_coupled_feed_eig(psi=p, n_p=0.34, omega_hp=0.50, cav_list=cav_tri50_ax, entropy_aware=True)["chug"].real, 0.12, 0.45))
+
+    print(f"\n--- Analytical: Consistent Critical Stiffness (Bare & Tri-Band, Isentropic vs. Entropy-Aware) ---")
+    print(f"  Pure feed (n_p=0, ZERO omega_hp): bare={psi_crit_pure_bare:.4f}, tri4={psi_crit_pure_tri4:.4f}, tri5={psi_crit_pure_tri5:.4f}")
+    print(f"  Coupled isentropic (hp=0.50):     bare={psi_crit_isen_bare:.4f} ({psi_crit_isen_bare/psi_crit_pure_bare:.2f}x), tri4={psi_crit_isen_tri4:.4f} ({psi_crit_isen_tri4/psi_crit_pure_tri4:.2f}x)")
+    print(f"  Coupled ENTROPY-AWARE (hp=0.50):  bare={psi_crit_ent_bare:.4f} ({psi_crit_ent_bare/psi_crit_pure_bare:.2f}x), tri5={psi_crit_ent_tri5:.4f} ({psi_crit_ent_tri5/psi_crit_pure_tri5:.2f}x)")
+
+    # omega_hp sensitivity table (Review #13 M2!)
+    def find_psi_crit(hpv: float, entropy_aware: bool) -> float | None:
+        f = lambda p: exact_1d_coupled_feed_eig(psi=p, n_p=0.34, omega_hp=hpv, cav_list=cav_tri40_ax, entropy_aware=entropy_aware)["chug"].real
+        if f(0.06) <= 0.0:
+            return 0.06
+        for hi in (0.50, 1.50, 5.0, 20.0):
+            if f(hi) < 0.0:
+                return float(brentq(f, 0.06, hi))
+        return None  # Intrinsically chug-unstable even at psi -> inf!
+
+    omega_hp_sens = []
+    for hpv in [0.15, 0.30, 0.50, 1.00, 2.00, 5.00]:
+        p_is = find_psi_crit(hpv, False)
+        p_en = find_psi_crit(hpv, True)
+        omega_hp_sens.append({"omega_hp": hpv, "psi_crit_isen_tri4": p_is, "psi_crit_ent_tri4": p_en})
+        s_is = f"{p_is:.4f}" if p_is is not None else "intrinsic(>20)"
+        s_en = f"{p_en:.4f}" if p_en is not None else "intrinsic(>20)"
+        print(f"  omega_hp={hpv:4.2f}: psi_crit(isen)={s_is}, psi_crit(entropy-aware)={s_en}")
 
     ep_1l_cheb = []
     for xi in [0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.22, 0.28]:
-        ec = exact_1d_coupled_feed_eig(psi=0.25, n_p=0.0, cav_list=[{"beta": 0.010, "wH": WH_1L_TGT, "xiH": xi}])["l1"]
-        eh = exact_1d_coupled_feed_eig(psi=0.25, n_p=0.34, omega_hp=0.50, cav_list=cav_dual30 + [{"beta": 0.010, "wH": WH_1L_TGT, "xiH": xi}])["l1"]
+        ec = exact_1d_coupled_feed_eig(psi=0.25, n_p=0.0, cav_list=[{"beta": 0.010, "wH": WH_1L_TGT, "xiH": xi}], entropy_aware=True)["l1"]
+        eh = exact_1d_coupled_feed_eig(psi=0.25, n_p=0.34, omega_hp=0.50, cav_list=cav_dual30 + [{"beta": 0.010, "wH": WH_1L_TGT, "xiH": xi}], entropy_aware=True)["l1"]
         ep_1l_cheb.append({"xiH": xi, "cold_1L_alpha": ec.real, "cold_1L_omega": ec.imag, "hot_1L_alpha": eh.real, "hot_1L_omega": eh.imag})
 
     # ------------------------------------------------------------------
-    # Phase 1: Fast Benchmarks, Linear Chugging Validation & Nodal Mid-Ring Orthogonality
+    # Phase 1: Fast Benchmarks, Linear Pure & Coupled PDE Validation & t=40 EP Audit
     # ------------------------------------------------------------------
-    print("\n--- Phase 1: Conservation, Linear Crocco-Cheng PDE Validation & Mid-Ring Orthogonality ---", flush=True)
+    print("\n--- Phase 1: Open-Inlet Feed Equilibrium, Linear Pure+Coupled PDE & t=40 Cold 1L EP ---", flush=True)
     feed25 = {"psi": 0.25, "tau_inj": TAU_INJ_DEF, "tau_f": TAU_F_DEF, "nonlinear": True}
+    feed35 = {"psi": 0.35, "tau_inj": TAU_INJ_DEF, "tau_f": TAU_F_DEF, "nonlinear": True}
     feed14 = {"psi": 0.14, "tau_inj": TAU_INJ_DEF, "tau_f": TAU_F_DEF, "nonlinear": True}
     p1_tasks = [
-        ("quiescent_feed_bell", dict(nx=20, nr=10, nth=32, t_end=2.5, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, feed_spec=feed25, init_type="quiescent", A_eq=0.0, record_stride=20)),
-        ("cons_ns_bell_bare",   dict(nx=16, nr=10, nth=32, t_end=2.0, M_c=0.12, mode="periodic_bump", Re=500.0, init_type="periodic_3d_wave", A_eq=0.06, record_stride=15)),
-        # 1B: Exact linear Crocco-Cheng validation (n_p=0, ZERO omega_hp!)
-        ("lin_cc_psi06",     dict(nx=20, nr=8, nth=24, t_end=60.0, M_c=0.12, mode="straight", Re=np.inf, feed_spec={"psi": 0.06, "nonlinear": False}, init_type="bulk_k0", A_eq=1e-4, record_stride=12)),
-        ("lin_cc_psi08",     dict(nx=20, nr=8, nth=24, t_end=60.0, M_c=0.12, mode="straight", Re=np.inf, feed_spec={"psi": 0.08, "nonlinear": False}, init_type="bulk_k0", A_eq=1e-4, record_stride=12)),
-        ("lin_cc_psi08_nx32",dict(nx=32, nr=8, nth=24, t_end=60.0, M_c=0.12, mode="straight", Re=np.inf, feed_spec={"psi": 0.08, "nonlinear": False}, init_type="bulk_k0", A_eq=1e-4, record_stride=16)),
-        ("lin_cc_psi08_re500",dict(nx=20, nr=8, nth=24, t_end=60.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.08, "nonlinear": False}, init_type="bulk_k0", A_eq=1e-4, record_stride=16)),
-        ("lin_cc_psi12",     dict(nx=20, nr=8, nth=24, t_end=60.0, M_c=0.12, mode="straight", Re=np.inf, feed_spec={"psi": 0.12, "nonlinear": False}, init_type="bulk_k0", A_eq=1e-4, record_stride=12)),
-        ("lin_cc_psi20",     dict(nx=20, nr=8, nth=24, t_end=60.0, M_c=0.12, mode="straight", Re=np.inf, feed_spec={"psi": 0.20, "nonlinear": False}, init_type="bulk_k0", A_eq=1e-4, record_stride=12)),
-        ("lin_cc_psi25",     dict(nx=20, nr=8, nth=24, t_end=60.0, M_c=0.12, mode="straight", Re=np.inf, feed_spec={"psi": 0.25, "nonlinear": False}, init_type="bulk_k0", A_eq=1e-4, record_stride=12)),
-        # 2B: Cold 3D NS Nodal Mid-Ring orthogonality (n_cav=1 vs n_cav=5) + 1L EP sweep
-        ("orth_bare_1L", dict(nx=20, nr=12, nth=40, t_end=22.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, init_type="1L",      A_eq=1e-4, record_stride=12)),
-        ("orth_bare_1T", dict(nx=20, nr=12, nth=40, t_end=22.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, init_type="spin_1T", A_eq=1e-4, record_stride=12)),
-        ("orth_bare_2T", dict(nx=20, nr=12, nth=40, t_end=22.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, init_type="spin_2T", A_eq=1e-4, record_stride=12)),
-        ("orth_bare_1R", dict(nx=20, nr=12, nth=40, t_end=22.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, init_type="1R",      A_eq=1e-4, record_stride=12)),
-        ("orth_ax_1L",   dict(nx=20, nr=12, nth=40, t_end=22.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, cav_spec=cav_mid10_ax,  init_type="1L",      A_eq=1e-4, record_stride=12)),
-        ("orth_ax_1T",   dict(nx=20, nr=12, nth=40, t_end=22.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, cav_spec=cav_mid10_ax,  init_type="spin_1T", A_eq=1e-4, record_stride=12)),
-        ("orth_ax_2T",   dict(nx=20, nr=12, nth=40, t_end=22.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, cav_spec=cav_mid10_ax,  init_type="spin_2T", A_eq=1e-4, record_stride=12)),
-        ("orth_ax_1R",   dict(nx=20, nr=12, nth=40, t_end=22.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, cav_spec=cav_mid10_ax,  init_type="1R",      A_eq=1e-4, record_stride=12)),
-        ("orth_seg_1L",  dict(nx=20, nr=12, nth=40, t_end=22.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, cav_spec=cav_mid10_seg, init_type="1L",      A_eq=1e-4, record_stride=12)),
-        ("orth_seg_1T",  dict(nx=20, nr=12, nth=40, t_end=22.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, cav_spec=cav_mid10_seg, init_type="spin_1T", A_eq=1e-4, record_stride=12)),
-        ("orth_seg_2T",  dict(nx=20, nr=12, nth=40, t_end=22.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, cav_spec=cav_mid10_seg, init_type="spin_2T", A_eq=1e-4, record_stride=12)),
-        ("orth_seg_1R",  dict(nx=20, nr=12, nth=40, t_end=22.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, cav_spec=cav_mid10_seg, init_type="1R",      A_eq=1e-4, record_stride=12)),
-        # 1L EP sweep in 3D NS PDE
-        ("ep1l_xi08", dict(nx=20, nr=12, nth=40, t_end=22.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, cav_spec=[{"beta": 0.010, "wH": WH_1L_TGT, "xiH": 0.08, "sigma_o": 0.08, "n_cav": 1, "r_lo": 0.44, "r_hi": 0.74, "nonlinear": False}], init_type="1L", A_eq=1e-4, record_stride=12)),
-        ("ep1l_xi18", dict(nx=20, nr=12, nth=40, t_end=22.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, cav_spec=[{"beta": 0.010, "wH": WH_1L_TGT, "xiH": 0.18, "sigma_o": 0.08, "n_cav": 1, "r_lo": 0.44, "r_hi": 0.74, "nonlinear": False}], init_type="1L", A_eq=1e-4, record_stride=12)),
-        ("ep1l_xi28", dict(nx=20, nr=12, nth=40, t_end=22.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, cav_spec=[{"beta": 0.010, "wH": WH_1L_TGT, "xiH": 0.28, "sigma_o": 0.08, "n_cav": 1, "r_lo": 0.44, "r_hi": 0.74, "nonlinear": False}], init_type="1L", A_eq=1e-4, record_stride=12)),
+        # 1A: Closed bell metric well-balancedness + GENUINE open-inlet mean-flow feed equilibrium (Review #13 M4!)
+        ("quiescent_closed_bell", dict(nx=20, nr=10, nth=32, t_end=2.5,  M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, init_type="quiescent", A_eq=0.0, record_stride=20)),
+        ("steady_open_feed_eq",   dict(nx=20, nr=8,  nth=24, t_end=50.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, init_type="steady_mean", A_eq=0.0, record_stride=24)),
+        ("cons_ns_wavy_cyl",      dict(nx=16, nr=10, nth=32, t_end=2.0,  M_c=0.12, mode="periodic_bump", Re=500.0, init_type="periodic_3d_wave", A_eq=0.06, record_stride=15)),
+        # 1B: Pure-feed (n_p=0, ZERO omega_hp) linear validation
+        ("lin_cc_psi06",          dict(nx=20, nr=8, nth=24, t_end=60.0, M_c=0.12, mode="straight", Re=np.inf, feed_spec={"psi": 0.06, "nonlinear": False}, init_type="bulk_k0", A_eq=1e-4, record_stride=12)),
+        ("lin_cc_psi08",          dict(nx=20, nr=8, nth=24, t_end=60.0, M_c=0.12, mode="straight", Re=np.inf, feed_spec={"psi": 0.08, "nonlinear": False}, init_type="bulk_k0", A_eq=1e-4, record_stride=12)),
+        ("lin_cc_psi08_nx32",     dict(nx=32, nr=8, nth=24, t_end=60.0, M_c=0.12, mode="straight", Re=np.inf, feed_spec={"psi": 0.08, "nonlinear": False}, init_type="bulk_k0", A_eq=1e-4, record_stride=16)),
+        ("lin_cc_psi12",          dict(nx=20, nr=8, nth=24, t_end=60.0, M_c=0.12, mode="straight", Re=np.inf, feed_spec={"psi": 0.12, "nonlinear": False}, init_type="bulk_k0", A_eq=1e-4, record_stride=12)),
+        ("lin_cc_psi25",          dict(nx=20, nr=8, nth=24, t_end=60.0, M_c=0.12, mode="straight", Re=np.inf, feed_spec={"psi": 0.25, "nonlinear": False}, init_type="bulk_k0", A_eq=1e-4, record_stride=12)),
+        # 1B-coupled: LINEAR 3D PDE with n_p=0.34 validating entropy-aware 1D Chebyshev! (Review #13 C1!)
+        ("lin_coup_psi16_bare",   dict(nx=20, nr=8, nth=24, t_end=60.0, M_c=0.12, mode="straight", Re=np.inf, feed_spec={"psi": 0.16, "nonlinear": False}, n_p=0.34, omega_hp=0.50, init_type="bulk_k0", A_eq=1e-4, record_stride=12)),
+        ("lin_coup_psi25_tri5",   dict(nx=20, nr=8, nth=24, t_end=60.0, M_c=0.12, mode="straight", Re=np.inf, feed_spec={"psi": 0.25, "nonlinear": False}, cav_spec=cav_tri50_lin, n_p=0.34, omega_hp=0.50, init_type="bulk_k0", A_eq=1e-4, record_stride=12)),
+        ("lin_coup_psi25_t5_ns",  dict(nx=20, nr=12, nth=40, t_end=70.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.25, "nonlinear": False}, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_lin, n_p=0.34, omega_hp=0.50, init_type="bulk_k0", A_eq=1e-4, record_stride=16)),
+        ("lin_coup_psi35_t5_ns",  dict(nx=20, nr=12, nth=40, t_end=70.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.35, "nonlinear": False}, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_lin, n_p=0.34, omega_hp=0.50, init_type="bulk_k0", A_eq=1e-4, record_stride=16)),
+        # 2B: Cold 3D NS Nodal Mid-Ring orthogonality & t=40 EP sweep (ALL nonlinear=False, Review #13 C3 & m2!)
+        ("orth_bare_1L", dict(nx=20, nr=12, nth=40, t_end=40.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.25, "nonlinear": False}, init_type="1L",      A_eq=1e-4, record_stride=12)),
+        ("orth_bare_1T", dict(nx=20, nr=12, nth=40, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.25, "nonlinear": False}, init_type="spin_1T", A_eq=1e-4, record_stride=12)),
+        ("orth_bare_2T", dict(nx=20, nr=12, nth=40, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.25, "nonlinear": False}, init_type="spin_2T", A_eq=1e-4, record_stride=12)),
+        ("orth_bare_1R", dict(nx=20, nr=12, nth=40, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.25, "nonlinear": False}, init_type="1R",      A_eq=1e-4, record_stride=12)),
+        ("orth_ax_1L",   dict(nx=20, nr=12, nth=40, t_end=40.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.25, "nonlinear": False}, cav_spec=cav_mid10_ax_lin,  init_type="1L",      A_eq=1e-4, record_stride=12)),
+        ("orth_ax_1T",   dict(nx=20, nr=12, nth=40, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.25, "nonlinear": False}, cav_spec=cav_mid10_ax_lin,  init_type="spin_1T", A_eq=1e-4, record_stride=12)),
+        ("orth_ax_2T",   dict(nx=20, nr=12, nth=40, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.25, "nonlinear": False}, cav_spec=cav_mid10_ax_lin,  init_type="spin_2T", A_eq=1e-4, record_stride=12)),
+        ("orth_ax_1R",   dict(nx=20, nr=12, nth=40, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.25, "nonlinear": False}, cav_spec=cav_mid10_ax_lin,  init_type="1R",      A_eq=1e-4, record_stride=12)),
+        ("orth_seg_1L",  dict(nx=20, nr=12, nth=40, t_end=40.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.25, "nonlinear": False}, cav_spec=cav_mid10_seg_lin, init_type="1L",      A_eq=1e-4, record_stride=12)),
+        ("orth_seg_1T",  dict(nx=20, nr=12, nth=40, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.25, "nonlinear": False}, cav_spec=cav_mid10_seg_lin, init_type="spin_1T", A_eq=1e-4, record_stride=12)),
+        ("orth_seg_2T",  dict(nx=20, nr=12, nth=40, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.25, "nonlinear": False}, cav_spec=cav_mid10_seg_lin, init_type="spin_2T", A_eq=1e-4, record_stride=12)),
+        ("orth_seg_1R",  dict(nx=20, nr=12, nth=40, t_end=24.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.25, "nonlinear": False}, cav_spec=cav_mid10_seg_lin, init_type="1R",      A_eq=1e-4, record_stride=12)),
+        ("ep1l_xi08",    dict(nx=20, nr=12, nth=40, t_end=40.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.25, "nonlinear": False}, cav_spec=[{"beta": 0.010, "wH": WH_1L_TGT, "xiH": 0.08, "sigma_o": 0.08, "n_cav": 1, "r_lo": 0.44, "r_hi": 0.74, "nonlinear": False}], init_type="1L", A_eq=1e-4, record_stride=12)),
+        ("ep1l_xi18",    dict(nx=20, nr=12, nth=40, t_end=40.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.25, "nonlinear": False}, cav_spec=[{"beta": 0.010, "wH": WH_1L_TGT, "xiH": 0.18, "sigma_o": 0.08, "n_cav": 1, "r_lo": 0.44, "r_hi": 0.74, "nonlinear": False}], init_type="1L", A_eq=1e-4, record_stride=12)),
+        ("ep1l_xi28",    dict(nx=20, nr=12, nth=40, t_end=40.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.25, "nonlinear": False}, cav_spec=[{"beta": 0.010, "wH": WH_1L_TGT, "xiH": 0.28, "sigma_o": 0.08, "n_cav": 1, "r_lo": 0.44, "r_hi": 0.74, "nonlinear": False}], init_type="1L", A_eq=1e-4, record_stride=12)),
     ]
     p1_res = run_batch(p1_tasks)
 
-    # Relax axisymmetric smooth-bell NS bases for Exp 4 (32x10 and 36x12)
     axi_bell_32 = relax_axi_3d_bell_base(32, 10, M_c=0.12, L_n=0.60, L_d=0.45, Re=500.0, t_relax=160.0)
     axi_bell_36 = relax_axi_3d_bell_base(36, 12, M_c=0.12, L_n=0.60, L_d=0.45, Re=500.0, t_relax=160.0)
 
     # ------------------------------------------------------------------
-    # Phase 2: Unified LPT-ordered Heavy Nonlinear 3D NS Batch (Exp 1C, 2A, 3, 4)
+    # Phase 2: Unified LPT-ordered Nonlinear 3D NS Batch (Exp 1C, 2A, 3, 4)
     # ------------------------------------------------------------------
     p2_dict = {
-        # Exp 1C: Pure physical Crocco-Cheng nonlinear chugging (n_p=0, ZERO omega_hp!)
-        "feed_pure_psi07": dict(nx=20, nr=10, nth=32, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.07, "nonlinear": True}, init_type="bulk_k0", A_eq=0.04, n_p=0.0, record_stride=24),
-        "feed_pure_psi25": dict(nx=20, nr=10, nth=32, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, init_type="bulk_k0", A_eq=0.04, n_p=0.0, record_stride=24),
-        # Exp 2A: Coupled intrinsic+feed shift trap (psi=0.14 safe alone -> chugs coupled!) vs psi=0.25 safe
+        # Exp 1C: Pure physical feed chugging with clamp audit, check-valve closure & clean psi=0.09 (Review #13 M1!)
+        "feed_pure_psi07":    dict(nx=20, nr=10, nth=32, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.07, "nonlinear": True, "check_valve": False}, init_type="bulk_k0", A_eq=0.04, n_p=0.0, record_stride=24),
+        "feed_pure_psi07_cv": dict(nx=20, nr=10, nth=32, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.07, "nonlinear": True, "check_valve": True},  init_type="bulk_k0", A_eq=0.04, n_p=0.0, record_stride=24),
+        "feed_pure_psi09":    dict(nx=20, nr=10, nth=32, t_end=180.0, M_c=0.12, mode="straight", Re=500.0, feed_spec={"psi": 0.09, "nonlinear": True, "check_valve": True},  init_type="bulk_k0", A_eq=0.04, n_p=0.0, record_stride=24),
+        "feed_pure_psi25":    dict(nx=20, nr=10, nth=32, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, init_type="bulk_k0", A_eq=0.04, n_p=0.0, record_stride=24),
+        # Exp 2A: Coupled trap (psi=0.14) vs straight psi=0.25 (entropy-chug unstable!) vs psi=0.35 (truly chug-stable!)
         "coupled_psi14_trap": dict(nx=20, nr=12, nth=40, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed14, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri40_ax, init_type="1L", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "coupled_psi25_safe": dict(nx=20, nr=12, nth=40, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri40_ax, init_type="1L", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        # Exp 3: Straight 3D NS 5-Mode Nonlinear Bomb Audit (Re=500, n_p=0.34, psi=0.25)
-        "bare_1T":      dict(nx=20, nr=12, nth=40, t_end=90.0,  M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, init_type="spin_1T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "bare_st1T":    dict(nx=20, nr=12, nth=40, t_end=90.0,  M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, init_type="stand_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "bare_2T":      dict(nx=20, nr=12, nth=40, t_end=90.0,  M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, init_type="spin_2T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "bare_1R":      dict(nx=20, nr=12, nth=40, t_end=90.0,  M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, init_type="1R",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "bare_1L":      dict(nx=20, nr=12, nth=40, t_end=90.0,  M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, init_type="1L",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "dual30_st1T":  dict(nx=20, nr=12, nth=40, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_dual30, init_type="stand_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "dual30_1L":    dict(nx=20, nr=12, nth=40, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_dual30, init_type="1L",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "tri40ax_1T":   dict(nx=20, nr=12, nth=40, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri40_ax, init_type="spin_1T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "tri40ax_st1T": dict(nx=20, nr=12, nth=40, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri40_ax, init_type="stand_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "tri40ax_2T":   dict(nx=20, nr=12, nth=40, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri40_ax, init_type="spin_2T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "tri40ax_1R":   dict(nx=20, nr=12, nth=40, t_end=180.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri40_ax, init_type="1R",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "tri40seg_1T":  dict(nx=20, nr=12, nth=40, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri40_seg, init_type="spin_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "tri40seg_1L":  dict(nx=20, nr=12, nth=40, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri40_seg, init_type="1L",      A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "tri50_1T":     dict(nx=20, nr=12, nth=40, t_end=160.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, init_type="spin_1T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "tri50_st1T":   dict(nx=20, nr=12, nth=40, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, init_type="stand_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "tri50_2T":     dict(nx=20, nr=12, nth=40, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, init_type="spin_2T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "tri50_1R":     dict(nx=20, nr=12, nth=40, t_end=180.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, init_type="1R",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "tri50_1L":     dict(nx=20, nr=12, nth=40, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, init_type="1L",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "tri50_ref_1T": dict(nx=24, nr=16, nth=50, t_end=120.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, init_type="spin_1T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=28),
-        "tri50_ref_1L": dict(nx=24, nr=16, nth=50, t_end=120.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, init_type="1L",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=28),
-        "tri50_psi14_1T": dict(nx=20, nr=12, nth=40, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed14, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, init_type="spin_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        # Exp 4: Metric-corrected true-3D smooth curved bell NS shootout (Re=500, n_p=0.34, psi=0.25)
-        "bell_bare_1T":      dict(nx=32, nr=10, nth=40, t_end=80.0,  M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, feed_spec=feed25, prim_axi_base=axi_bell_32["prim_axi"], init_type="spin_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "bell_dual30_1T":    dict(nx=32, nr=10, nth=40, t_end=100.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_dual30,   prim_axi_base=axi_bell_32["prim_axi"], init_type="spin_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "bell_tri40_1T":     dict(nx=32, nr=10, nth=40, t_end=120.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri40_ax, prim_axi_base=axi_bell_32["prim_axi"], init_type="spin_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "bell_tri50_1T":     dict(nx=32, nr=10, nth=40, t_end=120.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, prim_axi_base=axi_bell_32["prim_axi"], init_type="spin_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "bell_tri50_1L":     dict(nx=32, nr=10, nth=40, t_end=120.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, prim_axi_base=axi_bell_32["prim_axi"], init_type="1L",      A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "bell_tri50_1R":     dict(nx=32, nr=10, nth=40, t_end=120.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, prim_axi_base=axi_bell_32["prim_axi"], init_type="1R",      A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
-        "bell_tri50_ref_1T": dict(nx=36, nr=12, nth=40, t_end=80.0,  M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, prim_axi_base=axi_bell_36["prim_axi"], init_type="spin_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=28),
+        "coupled_psi25_tri4": dict(nx=20, nr=12, nth=40, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri40_ax, init_type="1L", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        # Exp 3: Straight 3D NS — Honest t=220 psi=0.25 entropy-chug audit + psi=0.35 stiff-feed comparison!
+        "bare_1T":          dict(nx=20, nr=12, nth=40, t_end=90.0,  M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, init_type="spin_1T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "bare_st1T":        dict(nx=20, nr=12, nth=40, t_end=90.0,  M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, init_type="stand_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "bare_2T":          dict(nx=20, nr=12, nth=40, t_end=90.0,  M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, init_type="spin_2T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "bare_1R":          dict(nx=20, nr=12, nth=40, t_end=90.0,  M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, init_type="1R",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "bare_1L":          dict(nx=20, nr=12, nth=40, t_end=90.0,  M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, init_type="1L",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "dual30_st1T":      dict(nx=20, nr=12, nth=40, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_dual30, init_type="stand_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "dual30_1L":        dict(nx=20, nr=12, nth=40, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_dual30, init_type="1L",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "tri40ax_1T":       dict(nx=20, nr=12, nth=40, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri40_ax, init_type="spin_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "tri40seg_1T":      dict(nx=20, nr=12, nth=40, t_end=220.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri40_seg, init_type="spin_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "tri40seg_1L":      dict(nx=20, nr=12, nth=40, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri40_seg, init_type="1L",      A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        # psi=0.25 extended to t=220 (exposes linear entropy-chug growth +0.0016-0.0026!)
+        "tri50_p25_1T":     dict(nx=20, nr=12, nth=40, t_end=220.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, init_type="spin_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "tri50_p25_1R":     dict(nx=20, nr=12, nth=40, t_end=220.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, init_type="1R",      A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "tri50_p25_1L":     dict(nx=20, nr=12, nth=40, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, init_type="1L",      A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        # psi=0.35 (ABOVE entropy-aware psi_crit! Truly chug-stable in straight compact-MC chamber!)
+        "tri50_p35_1T":     dict(nx=20, nr=12, nth=40, t_end=180.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed35, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, init_type="spin_1T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "tri50_p35_st1T":   dict(nx=20, nr=12, nth=40, t_end=180.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed35, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, init_type="stand_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "tri50_p35_2T":     dict(nx=20, nr=12, nth=40, t_end=180.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed35, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, init_type="spin_2T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "tri50_p35_1R":     dict(nx=20, nr=12, nth=40, t_end=180.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed35, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, init_type="1R",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "tri50_p35_1L":     dict(nx=20, nr=12, nth=40, t_end=180.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed35, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, init_type="1L",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "tri50_ref_1T":     dict(nx=24, nr=16, nth=50, t_end=120.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed35, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, init_type="spin_1T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=28),
+        "tri50_psi14_1T":   dict(nx=20, nr=12, nth=40, t_end=140.0, M_c=0.12, mode="straight", Re=500.0, feed_spec=feed14, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, init_type="spin_1T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        # Exp 4: Metric-Corrected True-3D Smooth Bell NS (Re=500, psi=0.25 — finite-nozzle entropy filtering!)
+        "bell_bare_1T":      dict(nx=32, nr=10, nth=40, t_end=80.0,  M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, feed_spec=feed25, prim_axi_base=axi_bell_32["prim_axi"], init_type="spin_1T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "bell_bare_1L":      dict(nx=32, nr=10, nth=40, t_end=80.0,  M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, feed_spec=feed25, prim_axi_base=axi_bell_32["prim_axi"], init_type="1L",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "bell_dual30_1T":    dict(nx=32, nr=10, nth=40, t_end=100.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_dual30,   prim_axi_base=axi_bell_32["prim_axi"], init_type="spin_1T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "bell_tri40_1T":     dict(nx=32, nr=10, nth=40, t_end=120.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri40_ax, prim_axi_base=axi_bell_32["prim_axi"], init_type="spin_1T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "bell_tri50_1T":     dict(nx=32, nr=10, nth=40, t_end=120.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, prim_axi_base=axi_bell_32["prim_axi"], init_type="spin_1T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "bell_tri50_st1T":   dict(nx=32, nr=10, nth=40, t_end=120.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, prim_axi_base=axi_bell_32["prim_axi"], init_type="stand_1T", A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "bell_tri50_2T":     dict(nx=32, nr=10, nth=40, t_end=120.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, prim_axi_base=axi_bell_32["prim_axi"], init_type="spin_2T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "bell_tri50_1L":     dict(nx=32, nr=10, nth=40, t_end=200.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, prim_axi_base=axi_bell_32["prim_axi"], init_type="1L",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "bell_tri50_1R":     dict(nx=32, nr=10, nth=40, t_end=180.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, prim_axi_base=axi_bell_32["prim_axi"], init_type="1R",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=24),
+        "bell_tri50_ref_1L": dict(nx=36, nr=12, nth=40, t_end=140.0, M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, prim_axi_base=axi_bell_36["prim_axi"], init_type="1L",       A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=28),
+        "bell_tri50_ref_1T": dict(nx=36, nr=12, nth=40, t_end=80.0,  M_c=0.12, L_n=0.60, L_d=0.45, mode="bell_smooth", Re=500.0, feed_spec=feed25, n_baffles=5, L_b=0.45, r_b=0.42, cav_spec=cav_tri50_ax, prim_axi_base=axi_bell_36["prim_axi"], init_type="spin_1T",  A_eq=0.04, n_p=0.34, omega_hp=0.50, record_stride=28),
     }
     lpt_order = [
-        "bell_tri50_ref_1T", "tri50_ref_1T", "tri50_ref_1L",
-        "bell_tri50_1T", "bell_tri50_1L", "bell_tri50_1R", "bell_tri40_1T", "bell_dual30_1T", "bell_bare_1T",
-        "tri50_1R", "tri40ax_1R", "tri50_1T",
-        "tri50_st1T", "tri50_2T", "tri50_1L", "tri50_psi14_1T",
-        "tri40ax_1T", "tri40ax_st1T", "tri40ax_2T", "tri40seg_1T", "tri40seg_1L",
-        "dual30_st1T", "dual30_1L", "coupled_psi14_trap", "coupled_psi25_safe",
-        "bare_1T", "bare_st1T", "bare_2T", "bare_1R", "bare_1L",
-        "feed_pure_psi07", "feed_pure_psi25",
+        "bell_tri50_ref_1L", "bell_tri50_1L", "bell_tri50_1R", "bell_tri50_ref_1T", "tri50_ref_1T",
+        "bell_tri50_1T", "bell_tri50_st1T", "bell_tri50_2T", "bell_tri40_1T", "bell_dual30_1T", "bell_bare_1T", "bell_bare_1L",
+        "tri40seg_1T", "tri50_p25_1T", "tri50_p25_1R",
+        "tri50_p35_1T", "tri50_p35_st1T", "tri50_p35_2T", "tri50_p35_1R", "tri50_p35_1L",
+        "tri50_p25_1L", "tri50_psi14_1T", "tri40ax_1T", "tri40seg_1L",
+        "dual30_st1T", "dual30_1L", "coupled_psi14_trap", "coupled_psi25_tri4",
+        "feed_pure_psi09", "bare_1T", "bare_st1T", "bare_2T", "bare_1R", "bare_1L",
+        "feed_pure_psi07", "feed_pure_psi07_cv", "feed_pure_psi25",
     ]
     print(f"\n--- Phase 2: Launching {len(lpt_order)} Nonlinear 3D NS Runs (LPT-ordered, 8 workers) ---", flush=True)
     p2_res = run_batch([(k, p2_dict[k]) for k in lpt_order])
 
     # ------------------------------------------------------------------
-    # Post-processing & Metric Extraction
+    # Post-Processing & Honest Metric Extraction
     # ------------------------------------------------------------------
-    print("\n--- Experiment 1 Summary: Physical Crocco-Cheng Feed Chugging (ZERO omega_hp) ---")
-    print(f"  1A Quiescent 3D Bell + Feed ODE: Q_err={p1_res['quiescent_feed_bell']['quiescent_err']:.2e}, feed_err={p1_res['quiescent_feed_bell']['feed_quiescent_err']:.2e}")
-    cb = p1_res["cons_ns_bell_bare"]["periodic_cons_err"]
-    print(f"  1A Bare 3D Bell NS Cons: mass={cb['mass']:.2e}, ang_mom={cb['ang_mom']:.2e}, energy={cb['energy']:.2e}")
+    print("\n--- Exp 1: Open-Inlet Feed Eq, Linear Pure & Coupled Entropy-Aware Validation ---")
+    print(f"  1A Closed Bell Metric Drift:      Q_err={p1_res['quiescent_closed_bell']['quiescent_err']:.2e}")
+    print(f"  1A Open-Inlet Mean-Flow Feed Eq:  Q_err={p1_res['steady_open_feed_eq']['quiescent_err']:.2e}, feed_err={p1_res['steady_open_feed_eq']['feed_quiescent_err']:.2e}")
+    cb = p1_res["cons_ns_wavy_cyl"]["periodic_cons_err"]
+    print(f"  1A Periodic Wavy Cyl NS Cons:     mass={cb['mass']:.2e}, ang_mom={cb['ang_mom']:.2e}, energy={cb['energy']:.2e}")
 
     lin_cc_out = {}
-    for cid, pv in [
-        ("lin_cc_psi06", 0.06), ("lin_cc_psi08", 0.08), ("lin_cc_psi08_nx32", 0.08),
-        ("lin_cc_psi08_re500", 0.08), ("lin_cc_psi12", 0.12), ("lin_cc_psi20", 0.20), ("lin_cc_psi25", 0.25),
+    for cid, pv, npv, cvl in [
+        ("lin_cc_psi06",        0.06, 0.0,  []),
+        ("lin_cc_psi08",        0.08, 0.0,  []),
+        ("lin_cc_psi08_nx32",   0.08, 0.0,  []),
+        ("lin_cc_psi12",        0.12, 0.0,  []),
+        ("lin_cc_psi25",        0.25, 0.0,  []),
+        ("lin_coup_psi16_bare", 0.16, 0.34, []),
+        ("lin_coup_psi25_tri5", 0.25, 0.34, cav_tri50_ax),
+        ("lin_coup_psi25_t5_ns",0.25, 0.34, cav_tri50_ax),
+        ("lin_coup_psi35_t5_ns",0.35, 0.34, cav_tri50_ax),
     ]:
         rr = p1_res[cid]
-        al, om = fit_damped_oscillator(rr["t"], rr["p_mean_signed"], 10.0, 56.0)
-        ex = exact_1d_coupled_feed_eig(psi=pv, n_p=0.0)["chug"]
-        s0d = exact_0d_crocco_cheng_root(pv)
+        al, om = fit_damped_oscillator(rr["t"], rr["p_mean_signed"], 12.0, rr["t"][-1] - 3.0)
+        ex_en = exact_1d_coupled_feed_eig(psi=pv, n_p=npv, omega_hp=0.50, cav_list=cvl, entropy_aware=True)["chug"]
+        ex_is = exact_1d_coupled_feed_eig(psi=pv, n_p=npv, omega_hp=0.50, cav_list=cvl, entropy_aware=False)["chug"]
         lin_cc_out[cid] = {
-            "psi": pv, "pde_alpha": al, "pde_omega": om,
-            "cheb_1d_alpha": ex.real, "cheb_1d_omega": ex.imag,
-            "exact_0d_alpha": s0d.real, "exact_0d_omega": s0d.imag,
-            "omega_err_pct": abs(om - ex.imag) / ex.imag * 100.0,
-            "alpha_abs_err": abs(al - ex.real),
+            "psi": pv, "n_p": npv, "pde_alpha": al, "pde_omega": om,
+            "cheb_ent_alpha": ex_en.real, "cheb_ent_omega": ex_en.imag,
+            "cheb_isen_alpha": ex_is.real, "cheb_isen_omega": ex_is.imag,
+            "omega_err_ent_pct": abs(om - ex_en.imag) / ex_en.imag * 100.0,
+            "alpha_abs_err_ent": abs(al - ex_en.real),
         }
-        print(f"  1B [{cid:18s}] PDE={al:+.5f}+{om:.4f}i vs 1D_Cheb={ex.real:+.5f}+{ex.imag:.4f}i (w_err={lin_cc_out[cid]['omega_err_pct']:.2f}%) | 0D={s0d.real:+.5f}+{s0d.imag:.4f}i")
+        print(f"  1B [{cid:20s}] PDE={al:+.5f}+{om:.4f}i | 1D_ent={ex_en.real:+.5f}+{ex_en.imag:.4f}i (w={lin_cc_out[cid]['omega_err_ent_pct']:.2f}%) | 1D_isen={ex_is.real:+.5f}+{ex_is.imag:.4f}i")
 
-    nl_feed_out = {k: summarize_nl(p2_res[k]) for k in ("feed_pure_psi07", "feed_pure_psi25", "coupled_psi14_trap", "coupled_psi25_safe")}
+    nl_feed_out = {k: summarize_nl(p2_res[k]) for k in ("feed_pure_psi07", "feed_pure_psi07_cv", "feed_pure_psi09", "feed_pure_psi25", "coupled_psi14_trap", "coupled_psi25_tri4")}
     for k, s in nl_feed_out.items():
-        print(f"  1C/2A [{k:18s}] P={s['p_peak_late']:6.3f}% | |p̄'|={s['max_abs_pbar_pct']:5.2f}% | |dm_inj|={s['max_abs_minj_pct']:5.1f}% | E_mn={s['e_mean_late']:.2e} | E_1L={s['e_1l_late']:.2e}")
+        print(f"  1C/2A [{k:18s}] P={s['p_peak_late']:6.2f}% | |p̄'|={s['max_abs_pbar_pct']:5.2f}% | rev={s['rev_frac']*100:4.1f}% | clmp={s['clamp_frac']*100:4.1f}% | +m={s['added_mass_frac']*100:4.1f}% | E_mn={s['e_mean_late']:.2e}")
 
-    print("\n--- Experiment 2B Summary: Cold 3D NS Nodal Mid-Ring Orthogonality & 1L EP ---")
+    print("\n--- Exp 2B: Cold 3D NS Nodal Mid-Ring Orthogonality & Long-Window [6,40] 1L EP ---")
     orth_out = {}
-    for m_lbl, ek in [("1L", "e_1l"), ("1T", "e_1t"), ("2T", "e_2t"), ("1R", "e_1r")]:
-        ab = fit_alpha(p1_res[f"orth_bare_{m_lbl}"], 6.0, 20.0, ek)
-        aa = fit_alpha(p1_res[f"orth_ax_{m_lbl}"],   6.0, 20.0, ek)
-        asg = fit_alpha(p1_res[f"orth_seg_{m_lbl}"], 6.0, 20.0, ek)
+    for m_lbl, ek, tmax in [("1L", "e_1l", 40.0), ("1T", "e_1t", 22.0), ("2T", "e_2t", 22.0), ("1R", "e_1r", 22.0)]:
+        ab = fit_alpha(p1_res[f"orth_bare_{m_lbl}"], 6.0, tmax, ek)
+        aa = fit_alpha(p1_res[f"orth_ax_{m_lbl}"],   6.0, tmax, ek)
+        asg = fit_alpha(p1_res[f"orth_seg_{m_lbl}"], 6.0, tmax, ek)
         orth_out[m_lbl] = {
-            "bare": ab, "mid_ax_n1": aa, "delta_ax": aa - ab,
+            "window": [6.0, tmax], "bare": ab, "mid_ax_n1": aa, "delta_ax": aa - ab,
             "mid_seg_n5": asg, "delta_seg": asg - ab,
         }
-        print(f"  2B [{m_lbl}] bare={ab:+.5f} | Mid-Ring n=1: {aa:+.5f} (d={aa-ab:+.5f}) | Mid-Ring n=5: {asg:+.5f} (d={asg-ab:+.5f})")
+        print(f"  2B [{m_lbl} [6,{tmax:2.0f}]] bare={ab:+.5f} | Mid n=1: {aa:+.5f} (d={aa-ab:+.5f}) | Mid n=5: {asg:+.5f} (d={asg-ab:+.5f})")
 
-    ep1l_pde = {
-        "xi08": fit_alpha(p1_res["ep1l_xi08"], 6.0, 20.0, "e_1l"),
-        "xi14": orth_out["1L"]["mid_ax_n1"],
-        "xi18": fit_alpha(p1_res["ep1l_xi18"], 6.0, 20.0, "e_1l"),
-        "xi28": fit_alpha(p1_res["ep1l_xi28"], 6.0, 20.0, "e_1l"),
-    }
-    print(f"  2B 1L EP (3D NS PDE): xi=0.08:{ep1l_pde['xi08']:+.5f}, 0.14:{ep1l_pde['xi14']:+.5f}, 0.18:{ep1l_pde['xi18']:+.5f}, 0.28:{ep1l_pde['xi28']:+.5f}")
+    ep1l_pde = {}
+    for lbl, rkey in [("xi08", "ep1l_xi08"), ("xi14", "orth_ax_1L"), ("xi18", "ep1l_xi18"), ("xi28", "ep1l_xi28")]:
+        ep1l_pde[lbl] = {
+            "w_6_20": fit_alpha(p1_res[rkey], 6.0, 20.0, "e_1l"),
+            "w_6_40": fit_alpha(p1_res[rkey], 6.0, 40.0, "e_1l"),
+            "w_15_40": fit_alpha(p1_res[rkey], 15.0, 40.0, "e_1l"),
+        }
+        print(f"  2B EP [{lbl}]: [6,20]={ep1l_pde[lbl]['w_6_20']:+.5f}, [6,40]={ep1l_pde[lbl]['w_6_40']:+.5f}, [15,40]={ep1l_pde[lbl]['w_15_40']:+.5f}")
 
-    print("\n--- Experiment 3 Summary: Straight 3D NS 5-Mode Nonlinear Bomb Audit (Re=500, n_p=0.34, psi=0.25) ---")
+    print("\n--- Exp 3: Straight 3D NS Audit (psi=0.25 t=220 vs. psi=0.35 Entropy-Safe Stiffness) ---")
     exp3_keys = [
         "bare_1T", "bare_st1T", "bare_2T", "bare_1R", "bare_1L",
-        "dual30_st1T", "dual30_1L",
-        "tri40ax_1T", "tri40ax_st1T", "tri40ax_2T", "tri40ax_1R", "coupled_psi25_safe",
-        "tri40seg_1T", "tri40seg_1L",
-        "tri50_1T", "tri50_st1T", "tri50_2T", "tri50_1R", "tri50_1L",
-        "tri50_ref_1T", "tri50_ref_1L", "tri50_psi14_1T",
+        "dual30_st1T", "dual30_1L", "tri40ax_1T", "tri40seg_1T", "tri40seg_1L", "coupled_psi25_tri4",
+        "tri50_p25_1T", "tri50_p25_1R", "tri50_p25_1L",
+        "tri50_p35_1T", "tri50_p35_st1T", "tri50_p35_2T", "tri50_p35_1R", "tri50_p35_1L",
+        "tri50_ref_1T", "tri50_psi14_1T",
     ]
     exp3_out = {}
     for k in exp3_keys:
         exp3_out[k] = summarize_nl(p2_res[k])
         s = exp3_out[k]
-        print(f"  3 [{k:18s}] t={s['t_end']:5.1f} P={s['p_peak_late']:6.3f}% | E={s['e_wave_late']:.2e} | slp={s['slope_tail']:+.4f} | 1T={s['e_1t_late']:.1e} | 2T={s['e_2t_late']:.1e} | 1R={s['e_1r_late']:.1e} | 1L={s['e_1l_late']:.1e} | mn={s['e_mean_late']:.1e}")
+        print(f"  3 [{k:18s}] t={s['t_end']:5.1f} P={s['p_peak_late']:6.3f}% | E={s['e_wave_late']:.2e} | slp={s['slope_tail']:+.4f} | blk={s['bulk_alpha_late']:+.4f} | 1T={s['e_1t_late']:.1e} | 1L={s['e_1l_late']:.1e} | mn={s['e_mean_late']:.1e}")
 
-    print("\n--- Experiment 4 Summary: Metric-Corrected True-3D Smooth Bell NS Shootout (Re=500, psi=0.25) ---")
-    exp4_keys = ["bell_bare_1T", "bell_dual30_1T", "bell_tri40_1T", "bell_tri50_1T", "bell_tri50_1L", "bell_tri50_1R", "bell_tri50_ref_1T"]
+    print("\n--- Exp 4: Metric-Corrected True-3D Smooth Bell NS Shootout (Re=500, psi=0.25) ---")
+    exp4_keys = [
+        "bell_bare_1T", "bell_bare_1L", "bell_dual30_1T", "bell_tri40_1T",
+        "bell_tri50_1T", "bell_tri50_st1T", "bell_tri50_2T",
+        "bell_tri50_1L", "bell_tri50_1R", "bell_tri50_ref_1L", "bell_tri50_ref_1T",
+    ]
     exp4_out = {}
     for k in exp4_keys:
         exp4_out[k] = summarize_nl(p2_res[k])
         s = exp4_out[k]
-        print(f"  4 [{k:18s}] t={s['t_end']:5.1f} P={s['p_peak_late']:6.3f}% | E={s['e_wave_late']:.2e} | slp={s['slope_tail']:+.4f} | 1T={s['e_1t_late']:.1e} | 1R={s['e_1r_late']:.1e} | 1L={s['e_1l_late']:.1e} | mn={s['e_mean_late']:.1e}")
+        print(f"  4 [{k:18s}] t={s['t_end']:5.1f} P={s['p_peak_late']:6.3f}% | E={s['e_wave_late']:.2e} | slp={s['slope_tail']:+.4f} | blk={s['bulk_alpha_late']:+.4f}({s['bulk_omega_late']:.3f}) | 1T={s['e_1t_late']:.1e} | 1L={s['e_1l_late']:.1e} | mn={s['e_mean_late']:.1e}")
 
     metrics = {
         "exp1_crocco_cheng_feed": {
-            "quiescent_err": p1_res["quiescent_feed_bell"]["quiescent_err"],
-            "feed_quiescent_err": p1_res["quiescent_feed_bell"]["feed_quiescent_err"],
-            "cons_ns_bell_bare": cb,
-            "psi_crit_pure": psi_crit_pure,
-            "psi_crit_coupled": psi_crit_coupled,
-            "psi_crit_ratio": psi_crit_coupled / psi_crit_pure,
+            "quiescent_closed_bell_err": p1_res["quiescent_closed_bell"]["quiescent_err"],
+            "open_inlet_feed_eq_Q_err": p1_res["steady_open_feed_eq"]["quiescent_err"],
+            "open_inlet_feed_eq_feed_err": p1_res["steady_open_feed_eq"]["feed_quiescent_err"],
+            "cons_ns_wavy_cyl": cb,
+            "psi_crit_consistent": {
+                "pure_bare": psi_crit_pure_bare, "pure_tri4": psi_crit_pure_tri4, "pure_tri5": psi_crit_pure_tri5,
+                "coupled_isen_bare": psi_crit_isen_bare, "coupled_isen_tri4": psi_crit_isen_tri4,
+                "coupled_ent_bare": psi_crit_ent_bare,   "coupled_ent_tri4": psi_crit_ent_tri4, "coupled_ent_tri5": psi_crit_ent_tri5,
+                "ratio_isen_bare": psi_crit_isen_bare / psi_crit_pure_bare,
+                "ratio_isen_tri4": psi_crit_isen_tri4 / psi_crit_pure_tri4,
+                "ratio_ent_bare": psi_crit_ent_bare / psi_crit_pure_bare,
+                "ratio_ent_tri5": psi_crit_ent_tri5 / psi_crit_pure_tri5,
+            },
+            "omega_hp_sensitivity": omega_hp_sens,
             "cheb_0d_1d_sweep": cc_sweep,
-            "psi_crit_vs_np": np_crit_curve,
             "pde_linear_validation": lin_cc_out,
             "pde_nonlinear_chugging": nl_feed_out,
         },
@@ -1304,7 +1413,7 @@ def main() -> None:
             "ep_1l_cheb": ep_1l_cheb,
             "ep_1l_pde": ep1l_pde,
         },
-        "exp3_straight_5mode_quench": exp3_out,
+        "exp3_straight_5mode_audit": exp3_out,
         "exp4_bell_ns_shootout": {
             "axi_bell_bases": {
                 "32x10": {k: v for k, v in axi_bell_32.items() if k != "prim_axi"},
@@ -1314,120 +1423,122 @@ def main() -> None:
         },
     }
     out_path.write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
-    print(f"\nSaved Entry 016 metrics to {out_path}")
+    print(f"\nSaved hardened Entry 016 metrics to {out_path}")
 
     # ------------------------------------------------------------------
-    # Figures (Publication-grade, zero overlap, 100% honest)
+    # Figures (Hardened, zero overlap, 100% honest titles & consistent numbers)
     # ------------------------------------------------------------------
-    # Fig 1: Physical Crocco-Cheng Chugging — Exact 0D/1D/3D PDE + Coupled Stiffness Shift & Nonlinear Limit Cycle
+    # Fig 1: Indirect Entropy-Chug Coupling (0D / 1D Isen vs Entropy-Aware / 3D Linear PDE) + Nonlinear Closure Audit
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.4, 5.5), dpi=150)
     psis = [r["psi"] for r in cc_sweep]
-    ax1.plot(psis, [r["s0d_alpha"] for r in cc_sweep], ":", color="#777777", lw=1.9, label="0D Analytical Crocco-Cheng ($n_p=0$)")
-    ax1.plot(psis, [r["pure_alpha"] for r in cc_sweep], "-", color="#1f77b4", lw=2.4, label=f"1D Exact Euler Cheb ($n_p=0, \\psi_{{\\mathrm{{crit}}}}={psi_crit_pure:.3f}$)")
-    ax1.plot(psis, [r["coupled_alpha"] for r in cc_sweep], "-", color="#d62728", lw=2.4, label=f"1D Coupled ($n_p=0.34$, $\\psi_{{\\mathrm{{crit}}}}={psi_crit_coupled:.3f}$)")
-    pde_pts = [lin_cc_out[k] for k in ("lin_cc_psi06", "lin_cc_psi08", "lin_cc_psi12", "lin_cc_psi20", "lin_cc_psi25")]
-    ax1.plot([p["psi"] for p in pde_pts], [p["pde_alpha"] for p in pde_pts], "o", color="#1f77b4", ms=7.5, mfc="white", mew=2.0, label="3D PDE Linear ($n_p=0$, ZERO $\\omega_{\\mathrm{hp}}$)")
+    ax1.plot(psis, [r["pure_alpha"] for r in cc_sweep], "-", color="#1f77b4", lw=2.3, label=f"1D Pure Feed ($n_p=0, \\psi_c={psi_crit_pure_bare:.3f}$)")
+    ax1.plot(psis, [r["coupled_isen_bare_alpha"] for r in cc_sweep], "--", color="#ff7f0e", lw=2.1, label=f"1D Isentropic Coupled ($n_p=0.34, \\psi_c={psi_crit_isen_bare:.3f}$)")
+    ax1.plot(psis, [r["coupled_ent_bare_alpha"] for r in cc_sweep], "-", color="#d62728", lw=2.4, label=f"1D Entropy-Aware Coupled (bare, $\\psi_c={psi_crit_ent_bare:.3f}$)")
+    ax1.plot(psis, [r["coupled_ent_tri5_alpha"] for r in cc_sweep], "-.", color="#9467bd", lw=2.0, label=f"1D Entropy-Aware + Tri-Band 5% ($\\psi_c={psi_crit_ent_tri5:.3f}$)")
+    p_pure = [lin_cc_out[k] for k in ("lin_cc_psi06", "lin_cc_psi08", "lin_cc_psi12", "lin_cc_psi25")]
+    ax1.plot([p["psi"] for p in p_pure], [p["pde_alpha"] for p in p_pure], "o", color="#1f77b4", ms=7.2, mfc="white", mew=2.0, label="3D PDE Linear ($n_p=0$, ZERO $\\omega_{\\mathrm{hp}}$)")
+    ax1.plot([0.16], [lin_cc_out["lin_coup_psi16_bare"]["pde_alpha"]], "s", color="#d62728", ms=7.8, mfc="white", mew=2.1, label="3D PDE Linear Coupled (bare, $n_p=0.34$)")
+    ax1.plot([0.25, 0.35], [lin_cc_out["lin_coup_psi25_t5_ns"]["pde_alpha"], lin_cc_out["lin_coup_psi35_t5_ns"]["pde_alpha"]],
+             "^", color="#9467bd", ms=8.0, mfc="white", mew=2.1, label="3D NS PDE Coupled + Tri-Band 5%")
     ax1.axhline(0.0, color="k", lw=1.0, alpha=0.6)
-    ax1.axvspan(psi_crit_pure, psi_crit_coupled, color="#ff7f0e", alpha=0.14, label="Coupled Trap Zone (safe alone, chugs hot!)")
     ax1.set_xlabel("Injector Pressure-Drop Stiffness $\\psi = \\Delta p_{\\mathrm{inj}} / \\bar{p}_c$", fontsize=11)
-    ax1.set_ylabel("Physical Chugging Growth Rate $\\alpha_{\\mathrm{chug}}$", fontsize=11)
-    ax1.set_title("Physical Crocco-Cheng Chugging & $1.67\\times$ Coupled Stiffness Shift", fontsize=10.6, fontweight="bold")
+    ax1.set_ylabel("Chugging Growth Rate $\\alpha_{\\mathrm{chug}}$", fontsize=11)
+    ax1.set_title(f"Indirect Entropy-Chug Coupling (${psi_crit_ent_bare/psi_crit_pure_bare:.2f}\\times$ Shift at $\\omega_{{\\mathrm{{hp}}}}=0.50$)", fontsize=10.5, fontweight="bold")
     ax1.grid(True, alpha=0.28)
-    ax1.legend(fontsize=7.7, loc="upper right", framealpha=0.94)
+    ax1.legend(fontsize=7.2, loc="upper right", framealpha=0.94)
 
     for cid, lbl, col, ls in [
-        ("feed_pure_psi07",    "Pure Feed ($n_p=0, \\psi=0.07$): physical chug!", "#d62728", "-"),
-        ("feed_pure_psi25",    "Pure Feed ($n_p=0, \\psi=0.25$): stiff quench", "#1f77b4", "--"),
-        ("coupled_psi14_trap", "Coupled Trap ($n_p=0.34, \\psi=0.14$): chugs!", "#ff7f0e", "-."),
-        ("coupled_psi25_safe", "Coupled Stiff ($n_p=0.34, \\psi=0.25$ + Tri-Band)", "#2ca02c", "-"),
+        ("feed_pure_psi07",    "Pure $\\psi=0.07$ (floor 0.05, 27% rev)", "#d62728", "-"),
+        ("feed_pure_psi07_cv", "Pure $\\psi=0.07$ (check valve, 0% rev)", "#ff7f0e", "--"),
+        ("feed_pure_psi09",    "Pure $\\psi=0.09$ (clean check valve)", "#9467bd", "-."),
+        ("feed_pure_psi25",    "Pure $\\psi=0.25$ (stiff quench)", "#2ca02c", "-"),
     ]:
         rr = p2_res[cid]; st = nl_feed_out[cid]
         ax2.plot(rr["t"], rr["p_mean_signed"] / P_BAR * 100.0, color=col, ls=ls, lw=2.0,
-                 label=f"{lbl} (|$\\bar{{p}}'$|={st['max_abs_pbar_pct']:.2f}%)")
+                 label=f"{lbl} (|$\\bar{{p}}'$|={st['max_abs_pbar_pct']:.1f}%)")
     ax2.set_xlabel("Time $t$", fontsize=11)
     ax2.set_ylabel("Chamber-Mean Bulk Pressure $\\bar{p}' / \\bar{p}_c$ (%)", fontsize=11)
-    ax2.set_title("3D NS Nonlinear Feed Chugging ($t=140$): Soft vs. Trap vs. Stiff", fontsize=10.6, fontweight="bold")
+    ax2.set_title("Pure Feed Chugging ($n_p=0$): Backflow Closure Sensitivity", fontsize=10.5, fontweight="bold")
     ax2.grid(True, alpha=0.28)
-    ax2.legend(fontsize=7.6, loc="lower left", framealpha=0.94)
+    ax2.legend(fontsize=7.8, loc="lower left", framealpha=0.94)
     fig.tight_layout()
     fig.savefig(RESULTS_DIR / "exp016_crocco_cheng_chugging.png", dpi=150)
     plt.close(fig)
 
-    # Fig 2: Tri-Band 3-Zone Bessel Orthogonality & 1L Nodal Mid-Ring EP Curve
+    # Fig 2: Long-Window [6,40] Nodal Mid-Ring Orthogonality & Beat-Free 1L EP Curve
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.4, 5.5), dpi=150)
     mlbls = ["1L", "1T", "2T", "1R"]
     x_pos = np.arange(len(mlbls)); w_bar = 0.34
-    d_ax = [-orth_out[m]["delta_ax"] for m in mlbls]
-    d_sg = [-orth_out[m]["delta_seg"] for m in mlbls]
-    ax1.bar(x_pos - 0.5 * w_bar, d_ax, width=w_bar, color="#1f77b4", label="Nodal Mid-Ring $n_{\\mathrm{cav}}=1$ (Axisymmetric)")
-    ax1.bar(x_pos + 0.5 * w_bar, d_sg, width=w_bar, color="#ff7f0e", label="Nodal Mid-Ring $n_{\\mathrm{cav}}=5$ (Segmented)")
+    ax1.bar(x_pos - 0.5 * w_bar, [-orth_out[m]["delta_ax"] for m in mlbls], width=w_bar, color="#1f77b4", label="Nodal Mid-Ring $n_{\\mathrm{cav}}=1$ (Axisymmetric)")
+    ax1.bar(x_pos + 0.5 * w_bar, [-orth_out[m]["delta_seg"] for m in mlbls], width=w_bar, color="#ff7f0e", label="Nodal Mid-Ring $n_{\\mathrm{cav}}=5$ (Segmented)")
     ax1.axhline(0.0, color="k", lw=0.9)
-    ax1.set_xticks(x_pos); ax1.set_xticklabels(["$1L$ (Axial)", "$1T$ (Tangential)", "$2T$ (2nd Tang.)", "$1R$ (Radial)"], fontsize=10)
+    ax1.set_xticks(x_pos); ax1.set_xticklabels(["$1L$ ([6,40])", "$1T$", "$2T$", "$1R$"], fontsize=10)
     ax1.set_ylabel("Added Cold 3D NS Damping $-\\Delta\\alpha$", fontsize=11)
-    ax1.set_title("Nodal Mid-Ring ($r\\in[0.44,0.74]$, $r_0=0.628$): Orthogonal Mode Isolation", fontsize=10.4, fontweight="bold")
+    ax1.set_title("Nodal Mid-Ring ($r\\in[0.44,0.74]$, $r_0=0.628$): Long-Window Isolation", fontsize=10.4, fontweight="bold")
     ax1.grid(True, axis="y", alpha=0.28)
     ax1.legend(fontsize=8.3, loc="upper right", framealpha=0.94)
 
     xis_c = [r["xiH"] for r in ep_1l_cheb]
     ax2.plot(xis_c, [r["cold_1L_alpha"] for r in ep_1l_cheb], "s-", color="#1f77b4", lw=2.2, label="1D Cheb Cold $1L$ ($1.0\\%$ Mid-Ring, $n_p=0$)")
     ax2.plot(xis_c, [r["hot_1L_alpha"] for r in ep_1l_cheb], "^-", color="#d62728", lw=2.3, label="1D Cheb Hot $1L$ (Tri-Band, $n_p=0.34$)")
-    ax2.plot([0.08, 0.14, 0.18, 0.28], [ep1l_pde["xi08"], ep1l_pde["xi14"], ep1l_pde["xi18"], ep1l_pde["xi28"]],
-             "o", color="#2ca02c", ms=8.0, mfc="white", mew=2.2, label="3D NS PDE Cold $1L$ ($20\\times 12\\times 40, \\mathrm{Re}=500$)")
+    ax2.plot([0.08, 0.14, 0.18, 0.28], [ep1l_pde[k]["w_6_40"] for k in ("xi08", "xi14", "xi18", "xi28")],
+             "o", color="#2ca02c", ms=8.0, mfc="white", mew=2.2, label="3D NS PDE Cold $1L$ Long Window $[6, 40]$")
+    ax2.plot([0.08, 0.14, 0.18, 0.28], [ep1l_pde[k]["w_6_20"] for k in ("xi08", "xi14", "xi18", "xi28")],
+             "x", color="#777777", ms=7.0, mew=1.8, label="Short-Window $[6, 20]$ Beating Artifact")
     ax2.axhline(0.0, color="k", lw=1.0, ls="--", alpha=0.6)
-    ax2.axvline(0.14, color="#9467bd", ls=":", lw=1.6, label="Selected Hot-EP Design ($\\xi_H=0.14$)")
     ax2.set_xlabel("Mid-Ring Cavity Damping Ratio $\\xi_{H,1L}$", fontsize=11)
     ax2.set_ylabel("$1L$ Modal Growth Rate $\\alpha_{1L}$", fontsize=11)
-    ax2.set_title("1L Nodal Mid-Ring Exceptional-Point Tuning (Cold vs. Hot $n_p=0.34$)", fontsize=10.4, fontweight="bold")
+    ax2.set_title("1L Nodal Mid-Ring EP Tuning: Long Window $[6, 40]$ vs. Short $[6, 20]$", fontsize=10.4, fontweight="bold")
     ax2.grid(True, alpha=0.28)
-    ax2.legend(fontsize=8.0, loc="lower right", framealpha=0.94)
+    ax2.legend(fontsize=7.6, loc="lower right", framealpha=0.94)
     fig.tight_layout()
     fig.savefig(RESULTS_DIR / "exp016_triband_orthogonality.png", dpi=150)
     plt.close(fig)
 
-    # Fig 3: Full 5-Mode 3D NS Quench (Straight & Metric-Corrected Smooth Curved Bell)
+    # Fig 3: Straight psi=0.25 vs psi=0.35 Audit & True-3D Smooth Bell All-Mode Shootout
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14.4, 5.5), dpi=150)
     for cid, lbl, col, ls in [
         ("bare_1T",        "Bare 3D NS: spin $1T$", "#d62728", "-"),
-        ("dual30_1L",      "Entry 015 Dual 3.0%: $1L$ survives", "#8c564b", ":"),
-        ("tri40ax_1T",     "Tri-Band 4.0% ($n=1$): spin $1T$", "#ff7f0e", "--"),
-        ("tri40seg_1T",    "Tri-Band 4.0% ($n=5$): spin $1T$", "#e377c2", "-."),
-        ("tri50_1T",       "Tri-Band 5.0%: spin $1T$ ($t=160$)", "#1f77b4", "-"),
-        ("tri50_st1T",     "Tri-Band 5.0%: stand $1T$", "#17becf", "--"),
-        ("tri50_2T",       "Tri-Band 5.0%: spin $2T$", "#9467bd", "-."),
-        ("tri50_1R",       "Tri-Band 5.0%: $1R$ ($t=180$)", "#2ca02c", "-"),
-        ("tri50_1L",       "Tri-Band 5.0%: $1L$", "#2ca02c", ":"),
-        ("tri50_psi14_1T", "Contrast: 5.0% + Soft Feed ($\\psi=0.14$)", "#555555", "--"),
+        ("tri40seg_1T",    "Tri 4.0% ($n=5, \\psi=0.25$): grows chug!", "#e377c2", "-."),
+        ("tri50_p25_1T",   "Tri 5.0% ($\\psi=0.25$): slow chug +0.002", "#ff7f0e", "--"),
+        ("tri50_p35_1T",   "Tri 5.0% ($\\psi=0.35$): spin $1T$", "#1f77b4", "-"),
+        ("tri50_p35_st1T", "Tri 5.0% ($\\psi=0.35$): stand $1T$", "#17becf", "--"),
+        ("tri50_p35_2T",   "Tri 5.0% ($\\psi=0.35$): spin $2T$", "#9467bd", "-."),
+        ("tri50_p35_1R",   "Tri 5.0% ($\\psi=0.35$): $1R$", "#2ca02c", "-"),
+        ("tri50_p35_1L",   "Tri 5.0% ($\\psi=0.35$): $1L$", "#2ca02c", ":"),
+        ("tri50_ref_1T",   "Refined 24x16x50 ($\\psi=0.35$): spin $1T$", "#555555", ":"),
     ]:
         rr = p2_res[cid]; st = exp3_out[cid]
         ax1.semilogy(rr["t"], np.maximum(rr["e_ch"], 1e-13), color=col, ls=ls, lw=1.9, label=f"{lbl} (P={st['p_peak_late']:.2f}%)")
     ax1.set_xlabel("Time $t$", fontsize=11)
     ax1.set_ylabel("3D Chamber Wave Energy $E_{\\mathrm{wave}}(t)$", fontsize=11)
-    ax1.set_title("Straight 3D NS ($\\mathrm{Re}=500, n_p=0.34, \\psi=0.25$): All-5-Mode Audit", fontsize=10.4, fontweight="bold")
+    ax1.set_title("Straight Compact-MC NS: $\\psi=0.25$ Entropy-Chug vs. $\\psi=0.35$", fontsize=10.3, fontweight="bold")
     ax1.set_ylim(1e-12, 8e-3)
     ax1.grid(True, which="both", alpha=0.25)
-    ax1.legend(fontsize=6.7, loc="lower left", framealpha=0.94)
+    ax1.legend(fontsize=6.8, loc="lower left", framealpha=0.94)
 
     for cid, lbl, col, ls in [
-        ("bell_bare_1T",      "3D Bell NS (Bare): spin $1T$", "#d62728", "-"),
-        ("bell_dual30_1T",    "3D Bell NS (Entry 015 Dual 3.0%): spin $1T$", "#ff7f0e", "--"),
-        ("bell_tri40_1T",     "3D Bell NS (Tri-Band 4.0%): spin $1T$", "#9467bd", "-."),
-        ("bell_tri50_1T",     "3D Bell NS (Tri-Band 5.0%, 32x10): spin $1T$", "#1f77b4", "-"),
-        ("bell_tri50_ref_1T", "3D Bell NS (Tri-Band 5.0%, 36x12): spin $1T$", "#17becf", ":"),
-        ("bell_tri50_1L",     "3D Bell NS (Tri-Band 5.0%): $1L$", "#2ca02c", "-"),
-        ("bell_tri50_1R",     "3D Bell NS (Tri-Band 5.0%): $1R$", "#2ca02c", "--"),
+        ("bell_bare_1T",      "3D Bell Bare: spin $1T$", "#d62728", "-"),
+        ("bell_bare_1L",      "3D Bell Bare: $1L$ (like-for-like ref)", "#8c564b", "--"),
+        ("bell_tri50_1T",     "3D Bell Tri 5.0%: spin $1T$ (32x10)", "#1f77b4", "-"),
+        ("bell_tri50_st1T",   "3D Bell Tri 5.0%: stand $1T$ (32x10)", "#ff7f0e", "-."),
+        ("bell_tri50_2T",     "3D Bell Tri 5.0%: spin $2T$ (quenched!)", "#9467bd", "--"),
+        ("bell_tri50_1L",     "3D Bell Tri 5.0%: $1L$ ($t=200$, quenched!)", "#2ca02c", "-"),
+        ("bell_tri50_ref_1L", "3D Bell Tri 5.0%: $1L$ (36x12, quenched!)", "#17becf", ":"),
+        ("bell_tri50_1R",     "3D Bell Tri 5.0%: $1R$ ($t=180$, quenched!)", "#2ca02c", "--"),
     ]:
         rr = p2_res[cid]; st = exp4_out[cid]
-        ax2.semilogy(rr["t"], np.maximum(rr["e_ch"], 1e-13), color=col, ls=ls, lw=2.0, label=f"{lbl} (P={st['p_peak_late']:.2f}%)")
+        ax2.semilogy(rr["t"], np.maximum(rr["e_ch"], 1e-13), color=col, ls=ls, lw=1.9, label=f"{lbl} (P={st['p_peak_late']:.2f}%)")
     ax2.set_xlabel("Time $t$", fontsize=11)
     ax2.set_ylabel("3D Chamber Wave Energy $E_{\\mathrm{wave}}(t)$", fontsize=11)
-    ax2.set_title("Metric-Fixed True-3D Smooth Bell NS ($\\mathrm{Re}=500, \\psi=0.25$): Tri-Band", fontsize=10.3, fontweight="bold")
+    ax2.set_title("Metric-Fixed 3D Bell NS ($\\psi=0.25$): Entropy-Filtered $1L/1R/2T$ Quench", fontsize=10.1, fontweight="bold")
     ax2.set_ylim(1e-12, 1.5e-2)
     ax2.grid(True, which="both", alpha=0.25)
-    ax2.legend(fontsize=7.3, loc="lower left", framealpha=0.94)
+    ax2.legend(fontsize=6.9, loc="lower left", framealpha=0.94)
     fig.tight_layout()
     fig.savefig(RESULTS_DIR / "exp016_5mode_3d_ns_quench.png", dpi=150)
     plt.close(fig)
-    print("Saved all 3 Entry 016 figures.")
+    print("Saved all 3 hardened Entry 016 figures.")
 
 
 if __name__ == "__main__":
