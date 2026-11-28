@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Open-Notebook Science Log — marcelolx/math</title>
-  <meta name="description" content="Progress log from marcelolx/math: 21 verified numerical physics & engineering entries, 12 independent cross-model peer reviews, and 3 synthesis monographs." />
+  <meta name="description" content="Progress log from marcelolx/math: 22 verified numerical physics & engineering entries, 13 independent cross-model peer reviews, and 3 synthesis monographs." />
   <style>
     :root {
       --bg: #faf9f6;
@@ -221,6 +221,7 @@
     <div class="nav">
       <a class="brand" href="./">marcelolx / math</a>
       <div class="nav-links">
+        <a href="#milestone-9">Milestone 9</a>
         <a href="#milestone-8">Milestone 8</a>
         <a href="#milestone-7">Milestone 7</a>
         <a href="#milestone-6">Milestone 6</a>
@@ -239,16 +240,51 @@
   <main>
     <article>
       <div class="meta">Progress Log &middot; Updated 2026-11-27 &middot; Open-Notebook Science</div>
-      <h1>21 Verified Entries, 12 Adversarial Peer Reviews, and What Broke Along the Way</h1>
+      <h1>22 Verified Entries, 13 Adversarial Peer Reviews, and What Broke Along the Way</h1>
       <p class="subtitle">
         An open, reproducible computational-physics notebook across rocket combustion, plasma nozzles, and renewable power grids—where every formula is cross-checked against PDEs, archived with independent audit receipts, and gated by automated repo checks.
       </p>
 
       <div class="stats">
         <div class="stat"><span class="stat-num">3</span><span class="stat-lbl">Research Tracks</span></div>
-        <div class="stat"><span class="stat-num">21</span><span class="stat-lbl">Verified Entries</span></div>
-        <div class="stat"><span class="stat-num">12</span><span class="stat-lbl">Peer Reviews</span></div>
+        <div class="stat"><span class="stat-num">22</span><span class="stat-lbl">Verified Entries</span></div>
+        <div class="stat"><span class="stat-num">13</span><span class="stat-lbl">Peer Reviews</span></div>
         <div class="stat"><span class="stat-num">3</span><span class="stat-lbl">Syntheses</span></div>
+      </div>
+
+      <h2 id="milestone-9">Milestone 9 Update: Physical Crocco&ndash;Cheng Feed Chugging, Indirect Entropy&ndash;Chug Coupling &amp; Tri-Band 3D Faceplate (<code>016</code>)</h2>
+      <p>
+        <a href="https://github.com/marcelolx/math/blob/main/rocket-combustion/entries/016-3d-feed-chugging-triband.md">Entry <code>016</code></a> replaces Entry <code>015</code>&rsquo;s rigid mass-flux inlet with a <strong>physical nonlinear Crocco&ndash;Cheng pressurized-manifold, injector-inertance, and Erlang-4 vaporization-lag feed-system ODE</strong> directly coupled into our metric-corrected 3D cylindrical compressible Navier&ndash;Stokes solver (open-inlet mean-flow equilibrium <code>8.36&times;10<sup>&minus;19</sup></code>, <code>feed_err = 0.0</code>, automatic DC stability with zero &omega;<sub>hp</sub> when <em>n<sub>p</sub></em> = 0, matching exact 1D Chebyshev chugging frequencies to <strong>0.28&ndash;0.61%</strong> across stiffness &psi; &isin; [0.06, 0.25]).
+      </p>
+      <p>
+        Independent read-only <a href="https://github.com/marcelolx/math/blob/main/reviews/peer-review-13-rocket-016.md"><strong>Peer Review #13</strong></a> (Claude Opus 5.5, 33 extra 3D NS runs to <em>t</em> = 220) uncovered a genuine physical mechanism hiding behind a +0.025&ndash;0.035 gap between our initial 1D isentropic coupled chug solver and the 3D linear coupled PDE: <strong>Indirect Entropy&ndash;Chug Coupling</strong>. Because the compact Marble&ndash;Candel choked outlet uses the actual local sound speed <em>c<sub>g</sub></em>, its exact entropy-aware linearization is <em>u</em>&prime;(<em>L<sub>a</sub></em>) = &frac12;<em>M&#772;<sub>c</sub></em>(&gamma;<em>p</em>&prime; &minus; &rho;&prime;). Flame-generated entropy waves convecting to the throat reflect with phase &omega;<em>L<sub>a</sub></em>/<em>M&#772;<sub>c</sub></em> &approx; 3.5 rad, lifting bare critical feed stiffness at &omega;<sub>hp</sub> = 0.50 from &psi;<sub>crit</sub> = 0.0973 (pure feed) and 0.1702 (1.75&times;, isentropic) to <strong>0.2574 (2.64&times;, entropy-aware)</strong>&mdash;and making the &omega;<sub>hp</sub> = 0.15 straight chamber <em>intrinsically</em> chug-unstable (&psi;<sub>crit</sub> &gt; 20, simultaneously explaining Entry <code>015</code>&rsquo;s rigid-inlet chugging!). Including the exact entropy-aware outlet row immediately closes the 1D/3D PDE match to 0.19&ndash;1.24% in &omega; and 0.002&ndash;0.005 in &alpha;. Adding a physical check-valve closure (<em>m&#775;</em><sub>inj</sub> &ge; 0) also separates unclamped reverse-flow overshoot (40.8% with 27.4% backflow) from clean check-valve saturation (28.0% at &psi; = 0.07, 26.8% at &psi; = 0.09).
+      </p>
+      <figure>
+        <img src="assets/rocket-3d-entropy-chugging.png" alt="Exact entropy-aware Crocco-Cheng chugging root vs 3D NS PDE, omega_hp sensitivity, and check-valve nonlinear chugging" />
+        <figcaption>
+          <strong>Entry <code>016</code> (Exp 1 &amp; 2, hardened per Peer Review #13):</strong> Pure-feed, isentropic-coupled, and exact entropy-aware 1D Chebyshev chugging growth vs. 3D linear NS PDE markers (&psi;<sub>crit</sub> = 0.0973 &rarr; 0.1702 &rarr; 0.2574, left), and nonlinear &psi; = 0.07/0.09 chugging contrasting unclamped backflow (40.8%) against physical check-valve saturation (28.0%/26.8%) vs. stiff &psi; = 0.35 decay (right).
+        </figcaption>
+      </figure>
+      <p>
+        To break Entry <code>015</code>&rsquo;s longitudinal <em>1L</em> rumble without disturbing the micro-hub <em>1R</em> cavity, we placed a <strong>Nodal Mid-Ring <em>1L</em> Cavity</strong> in <em>r</em> &isin; [0.44, 0.74] straddling the exact <em>1R</em> Bessel pressure node <em>r</em><sub>0</sub> = <em>j</em><sub>0,1</sub>/<em>s</em><sub>02</sub> = 0.6276. Because &int;<em>J</em><sub>0</sub>(<em>s</em><sub>02</sub><em>r</em>)<em>r</em>&thinsp;d<em>r</em> vanishes across the node, the mid-ring damps <em>1L</em> cleanly across a beat-free [6, 40] window (&minus;0.1875 vs. bare &minus;0.1094, <strong>1.71&times;</strong> boost; EP peak &minus;0.2312 at &xi;<sub>H</sub> = 0.18) with <strong>0.018% <em>1R</em> cross-talk</strong>, while azimuthally segmenting it into <em>n</em><sub>cav</sub> = 5 sectors adds <strong>+23.4% free <em>1T</em> damping</strong>.
+      </p>
+      <figure>
+        <img src="assets/rocket-3d-triband-orthogonality.png" alt="Tri-Band 3D Faceplate radial layout across the 1R Bessel node and beat-free [6, 40] 1L exceptional-point sweep" />
+        <figcaption>
+          <strong>Entry <code>016</code> (Exp 3, hardened per Peer Review #13):</strong> Analytical Tri-Band 3D faceplate modal weights separating micro-hub <em>1R</em>, Nodal Mid-Ring <em>1L</em> across <em>r</em><sub>0</sub> = 0.6276, and outer-shroud <em>1T</em>/<em>2T</em> cavities (left), and beat-free [6, 40] linear <em>1L</em> exceptional-point damping vs. 1D analytical theory (right, retiring the initial [6, 20] beating artifact).
+        </figcaption>
+      </figure>
+      <p>
+        Extending straight compact-MC runs to <em>t</em> = 220 proved that &psi; = 0.25 still sits on the linearly unstable entropy-chug branch (<code>tri40seg_1T</code> grows to 2.66% bulk chugging), whereas stiffening the straight feed to <strong>&psi; = 0.35</strong> exponentially quenches <code>spin_1T</code> (0.035%), <code>stand_1T</code> (0.017%), <code>spin_2T</code> (0.006%), and <code>1R</code> (0.000%) at the exact bulk rate &minus;0.0152 through <em>t</em> = 180. Even better, in the <strong>metric-corrected true-3D smooth curved bell nozzle (&psi; = 0.25, Re = 500)</strong>, finite-nozzle entropy filtering (Law #15) naturally stabilizes bulk chugging (&minus;0.014 to &minus;0.017), <strong>permanently quenching <em>1L</em> (0.021% at <em>t</em> = 200, a 79,400&times; wave-energy cut vs. like-for-like <code>bell_bare_1L</code> 6.77%, confirmed 0.020% on refined 36&times;12&times;40), <em>1R</em> (0.001% at <em>t</em> = 180), and <em>2T</em> (0.133% at <em>t</em> = 120)</strong>, while <code>bell_tri50_1T</code> (5.49%, 11.88&times; cut vs. bare 18.09%) and <code>bell_tri50_st1T</code> (4.25%) sit on stationary reduced <em>1T</em> cycles.
+      </p>
+      <figure>
+        <img src="assets/rocket-3d-bell-triband-quench.png" alt="Straight psi=0.35 vs psi=0.25 chugging audit and metric-corrected true-3D smooth curved bell Tri-Band all-mode shootout" />
+        <figcaption>
+          <strong>Entry <code>016</code> (Exp 4, hardened per Peer Review #13):</strong> Straight compact-MC &psi; = 0.35 exponential quench vs. &psi; = 0.25 entropy-chug regrowth through <em>t</em> = 220 (left), and the metric-corrected true-3D smooth bell audit (Re = 500, &psi; = 0.25, right): <em>1L</em> (79,400&times; cut, 36&times;12&times;40 confirmed), <em>1R</em>, and <em>2T</em> all permanently quench while <code>bell_tri50_1T</code>/<code>st1T</code> drop 11.88&times; to stationary reduced <em>1T</em> cycles.
+        </figcaption>
+      </figure>
+      <div class="callout">
+        <strong>Archived Audit Receipt:</strong> Full verbatim independent audit report archived at <a href="https://github.com/marcelolx/math/blob/main/reviews/peer-review-13-rocket-016.md">Peer Review #13 (<code>016</code>, commit <code>9dee502</code>)</a> and synthesized in <a href="https://github.com/marcelolx/math/blob/main/rocket-combustion/SYNTHESIS.md">Law #19 &amp; Dead End #18</a>.
       </div>
 
       <h2 id="milestone-8">Milestone 8 Update: Full 3D Cylindrical Navier&ndash;Stokes, Partial-Span Baffles &amp; the Transverse&rarr;Chugging&rarr;<em>1L</em> Cascade (<code>015</code>)</h2>
@@ -561,7 +597,7 @@ uv run python plasma-nozzles/sim/exp001_mhd_kelvin_helmholtz.py
 uv run python grid-stability/sim/exp001_gfm_placement_and_saturation.py</code></pre>
 
       <p>
-        Next up: replacing the phenomenological &omega;<sub>hp</sub> cutoff with a physical coupled injector&ndash;manifold compliance ODE and testing a Tri-Band 3D Faceplate (shroud <em>1T</em>/<em>2T</em> + micro-hub <em>1R</em> + dedicated <em>1L</em> damper / axial lag spread) inside the 3D viscous bell (<code>rocket-combustion/016</code>), 2D axisymmetric magnetic nozzles with exterior field back-reaction (<code>plasma-nozzles/003</code>), and full inverter current-limiting + reactive <em>Q&ndash;V</em> coupling (<code>grid-stability/002</code>).
+        Next up: closing the remaining reduced <em>1T</em> cycle inside the metric-corrected true-3D smooth curved bell (5.49% spin / 4.25% stand) via segmented Nodal Mid-Ring + shroud tuning and converged 3D no-slip viscous baffle wakes (testing Entry <code>011</code>&rsquo;s 18&ndash;19% 2D wake penalty in full 3D, <code>rocket-combustion/017</code>), 2D axisymmetric magnetic nozzles with exterior field back-reaction (<code>plasma-nozzles/003</code>), and full inverter current-limiting + reactive <em>Q&ndash;V</em> coupling (<code>grid-stability/002</code>).
       </p>
 
       <footer>
